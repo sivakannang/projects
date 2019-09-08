@@ -1,0 +1,90 @@
+https://mariusbancila.ro/blog/
+https://www.fluentcpp.com
+
+C, C++, Socket Program, Data Structure
+
+1. How delete knows how many bytes need to be deleted?
+2. How To Call Some Function Before main In C++?
+3. explicit constructor in c++
+4. placement new in C++
+5. Constructor delegation
+function pointers and Functor
+function hiding
+structural padding and packing
+structure and class difference?
+Name mangling
+how to access c in c++ and c++ in c ( extern "C")
+virtual destructor and constructor
+can we call constructor and destructor explicitly?
+Why copy constructor take argument as reference?
+Why we must return reference only in copy assignment ?
+Function chaining ?
+code bloating
+how to assign object to int?
+object slicing
+auto, decltype, typeid, static, const, override, final, mutable, constexpr, this 
+how to check two objects belong to the same class or different ?
+why we must define static data member of class in cpp file ?
+range for loop and for_each difference?
+pointer and reference diff and when to use pointer and when to use reference?
+how stl works internally?
+Why template functions only defined inside header files?
+
+How to stop someone to inherit your class?
+How to stop someone to copying ur objects?
+How to stop someone to take address of your object?
+operator overloading?
+how to overload pre and post increment ? as both increment uses operator ++ how compiler identifies pre or post ?
+pre/post increment which one is faster ?
+when u have multiple instances of a class, how the values getter/setter works on specific instance ? how this pointer reaches to the member functions?
+how to restrict a object to be created only in stack or heap ?
+
+plain enum and c++ enum class diff ?
+What are the places the initializer list must be used?
+friend function and friend classes
+exception and stack unwinding
+vTable
+casting in c++
+template and template specialization?
+exception in constructor and destructor?
+
+RVO,NRVO
+RAI
+
+Self restart program on segfault under Linux
+
+Amadeus:
+search a word in matrix
+design pattern
+shortest path algorithm
+Tree
+Design Parking lot
+Single, stratergy, builder patterns
+traverse middle of linked list using tortoise and hare algorithm
+exception handling
+
+string template
+solve 15 slider puzzle
+implement a final class
+friend void(int a, int b, int c=20) friend void(int a, int b, int c). if defined in same class, any error, if error how to u fix(overload it) without change function name , number of args
+
+vector<bool> vector<int> any diff bw this?
+output of int a,20
+placement new and explicit destrutor calling
+what does list.end() contains?
+can be inherit the private member function?
+can static member function call non static member function?
+can non static member function call static member function?
+latest version of gcc
+structure and class diff?
+inheritence types, type casting
+
+What new technology u learned other than work?
+taking app to cloud
+
+awk sed
+
+Design whatsapp, twitter, messagequeue, parking lot
+
+
+BNY:
