@@ -1,0 +1,51 @@
+IPC
+Sockets
+Database ( SQL, NoSQL)
+Threads & Sync ( Posix, Windows, Linux System calls, Deadlock and how to avoid deadlock )
+Static/Shared libraries
+GDB, Remote debug, RPC
+
+C++ Basics
+OOPS
+STL
+Smart Pointers
+C++1x Threads & Sync
+C++ idioms
+
+Tree ( BST, AVL, Red-Block )
+BFS & DFS( in, pre, post order)
+Hashing
+How Vector, List, Stack, Queue, Ordered and Unordered Map, Set, MultiMap and MultiSet works?
+Time and Space complexity
+Graph
+
+TCP Dump & Wireshark
+OSI Layer
+SSL/TLS
+TCP/IP
+UDP
+
+Design Patterns
+System Design ( Uber, Twitter, Whatsapp, ...)
+SDLC - Waterfall, Agile Scrum
+
+Linux
+Shell
+Python
+Proxy
+Splunk & Dynatrace
+
+ISO8583
+EMV
+Tokenization
+Key Management ( HSM, UKPT, DUKPT, Manufacturer key, Master Key, Session Key)
+NFC, Digital Wallet ( ApplePay, SamsungPay, ChasePay )
+Acquirer, Issuer, Association, On-Us, Off-Us, interchange fee
+Sale, Void, Refund, Reversal, Preauth, Batch, Settlement, EMI
+Loyalty, Giftcard, GiftVoucher, ChasePay pwp
+POS - Ingenico, Verifone, Gemalto
+Payment Gateway/Switch, JPOS routing
+
+
+
+
