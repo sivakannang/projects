@@ -1,0 +1,16 @@
+rename libmysql.d-l-l to libmysql.dll and libmysql.l-i-b to libmysql.lib
+Windows   => cl mysql.cpp libmysql.lib -I"C:\Program Files\MySQL\MySQL Connector C 6.1\include"
+Linux     => g++ mysql.cpp -lmysqlclient -I"C:\Program Files\MySQL\MySQL Connector C 6.1\include" -o mysql
+
+
+
+mysql > SET PASSWORD FOR root@localhost=PASSWORD('root');
+
+mysql > UPDATE mysql.user SET Password = PASSWORD('pwd') WHERE User='root';
+
+INSERT INTO Customers (CustomerName, City, Country) VALUES ('Cardinal', 'Stavanger', 'Norway');
+
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY 'root' WITH GRANT OPTION;
+
+FLUSH PRIVILEGES;
+

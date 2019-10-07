@@ -28,7 +28,7 @@
  *
  * 	- used to casts from one pointer or reference of a polymorphic type to another, similar to static_cast but performing a type safety check
  * 	  at runtime to ensure the validity of the cast( ex : base class to derived class cast fails)
- * 	- casting allowed only in pointer or referene.
+ * 	- casting allowed only in pointer or reference.
  * 	- attempt to cast to a pointer type, and that type is not an actual type of the argument object, then the result of the cast will be NULL.
  * 	- attempt to cast to a reference type, and that type is not an actual type of the argument object, then the cast will throw a std::bad_cast exception
  *

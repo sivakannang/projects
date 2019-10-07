@@ -63,7 +63,7 @@
  *           Inline function can access the data members, where macro's can't
  *           Type checking is there in inline , where macro's doesn't has
  *           Debugging is easy, can put a debug pointer because it is expanding in the compilation time, where in macros we can't
- *           Compilers are free to decide, inline or function even thouhg we mentioned inline, so inline is a recomendation and __forceinline or attribute((always_inline)) is a strong recomendation
+ *           Compilers are free to decide, inline or function even though we mentioned inline, so inline is a recomendation and __forceinline or attribute((always_inline)) is a strong recomendation
  *
  * #define SQUARE(x) x*x     // Macro with argument
  * inline int square(int x) { return x*x; }  // inline function

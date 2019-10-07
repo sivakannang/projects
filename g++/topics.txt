@@ -1,3 +1,69 @@
+atomics
+bind
+call_once
+std::function
+functor
+callback
+
+
+exception, noexcept
+exception in constructor and destructor
+exception in threads
+exception hierarchy & order
+
+locks
+mutex
+lock_guard
+scoped_lock
+recursive_lock
+
+threads, async, promise, future, packaged_task
+conditional_variable
+
+auto_ptr
+unique_ptr
+shared_ptr
+weak_ptr
+
+class, objects, overload, friend
+
+constructor & destructor, deleted and default functions, lvalue, rvalue, uniform initialization, constructor delegation, class initialization of data members
+
+virtual , override, virtual constructor and destructor
+
+reference, ptr, dynamic memory allocation
+
+casting
+
+libraries
+
+const, constexpr, mutable, static, enum, static_assert, explicit
+
+idioms
+
+inheritance, final
+
+files, logs, parser
+
+streams
+
+lampda, lampda capture, mutable lampda, auto, decltype, nullptr,
+
+
+stl, data structure
+algorithms
+
+templates & generics, variadic
+
+chrono
+
+hacker rank
+
+
+October -> C++
+Nov     -> O notation & Data Structure
+Dec     -> Hacker Rank
+
 IPC
 Sockets
 Database ( SQL, NoSQL)

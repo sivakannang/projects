@@ -1,0 +1,28 @@
+
+https://www.techiedelight.com/cpp-implementation-trie-data-structure/
+https://www.techiedelight.com/memory-efficient-trie-implementation-using-map-insert-search-delete/
+https://codeforces.com/blog/entry/59753
+https://codereview.stackexchange.com/questions/191205/trie-data-structure-implementation-in-c11-using-smart-pointers
+
+---------------------------------------------------------
+
+Create a dictionary and store the words/strings.
+
+Store the datas in a way that we can lookup the data in O(1) time complexity.
+
+input    : { "cat", "dog", "kanna", "siva", ganesh", "lion", "king", "queen" ... }
+
+process  : store using Trie data structure
+
+query    : { "cat", "lion", "forest", "queen", "king", "baby" }
+	
+output   :
+
+cat    -> true
+lion   -> true
+forest -> false
+queen  -> true
+king   -> true
+baby   -> false
+
+---------------------------------------------------------

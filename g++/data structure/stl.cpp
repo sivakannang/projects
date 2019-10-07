@@ -123,7 +123,7 @@
  *
  * Modifiers:
  *	clear                           -> clear the container contents, this method call will make the size to 0, but capacity remains same
- *      assign                          -> Assigns new contents to the vector, replacing its current contents, and modifying its size accordingly
+ *  assign                          -> Assigns new contents to the vector, replacing its current contents, and modifying its size accordingly
  *	insert                          -> insert an element in the beginning or before the iterator position. v.insert(5) or v.insert(v.begin()+2, 5)
  *	emplace(c++11)                  -> constructs element in-place, it helps to avoid temporary copy, use emplace in place of insert
  *	erase                           -> erase one or range of elements, ex : v.erase(v.begin() + 5) <- erase 6th one, v.erase(v.begin(), v.begin() + 3) <- 1st 3
@@ -132,10 +132,10 @@
  *	pop_back                        -> removes the last element. ex - in vector size will reduce by 1 but capacity remains same
  *	push_front			-> add an element to the front
  *	emplace_front                   -> construct an element in-place at the front
- *      pop_front                       -> removes the first element
- *      insert_after                    -> inserts elements after an element
- *      emplace_after                   -> constructs elements in-place after an element
- *      erase_after                     -> erases an element after an element		
+ *  pop_front                       -> removes the first element
+ *  insert_after                    -> inserts elements after an element
+ *  emplace_after                   -> constructs elements in-place after an element
+ *  erase_after                     -> erases an element after an element		
  *	resize                          -> resize the container. ex - vector, v.resize(n) or v.resize(n, 10)
  *						if n < v.size() , then v.size() = n, remaining elements will be discarded, capacity remains same
  *						if n > v.size() , then v.size() = n, new elements will be added and initialized with given value, else with 0

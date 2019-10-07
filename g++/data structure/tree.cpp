@@ -106,6 +106,27 @@ void Tree::post_order(Node *node) {
 	std::cout << node->data << " ";
 }
 
+void level_order(Node *node) {
+    
+	if ( node == nullptr )
+		return;
+	
+	std::queue<Node *> q;
+	q.push(node);
+
+    while ( !q.empty() ) {
+		
+		Node *node = q.front();
+		std::cout << node->data << std::endl;
+		q.pop();
+		
+		if ( node->left )
+			q.push(node->left)
+		if ( node->right )
+			q.push(node->right);
+	}		
+}
+
 unsigned long Tree::height(Node *node) {
 
 	if ( node == NULL)  return 0;
