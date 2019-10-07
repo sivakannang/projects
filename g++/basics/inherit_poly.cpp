@@ -15,11 +15,11 @@
  *
  * Access control in inheritance:
  *
- * 				Derived Class	Derived Class	Derived Class
- * 		Base class	Public Mode	Private Mode	Protected Mode
+ * 				    Derived 	     Derived       Derived Class
+ * 		Base class	 Public Mode	Private Mode	Protected Mode
  * 		Private		Not Inherited	Not Inherited	Not Inherited
- * 		Protected	Protected	Private		Protected
- * 		Public		Public		Private		Protected
+ * 		Protected	Protected	    Private		    Protected
+ * 		Public		Public		    Private		    Protected
  *
  *
  * Types of inheritance in C++:

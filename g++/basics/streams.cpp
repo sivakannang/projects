@@ -82,7 +82,7 @@
 	
 	cout << "Enter a number: ";
 	int number;
-	cin << number;                 // output buffer is flushed when input is pending
+	cin >> number;                 // output buffer is flushed when input is pending
  *
  * 
  * ------------------------------------------------- Flushing input buffer -------------------------------------------------------------

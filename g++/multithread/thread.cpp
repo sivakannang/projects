@@ -47,7 +47,7 @@
  *
  *
  *
- * td::once_flag flag
+ * std::once_flag flag
  * std::call_once(flag, function, args...) || std::call_once(flag, lambda)
  *
  *
