@@ -40,6 +40,7 @@
 #include <stdlib.h>
 
 typedef unsigned char byte;
+size_t top_of_stack;
 
 /*typedef enum
 {
@@ -140,6 +141,7 @@ int ATOI(const char *s);
 
 void **allocate2dPtr(int row, int column, int blockSize);
 void free2dPtr(void **ptr, int row, int column);
+size_t stack_size()
 
 char *STRREV_BY_IDX_LEN(char *p, int sidx, int eidx);
 char *WORDREV(char *s);
@@ -147,6 +149,9 @@ char *WORDREV(char *s);
 
 int main()
 {
+	int x = 0;
+	top_of_stack = (size_t)&x;
+	
 	char str[] = "my name is siva";
 	printf("\n%s", str);
 	printf("\n%s", WORDREV(str));
@@ -629,3 +634,63 @@ void free2dPtr(void **ptr, int row, int column)
 	free(ptr);
 	ptr = NULL;
 }
+
+/*
+ *   Function Pointer
+ *
+ *
+ * int   *f(void)       - Function f returning an int*
+ * int   (*g)(void)     - Pointer to function (g) returning an int
+ * char (*h)(int, int)  - h is a pointer to function that can hold the address of a function which takes two integer parameters and returns char
+ *
+ */
+
+void funcPtrTest()
+{
+	char buffer[101] = {'\0'};
+	char *(*funcP)(char *, const char *);
+	funcP = _STRCPY;
+
+	printf("\n%s", (*funcP)(buffer, "hello world"));
+	printf("\n%s", buffer);
+	
+
+}
+
+/*
+ * realloc(NULL, 10*sizeof(int)) == malloc(10*sizeof(int))
+ *
+ * realloc(ptr, 0)               == free(ptr)
+ *
+ * near far and hugepointers
+ *
+ */
+
+void pointerConversion()
+{
+	int a[3][3] = {
+				{1,2,3},
+				{4,5,6},
+				{7,8,9}
+		      };
+
+	int *p;     //Pointer to an integer
+	int (*pp)[3]; //Pointer to an array of integer
+	//int *pp[3];
+
+	p = (int *)a;
+	pp = a;
+
+	printf("\n *p = %d, **p = %d", *p, **pp);
+	p++, pp++;
+	printf("\n *p = %d, **p = %d", *p, **pp);
+	
+}
+
+size_t stack_size()
+{
+  int x=0;
+
+  return top_of_stack - (size_t) &x;
+}
+

@@ -242,7 +242,7 @@ BOOLEAN set_socket_rcv_timeout(SOCKET sock, int secs)
 	if ( ret )
 		File_Log("ERROR : SET SOCKET RECEIVE TIMEOUT");
 
-	ret ? _FALSE : _TRUE;
+	return ret ? _FALSE : _TRUE;
 
 }
 
@@ -335,6 +335,7 @@ SSL_CTX *initialize_ctx (char *certfile, char *keyfile, char *CA, char *password
 
 	/* Create our context*/
 	meth = (SSL_METHOD *)SSLv3_method ();
+	//meth = (SSL_METHOD *)TLS_method ();
 	ctx = SSL_CTX_new (meth);
 	
 	
@@ -451,8 +452,12 @@ void load_dh_params(SSL_CTX *ctx, char *file)
 void generate_eph_rsa_key(SSL_CTX *ctx)
 {
 	RSA *rsa;
+	//RSA *rsa = RSA_new();
+	//BIGNUM *bn = BN_new();
+    //BN_set_word(bn, RSA_F4);
 
 	rsa = RSA_generate_key(512, RSA_F4, NULL, NULL);
+	//RSA_generate_key_ex(rsa, 2048, bn, NULL );
 	SSL_CTX_set_tmp_rsa(ctx, rsa);
 	RSA_free(rsa);
 }
@@ -735,7 +740,7 @@ void *handleClient_mThread(void *args)
 
 	if ( ret > 0 )
 	{
-		ret = Socket_Write(peer_sock, NULL, buffer, ret); 
+		ret = Socket_Write(peer_sock, ssl, buffer, ret); 
 		File_Log("SD %4d => %s:%d => Client %d => SND => %d => %s", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port), count, ret, (ret > 0) ? (char *)buffer : " ");
 	}
 

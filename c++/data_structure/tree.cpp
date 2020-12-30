@@ -281,6 +281,30 @@ Node *Tree::balance(Node *node)
     return node;
 }
 
+bool bst_util(Node *node, Node *&prev)
+{
+	if ( node )
+	{
+		if ( !bst_util(node->left, prev) )
+			return false;
+
+		if ( prev != nullptr && node->data <= prev->data )
+			return false;
+
+		prev = node;
+
+		return bst_util(node->right, prev);
+	}
+
+	return true;
+}
+
+bool is__bst(Node *head)
+{
+	Node *prev = nullptr;
+	return bst_util(head, prev);
+}
+
 bool Tree::is_bst(Node *node) {
 	
 	static Node *prev = NULL;

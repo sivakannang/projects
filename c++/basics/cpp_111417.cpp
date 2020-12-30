@@ -48,7 +48,7 @@ T adder(T v) {
 }
 
 template <typename T, typename... Args> 
-void adder(T first, Args... args) 
+T adder(T first, Args... args) 
 { 
 	return first + adder(args...) ; 
 } 

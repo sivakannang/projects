@@ -8,6 +8,7 @@ C, C++, Socket Program, Data Structure
 3. explicit constructor in c++
 4. placement new in C++
 5. Constructor delegation
+Difference between #include <stdio.h> and #include <cstudio> and which one to use ?
 function pointers and Functor
 function hiding
 structural padding and packing

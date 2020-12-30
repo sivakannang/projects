@@ -220,7 +220,7 @@ BOOLEAN set_socket_rcv_timeout(SOCKET sock, int secs)
 	if ( ret )
 		File_Log("ERROR : SET SOCKET RECEIVE TIMEOUT");
 
-	ret ? _FALSE : _TRUE;
+	return ret ? _FALSE : _TRUE;
 
 }
 
