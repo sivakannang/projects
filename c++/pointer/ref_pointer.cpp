@@ -65,12 +65,64 @@
 * nullptr is a keyword representing a value of self-defined type, that can convert into a pointer, but not into integers
 *
 *
+************************************************** Smart pointers ***********************************************************************************
 *
+* Automaitc memory management
+* Provides exception safety to classes and functions that handle objects with dynamic lifetime, by guaranteeing deletion on both normal exit and exception exit
 *
+* unique_ptr  - A smart pointer that owns a dynamically allocated resource
+* shared_ptr  - a smart pointer that owns a shared dynamically allocated resource.
+*             - Several std::shared_ptrs may own the same resource and an internal counter keeps track of them
+* weak_ptr    - like a std::shared_ptr, but it doesn't increment the counter
+*             - It use to avoid the cyclic reference
+* auto_ptr    - deprecated
+*
+* template< class T, class Deleter = std::default_delete<T> > class unique_ptr;
+*
+* Deleter must be FunctionObject or lvalue reference to a FunctionObject
+*
+* operator= - assigns the unique pointer
+* release   - Releases ownership of its stored pointer, by returning its value and replacing it with a null pointer
+* reset     - Destroys the object currently managed by the unique_ptr (if any) and takes ownership of p ( if any )
+* swap      - swaps the managed objects
+*
+* get            - returns a pointer to the managed object
+* get_deleter    - returns the deleter that is used for destruction of the managed object
+*
+* operator bool  - checks if there is an associated managed object
+* operator *     - dereferences pointer to the managed object
+* operator ->    - 
+* operator []    - provides indexed access to the managed array
+*
+* std::unique_ptr
+* std::make_unique  - From C++14 for exception safety
 * 
+* reset() 
 *
+* std::unique_ptr<int>      p1(new int);
+* std::unique_ptr<int[]>    p2(new int[50]);
+* std::unique_ptr<Object>   p3(new Object("Lamp"));
 *
+* std::unique_ptr<int>      p1 = std::make_unique<int>();
+* std::unique_ptr<int[]>    p2 = std::make_unique<int[]>(50);
+* std::unique_ptr<Object>   p3 = std::make_unique<Object>("Lamp");
+* std::unique_ptr<Object[]> p4 = std::make_unique<Object[]>(50);
 *
+* std::shared_ptr<int>      p1 = std::make_shared<int>();
+* std::shared_ptr<Object>   p2 = std::make_shared<Object>("Lamp");
+* std::shared_ptr<Student> student(new Student[3])                      // From C++17
+* 
+* std::shared_ptr<int>  p3(new int[50], [](int *p) { delete[] p;} );    // Until C++17, for shared pointer arrays we can't use int[] ,we should specify int only
+* std::shared_ptr<Student> student(new Student[3], [](Student *s) {delete[] s;});  // Until C++17, shared pointer array calls delete instead of delete[], so need to write custom deletor . Also can't use make_shared() here, as it doesn't support customized deleter here
+*
+* Prefer using make_unique() or make_shared() , avoid using new()
+*
+*  void function(std::unique_ptr<A>(new A()), std::unique_ptr<B>(new B())) { ... }
+*  Suppose that new A() succeeds, but new B() throws an exception , memory silently leakes for A() , no way to clean it up.
+*  But by wrapping A and B into std::make_uniques you are sure the leak will not occur
+*  Prefer using make_unique() or make_shared() , avoid using new()
+*
+* std::unique_ptr() supports operator[] for array versions but std::shared_ptr() doesn't supports operator[]  
 *
 */
 
@@ -92,6 +144,7 @@ class Square {
 
 };
 
+// https://medium.com/analytics-vidhya/c-shared-ptr-and-how-to-write-your-own-d0d385c118ad  - rewrite using this, below one is wrong
 namespace my {
 template <typename T>
 class shared_ptr {

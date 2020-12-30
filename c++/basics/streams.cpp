@@ -223,6 +223,7 @@
 #include <cstring>
 #include <fstream>
 #include <sstream>
+#include <vector>
 
 using namespace std;
 
@@ -233,6 +234,29 @@ void stringStream();
 
 #define SIZEOF(val) ((char *)(&val+1) - (char *)&val)
 #define DECLARE_TYPE(type) __typeof__(type) newvar
+
+std::vector<std::string> split(const std::string& s, char delimeter ) {
+
+	std::vector<std::string> v;
+	int idx = 0;
+	int eidx = 0;
+	int len = s.length();
+
+	while ( idx < len ) {
+
+		eidx = s.find(delimeter, idx );
+
+		if ( eidx != std::string::npos ) {
+			if ( idx != eidx ) // if token found in the same idx, just increment the idx and continue 
+				v.push_back ( s.substr(idx, eidx - idx) );
+			idx = eidx + 1;
+		} else {
+			if ( idx < len )
+				v.push_back(s.substr(idx));
+			idx = len;
+		}
+	}
+}
 
 int main()
 {

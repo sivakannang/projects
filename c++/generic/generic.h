@@ -26,10 +26,12 @@ class ARRAY {
 
 void test_array(); 
 
+//template <typename T, class Container = std::vector<T>>
 template<typename T>
 class STACK {
 
 	private:
+		//Container v;
 		std::vector<T> v;
 		int _maxsize;
 		
