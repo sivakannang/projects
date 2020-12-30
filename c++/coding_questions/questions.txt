@@ -1,0 +1,29 @@
+/************************************** Complete the below program *****************************************/
+
+class A{
+  
+
+   int a;
+   int *p;
+};
+
+int main() {
+
+  A obj1,obj2,obj3;
+  A obj('t');
+  
+  obj3=obj1+obj2;
+  obj3 =ob2;   
+  A obj4=obj1; 
+  A obj5(10); 
+  
+  cin >> obj1;
+  cout << obj1;  
+  
+  return 0;
+  
+}
+
+ans : class_completion.cpp
+
+/************************************************************************************************/
