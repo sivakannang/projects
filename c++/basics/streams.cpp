@@ -418,5 +418,23 @@ void stringStream()
 	cout << i << "," << d << "," << s << endl;
 }
 
+// C++11 varargs
+template<typename T>
+T adder(T v) {
+  return v;
+}
+
+template <typename T, typename... Args> 
+T adder(T first, Args... args) 
+{ 
+	return first + adder(args...) ; 
+} 
+
+// C++14 varargs
+template<typename ...Args>
+auto sum(Args ...args)
+{
+	return (... + args);
+}
 
 /********************************************************************************************************/

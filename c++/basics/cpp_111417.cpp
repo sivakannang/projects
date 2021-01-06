@@ -40,25 +40,12 @@ void generate_random();
 
 int test_chrono_library(); 
 void test_constexpr(int argc);
-void test_variadic_function(); 
-
-template<typename T>
-T adder(T v) {
-  return v;
-}
-
-template <typename T, typename... Args> 
-T adder(T first, Args... args) 
-{ 
-	return first + adder(args...) ; 
-} 
 
 
 int main(int argc, char *args[], char **env) {
 
 	//test_chrono_library();
 	test_constexpr(argc);
-	test_variadic_function();
 
 	return 0;
 }
@@ -138,11 +125,6 @@ void test_constexpr(int argc) {
 	constexpr Rectangle rect(10, 20);
 	std::cout << rect.getArea() << std::endl;
 
-}
-
-void test_variadic_function() {
-
-	std::cout << adder(1, 2, 3, 4, 5) << std::endl;
 }
 
 

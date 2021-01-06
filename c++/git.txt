@@ -1,0 +1,74 @@
+--------------------------------- RPM ----------------------------------------------------
+
+RPM query      :  rpm -qa | grep -i sys
+RPM uninstall  :  rpm -e rpm-file-name
+RPM install    :  rpm -ivh rpm-file-name or rpm -ivh *.rpm
+
+--------------------------------- GIT --------------------------------------------------------
+
+//clone
+#git clone ssh://<username>@10.200.2.62/export/home/jtunga/git-repos/testing-repo 
+
+git clone -b master  ssh://siva@10.200.2.62/git-repo/stg
+
+git clone 'url'
+
+
+//for view the current branch and list of branches
+git branch
+
+//checkout and create branch
+#git checkout -b branchname
+
+//switch working branches
+#git checkout branchname
+
+
+//Delete a branch
+#git branch -d branchname
+
+//Delete a branch eventhough codes modifies
+#git branch -D branchname
+
+//status of changes ( list modified files, removed files and added files)
+#git status
+
+
+//diff a modified file with original file
+#git diff filename
+
+//added files for commit
+#git add file1 file2 ...filen
+
+//commit the added files
+#git commit 
+
+
+//list the commit history
+#git log
+
+// if want to merge multiple patch
+git rebase -i HEAD~5
+
+// for undo last n commit
+git reset HEAD~n
+
+//take the patch of last commit
+#git format-patch -1
+
+//for remove the changes and go to original state
+#git stash
+
+
+//apply a patch
+#git apply patch.file
+
+
+//apply and merge
+#git am patch.file
+
+ 
+ git pull --no-tags
+
+ git checkout -- filename
+-------------------------------------------------------------------
