@@ -78,6 +78,29 @@ void sort012(int a[], int arr_size)
 	}
 }
 
+int find_missing_number(int ar[], int size) 
+{ 
+    int l = 0, r = size-1;
+    int mid;
+    while ( (r-l) > 1 ) {
+        mid = (l+r) / 2;
+        cout << " l : " << l << " , m : " << mid << " , r : " << r << " , arr[" << mid << "] = " << ar[mid] << endl;
+        if ( ar[l]-l != ar[mid]-mid )
+        {
+            r = mid;
+        }
+        else if ( ar[r]-r != ar[mid]-mid)
+        {
+            l = mid;
+        }
+        else
+        {
+            //cout <<" l : " << l << " , m : " << m << " , r : " << r << endl;
+        }
+    }
+    return (ar[mid] + 1); 
+}
+
 int main() {
 	
 	//int arr[] = { 0, 1, 0, 1, 1, 1, 0, 1, 0, 0 };

@@ -58,4 +58,8 @@ auto, decltype, typeid, static, const, override, final, mutable, constexpr, this
 
 what does list.end() contains?
 
+Delete a number from std::vector<int> ?  use erase remove idiom
+Remove duplicates from unsorted array ?  ( use hashmap std::unordered_map<int, bool> )
+Search an elemnet from sorted array ?     ( bst )
+
 

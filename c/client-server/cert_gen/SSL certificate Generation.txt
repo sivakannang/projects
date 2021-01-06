@@ -1,0 +1,153 @@
+CA
+[root@domU-12-31-39-09-28-06 ssl]# openssl genrsa -out ca_key.pem 1024
+Generating RSA private key, 1024 bit long modulus
+...++++++
+...........................++++++
+e is 65537 (0x10001)
+[root@domU-12-31-39-09-28-06 ssl]# openssl req -new -x509 -key ca_key.pem -out ca.crt -days 7320
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [GB]:IN
+State or Province Name (full name) [Berkshire]:Karnataka
+Locality Name (eg, city) [Newbury]:Bangalore
+Organization Name (eg, company) [My Company Ltd]:Suse
+Organizational Unit Name (eg, section) []:Suse
+Common Name (eg, your name or your server's hostname) []:ACS
+Email Address []:it@Suse.com
+
+
+
+[root@domU-12-31-39-09-28-06 ssl]# openssl req -newkey rsa:1024 -days 7320 -keyout server_key.pem -out server.csr -nodes
+Generating a 1024 bit RSA private key
+.....................................................................................................................................................++++++
+...............++++++
+writing new private key to 'server_key.pem'
+-----
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [GB]:IN
+State or Province Name (full name) [Berkshire]:Karnataka
+Locality Name (eg, city) [Newbury]:Bangalore
+Organization Name (eg, company) [My Company Ltd]:Girmiti
+Organizational Unit Name (eg, section) []:POS
+Common Name (eg, your name or your server's hostname) []:Mistral
+Email Address []:it@girmiti.com
+
+Please enter the following 'extra' attributes
+to be sent with your certificate request
+A challenge password []:
+An optional company name []:
+
+[root@domU-12-31-39-09-28-06 ssl]# openssl ca -days 7319 -keyfile ca_key.pem -cert ca.crt -in server.csr -out server.crt -notext -outdir .
+Using configuration from /etc/pki/tls/openssl.cnf
+Check that the request matches the signature
+Signature ok
+Certificate Details:
+        Serial Number: 33 (0x21)
+        Validity
+            Not Before: Mar 26 19:16:56 2012 GMT
+            Not After : Apr  9 19:16:56 2032 GMT
+        Subject:
+            countryName               = IN
+            stateOrProvinceName       = Karnataka
+            organizationName          = Girmiti 
+            organizationalUnitName    = POS 
+            commonName                = Mistral
+            emailAddress              = it@girmiti.com
+        X509v3 extensions:
+            X509v3 Basic Constraints:
+                CA:FALSE
+            Netscape Comment:
+                OpenSSL Generated Certificate
+            X509v3 Subject Key Identifier:
+                A6:71:DE:67:DB:44:69:6C:31:9C:23:61:99:03:59:CF:7C:81:6C:E2
+            X509v3 Authority Key Identifier:
+                keyid:14:92:75:4D:AA:DC:F3:9D:35:07:BB:A6:4A:FE:5F:0B:6B:9C:3A:F5
+
+Certificate is to be certified until Apr  9 19:16:56 2032 GMT (7319 days)
+Sign the certificate? [y/n]:y
+
+
+1 out of 1 certificate requests certified, commit? [y/n]y
+Write out database with 1 new entries
+Data Base Updated
+
+
+
+
+
+
+
+[root@domU-12-31-39-09-28-06 ssl]# openssl req -newkey rsa:1024 -days 7320 -keyout client_key.pem -out client.csr -nodes
+Generating a 1024 bit RSA private key
+.....................++++++
+.................++++++
+writing new private key to 'client_key.pem'
+-----
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [GB]:IN
+State or Province Name (full name) [Berkshire]:Karnataka
+Locality Name (eg, city) [Newbury]:Bangalore
+Organization Name (eg, company) [My Company Ltd]:Girmiti
+Organizational Unit Name (eg, section) []:POS
+Common Name (eg, your name or your server's hostname) []:Mistral
+Email Address []:it@girmiti.com
+
+Please enter the following 'extra' attributes
+to be sent with your certificate request
+A challenge password []:
+An optional company name []:
+[root@domU-12-31-39-09-28-06 ssl]# openssl ca -days 7319 -keyfile ca_key.pem -cert ca.crt -in client.csr -out client.crt -notext -outdir .
+Using configuration from /etc/pki/tls/openssl.cnf
+Check that the request matches the signature
+Signature ok
+Certificate Details:
+        Serial Number: 34 (0x22)
+        Validity
+            Not Before: Mar 26 19:18:23 2012 GMT
+            Not After : Apr  9 19:18:23 2032 GMT
+        Subject:
+            countryName               = IN
+            stateOrProvinceName       = Karnataka
+            organizationName          = Girmiti 
+            organizationalUnitName    = POS
+            commonName                = Mistral
+            emailAddress              = it@girmiti.com
+        X509v3 extensions:
+            X509v3 Basic Constraints:
+                CA:FALSE
+            Netscape Comment:
+                OpenSSL Generated Certificate
+            X509v3 Subject Key Identifier:
+                6C:46:7C:A1:B2:D0:7C:50:FB:66:66:74:9F:B5:EF:D9:97:59:05:2C
+            X509v3 Authority Key Identifier:
+                keyid:14:92:75:4D:AA:DC:F3:9D:35:07:BB:A6:4A:FE:5F:0B:6B:9C:3A:F5
+
+Certificate is to be certified until Apr  9 19:18:23 2032 GMT (7319 days)
+Sign the certificate? [y/n]:y
+
+
+1 out of 1 certificate requests certified, commit? [y/n]y
+Write out database with 1 new entries
+Data Base Updated
+
+
+
+
+
