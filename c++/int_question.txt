@@ -1,91 +1,61 @@
-https://mariusbancila.ro/blog/
-https://www.fluentcpp.com
 
-C, C++, Socket Program, Data Structure
+memory:
 
-1. How delete knows how many bytes need to be deleted?
-2. How To Call Some Function Before main In C++?
-3. explicit constructor in c++
-4. placement new in C++
-5. Constructor delegation
-Difference between #include <stdio.h> and #include <cstudio> and which one to use ?
-function pointers and Functor
-function hiding
-structural padding and packing
-structure and class difference?
-Name mangling
-how to access c in c++ and c++ in c ( extern "C")
-virtual destructor and constructor
-can we call constructor and destructor explicitly?
+How delete knows how many bytes need to be deleted?
+Placement new in C++ ?
+placement new and explicit destrutor calling ?
+pointer and reference diff and when to use pointer and when to use reference?
+when u have multiple instances of a class, how the values getter/setter works on specific instance ? how this pointer reaches to the member functions?
+vPtr, vTable ?
+auto_ptr, unique_ptr, shared_ptr, week_ptr difference ?
+
+struct, class object
+
+structural padding and packing ?
+Class, struct difference and which one need to be prefer ?
+Why empty class size is 1 byte ?
+How to check two objects belong to the same class or different ? (typeid)
+Explicit constructor in c++ ?
+Constructor delegation ?
+Virtual destructor and constructor ?
+Can we call constructor and destructor explicitly?
 Why copy constructor take argument as reference?
 Why we must return reference only in copy assignment ?
-Function chaining ?
-code bloating
-how to assign object to int?
-object slicing
-auto, decltype, typeid, static, const, override, final, mutable, constexpr, this 
-how to check two objects belong to the same class or different ?
-why we must define static data member of class in cpp file ?
-range for loop and for_each difference?
-pointer and reference diff and when to use pointer and when to use reference?
-how stl works internally?
-Why template functions only defined inside header files?
-
-How to stop someone to inherit your class?
+How to stop someone to inherit your class and someone override your function ?
 How to stop someone to copying ur objects?
 How to stop someone to take address of your object?
-operator overloading?
-how to overload pre and post increment ? as both increment uses operator ++ how compiler identifies pre or post ?
-pre/post increment which one is faster ?
-when u have multiple instances of a class, how the values getter/setter works on specific instance ? how this pointer reaches to the member functions?
-how to restrict a object to be created only in stack or heap ?
-
-plain enum and c++ enum class diff ?
+How to restrict a object to be created only in stack or heap ?
 What are the places the initializer list must be used?
-friend function and friend classes
-exception and stack unwinding
-vTable
-casting in c++
+friend function and friend classes ?
+Function chaining ?
+object slicing ?
+Code bloating ?
+why we must define static data member of class in cpp file ?
+Why template functions only defined inside header files?
 template and template specialization?
+
+how will you clear std::cin error ? std::cin.clear(); std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+How To Call Some Function Before main In C++?
+what is std::variant , how it is differs from union ?
+std::invoke and std::apply
+std::ignore and std::tie
+Difference between #include <stdio.h> and #include <cstudio> and which one to use ?
+function pointers and Functor
+Name mangling
+how to access c in c++ and c++ in c ( extern "C")
+How to overload pre and post increment ? as both increment uses operator ++ how compiler identifies pre or post ?
+plain enum and c++ enum class diff ?
+
+
+Exception :
+
+what is std::noexcept ?
+why c++ doesn't provide finally in try catch, like java ? (Because c++ provides even better alternate solution RAI, so no need of finally)
 exception in constructor and destructor?
+Stack unwinding ?
 
-RVO,NRVO
-RAI
+auto, decltype, typeid, static, const, override, final, mutable, constexpr, this 
 
-Self restart program on segfault under Linux
-
-Amadeus:
-search a word in matrix
-design pattern
-shortest path algorithm
-Tree
-Design Parking lot
-Single, stratergy, builder patterns
-traverse middle of linked list using tortoise and hare algorithm
-exception handling
-
-string template
-solve 15 slider puzzle
-implement a final class
-friend void(int a, int b, int c=20) friend void(int a, int b, int c). if defined in same class, any error, if error how to u fix(overload it) without change function name , number of args
-
-vector<bool> vector<int> any diff bw this?
-output of int a,20
-placement new and explicit destrutor calling
 what does list.end() contains?
-can be inherit the private member function?
-can static member function call non static member function?
-can non static member function call static member function?
-latest version of gcc
-structure and class diff?
-inheritence types, type casting
-
-What new technology u learned other than work?
-taking app to cloud
-
-awk sed
-
-Design whatsapp, twitter, messagequeue, parking lot
 
 
-BNY:
