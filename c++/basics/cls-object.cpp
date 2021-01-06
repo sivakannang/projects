@@ -378,7 +378,7 @@ Output:   -> As the static scope is till program ends, destructor will be called
  *     * When no default constructor is present in the Base class
  *     * When reference type is used        -> References are immutable they can be initialized only once
  *     * For initializing const data member -> const data memebers can be initialized only once, so it must be initialized in the initialization list
- *     * When data member and parameter have same name -> if not vaue will be assigned as 0
+ *     * When data member and parameter have same name -> if not value will be assigned as 0
  *     * For improving performance   -> Creation and destroy of temporary object can be avoided by using initializer list, by not assigning inside constructor body
  *  Body:
  *  - The second part is the body, which is a normal method body enclosed in curly brackets

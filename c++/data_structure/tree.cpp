@@ -24,11 +24,11 @@
  *
  * A Tree is typically traversed in two ways:
  *
- * Breadth First Traversal (Or Level Order Traversal)
+ * Breadth First Traversal (Or Level Order Traversal)  -> 5 3 10 1 4 11
  * Depth First Traversals
- * 	Inorder Traversal (Left-Root-Right)
- * 	Preorder Traversal (Root-Left-Right)
- * 	Postorder Traversal (Left-Right-Root)
+ * 	Inorder Traversal (Left-Root-Right)            -> 1 3 4 5 10 11
+ * 	Preorder Traversal (Root-Left-Right)           -> 5 3 1 4 10 11
+ * 	Postorder Traversal (Left-Right-Root)          -> 1 4 3 11 10 5
  *
  *      Binary Heap ( Priority queue )
  *      https://www.fluentcpp.com/2018/03/13/heaps-priority-queues-stl-part-1/

@@ -48,7 +48,7 @@ class A {
 		}
 };
 
-int test_1()
+int ClassTest1()
 {
 	A obj1, obj2, obj3;
 	A obj('t');
@@ -65,7 +65,7 @@ int test_1()
 	return 0;
 }
 
-int test_2()
+int ClassTest2()
 {
 	int eleven = 11, twelve = 12, thirteen = 13, fourteen = 14, fifteen = 15;
 
@@ -107,7 +107,125 @@ obj6 -> 15 65
 ***********************************************************/
 }
 
+
+class String {
+    private:
+        int size_;
+        char *ptr_;
+        
+    int Strlen(const char* str)
+    {
+        char *p = (char *)str;
+        
+        int len = 0;
+        while(*p++)
+            len++;
+        return len;
+    }
+    
+    char *Strcpy(char *dst, const char*src)
+    {
+        char *s = (char *)src;
+        char *d = dst;
+        
+        while(*d++ = *s++)
+            ;
+            
+        return dst;
+    }
+    
+    char *Strcat(char *dst, const char *src)
+    {
+        char *s = (char *)src;
+        char *d = dst;
+        
+        while(*d)
+            d++;
+            
+        while(*d++ = *s++)
+            ;
+            
+        return dst;
+    }
+        
+    public:
+        String() : size_(1), ptr_(new char[1]) { *ptr_ = '\0'; }
+        ~String() { delete[] ptr_ ; }
+        
+        int size() const { return size_; }
+        const char *c_str() const { return ptr_; }
+        
+        String(const char *str)
+        {
+            size_ = Strlen(str);
+            size_++; // +1 for NULL
+            ptr_ = new char[size_];
+            Strcpy(ptr_, str);
+        }
+        
+        String(const String& string)
+        {
+            size_ = string.size();
+            ptr_ = new char[size_];
+            Strcpy(ptr_, string.c_str());
+        }
+        
+        String& operator = (const String& string)
+        {
+            if ( this == &string)
+            {
+                std::cout << __func__ << "assigning same address, will be skipped" << std::endl;
+                return *this;
+            }
+            
+            delete[] ptr_;
+            size_ = string.size();
+            ptr_ = new char[size_];
+            Strcpy(ptr_, string.c_str());
+	    return *this;
+        }
+        
+        String operator + (const String& string)
+        {
+            String tmp;
+            tmp.size_ = size_ + string.size_;
+            delete[] tmp.ptr_;
+            
+            tmp.ptr_ = new char[tmp.size_];
+            Strcpy(tmp.ptr_, ptr_);
+            Strcat(tmp.ptr_, string.c_str());
+            
+            return tmp;
+        }
+        
+        void display() { std::cout << ptr_ << std::endl; }
+};
+
+
+void StringClassTest()
+{
+  String s1 = "Test string";
+  String s2 = "Sample String";
+  s1.display();
+  s2.display();
+  
+  String s3 = s2;
+  s3.display();
+  
+  String s4 = s1 + s2;
+  s4.display();
+  
+  s1 = s2;
+  
+  s1.display();
+  s2.display();
+  s3.display();
+  s4.display();
+}
+
 int main()
 {
-	return test_2();
+	ClassTest1();
+	ClassTest2();
+	StringClassTest();
 }

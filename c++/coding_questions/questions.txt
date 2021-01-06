@@ -26,4 +26,34 @@ int main() {
 
 ans : class_completion.cpp
 
-/************************************************************************************************/
+/****************** Complete the below String class, do not use any library function *****************************/
+
+class String {
+
+};
+
+
+int StringClassTest()
+{
+  String s1 = "Test string";
+  String s2 = "Sample String";
+  s1.display();
+  s2.display();
+  
+  String s3 = s2;
+  s3.display();
+  
+  String s4 = s1 + s2;
+  s4.display();
+  
+  s1 = s2;
+  
+  s1.display();
+  s2.display();
+  s3.display();
+  s4.display();
+}
+
+ans : class_completion.cpp
+
+***********************************************************************************************************

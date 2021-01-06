@@ -60,7 +60,7 @@ public:
 		SERIAL
 	};
 
-	std::unique_ptr<Connection> get_connection(ConnectionFactory::ConnectionProtocol protocol)
+	static std::unique_ptr<Connection> get_connection(ConnectionFactory::ConnectionProtocol protocol)
 	{
 		switch(protocol)
 		{
@@ -78,8 +78,7 @@ public:
 
 int main(int argc, char *argv[], char **env)
 {
-	auto connection_factory = std::make_unique<ConnectionFactory>();
-	auto connection         = connection_factory->get_connection(connection_factory->ConnectionProtocol::GPRS);
+	auto connection = ConnectionFactory::get_connection(ConnectionFactory::ConnectionProtocol::GPRS);
 	connection->connect();
 	connection->write("Packet sending.....");
 	connection->disconnect();
