@@ -157,6 +157,7 @@ class String {
         
         String(const char *str)
         {
+            std::cout << "default constructor with argument" << std::endl;
             size_ = Strlen(str);
             size_++; // +1 for NULL
             ptr_ = new char[size_];
@@ -165,6 +166,7 @@ class String {
         
         String(const String& string)
         {
+            std::cout << "copy constructor" << std::endl;
             size_ = string.size();
             ptr_ = new char[size_];
             Strcpy(ptr_, string.c_str());
@@ -172,6 +174,7 @@ class String {
         
         String& operator = (const String& string)
         {
+            std::cout << "copy assignment" << std::endl;
             if ( this == &string)
             {
                 std::cout << __func__ << "assigning same address, will be skipped" << std::endl;
@@ -187,6 +190,7 @@ class String {
         
         String operator + (const String& string)
         {
+            std::cout << "operator +" << std::endl;
             String tmp;
             tmp.size_ = size_ + string.size_;
             delete[] tmp.ptr_;
@@ -197,6 +201,32 @@ class String {
             
             return tmp;
         }
+
+	String(String&& string)
+	{
+	        std::cout << "move constructor" << std::endl;
+	        size_ = string.size();
+		ptr_ = string.ptr_;
+
+		string.size_ = 0;
+		string.ptr_ = nullptr;
+	}
+
+	String& operator = (String&& string)
+	{
+		std::cout << "move assignment" << std::endl;
+		if ( this == &string)
+			return *this;
+
+		delete[] ptr_;
+
+		size_ = string.size();
+		ptr_ = string.ptr_;
+
+		string.size_ = 0;
+		string.ptr_ = nullptr;
+		return *this;
+	}
         
         void display() { std::cout << ptr_ << std::endl; }
 };
@@ -216,16 +246,25 @@ void StringClassTest()
   s4.display();
   
   s1 = s2;
+
+  String s5 = std::move( String("sivakannan"));
+  s5.display();
+
+  s5 = std::move(String("Kavikuyil"));
+
+  String s6 = String("...........Siva"); // compiler optimize it only argument constructor called, non other construct calls here
   
   s1.display();
   s2.display();
   s3.display();
   s4.display();
+  s5.display();
+  s6.display();
 }
 
 int main()
 {
-	ClassTest1();
-	ClassTest2();
+	//ClassTest1();
+	//ClassTest2();
 	StringClassTest();
 }
