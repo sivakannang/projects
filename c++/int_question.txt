@@ -63,3 +63,19 @@ Remove duplicates from unsorted array ?  ( use hashmap std::unordered_map<int, b
 Search an elemnet from sorted array ?     ( bst )
 
 
+Design Patterns
+
+Implement:
+Array
+vector
+Stack
+Queue
+List
+BST ( set, map)
+Hash ( unordered_map, unordered_set )
+String lib class
+unique_ptr, shared_ptr
+scoped_lock, scoped_thread
+Trie
+Graph and sortest path
+permutation

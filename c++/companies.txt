@@ -1,0 +1,57 @@
+Oracle
+VMWare
+Cisco
+Wallmart
+Flipkart
+Amazon
+Evernote
+Adobe
+24/7
+SAP
+HackerRank
+intel
+
+NVDIA
+Mcafee
+Symentec
+Thughtworks
+IBM
+Siemens
+Nokia
+Samsung
+Amadeus
+Citrix
+appviewx
+
+
+Visa
+JPMC
+WellsFargo
+ANZ
+CommonWealth Bank
+RBS
+Goldman Sachs
+Morgan Stanely
+Bank of America
+HSBC
+Standard Charted
+Worldline
+FIS
+Stripe
+PayPal
+Paytm
+Square
+Tsys
+ACI
+NSE
+BSE
+Nasdaq
+E&Y
+intuit
+
+Microsoft
+Google
+Linkedin
+Redhat
+Twiiter
+Facebook
