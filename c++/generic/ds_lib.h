@@ -1,6 +1,52 @@
+#pragma once
 
 #include <iostream>
+#include <string>
+#include <vector>
 #include <exception>
+#include <array>
+#include <list>
+#include <algorithm>
+
+class Employee
+{
+	private:
+		long rollno;
+		std::string name;
+		double salary;
+	public:
+		Employee(long rollno, std::string name, double salary) : rollno(rollno), name(name), salary(salary) {}
+
+		size_t hash(int bucket_size)
+		{
+			size_t hash_idx = 0;
+			char *p = (char *)name.c_str();
+			while( *p )
+				hash_idx += *p++;
+			return hash_idx % bucket_size;
+		}
+
+		bool operator < (const Employee &employee) const { return this->rollno < employee.rollno; }
+		bool operator > (const Employee &employee) const { return this->rollno > employee.rollno; }
+
+		friend std::ostream &operator<<( std::ostream &os, const Employee &employee)  {
+			os << "rollno : " << employee.rollno << " , name : " << employee.name << " , salary : " << employee.salary << std::endl;
+			return os;
+		}
+
+		friend std::istream& operator >> ( std::istream& is, Employee& employee) {
+			std::cout << "Enter roll number : ";
+			is >> employee.rollno;
+			std::cout << std::endl;
+			std::cout << "Enter  name       : ";
+			is >> employee.name;
+			std::cout << std::endl;
+			std::cout << "Enter salary      : ";
+			is >> employee.salary;
+			std::cout << std::endl;
+			return is;
+		}
+};
 
 namespace dsa
 {
@@ -65,10 +111,223 @@ namespace dsa
 				std::cout << "ptr_[" << size_-1 << "] = " << ptr_[size_-1] << std::endl;
 			}
 
-			void pop_back() { if ( size_ == 0 ) throw std::out_of_range("underflow exception"); --size_; }
+			void pop_back() { if ( size_ == 0 ) throw std::underflow_error("underflow exception"); --size_; }
 			
 			T* begin() const { return &ptr_[0]; }
 			T* end() const { return &ptr_[size_]; }
+	};
+
+	
+	template<typename T>
+	class Stack {
+		private:
+			std::vector<T> vec;
+		public:
+			bool empty() const { return vec.size() == 0; }
+			size_t size() const { return vec.size(); }
+			void push(T t) { vec.push_back(t); }
+			void pop() {
+				if ( empty() )
+					throw std::underflow_error("underflow_error");
+				vec.pop_back();
+			}
+			T top() const {
+				if ( empty() )
+					throw std::underflow_error("underflow_error");
+				return vec[vec.size() - 1];
+			}
+	};
+
+	template<typename T>
+	struct Node {
+		T data;
+		Node<T>* next;    // for queue
+		Node<T>* left;    // for list or bst
+		Node<T>* right;   // for list or bst
+
+		Node(T data, Node<T>* next = nullptr, Node<T>* left = nullptr, Node<T>* right = nullptr) : data(data), next(next), left(left), right(right) {}
+	};
+
+	template<typename T>
+	class Queue {
+		private:
+			int size_;
+			Node<T>* front_node;
+			Node<T>* rear_node;
+		public:
+			
+			Queue() : size_(0) { front_node = rear_node = nullptr; }
+			void clear() {
+				while (front_node)
+				{
+					Node<T>* tmp = front_node;
+					front_node = front_node->next;
+					std::cout << __func__ << " : " << tmp->data << std::endl;
+					delete tmp;
+				}
+				front_node = rear_node = nullptr;
+			}
+			~Queue() { clear(); }
+
+			bool empty() const { return size_ == 0; }
+			size_t size() const { return size_; }
+			
+			void push(T data)
+			{
+				Node<T>* new_node = new Node<T>(data);
+				if ( front_node == nullptr )
+					front_node = rear_node = new_node;
+				else
+				{
+					rear_node->next = new_node;
+					rear_node = new_node;
+				}
+				++size_;
+			}
+
+			T top() const {
+				if ( empty() )
+					throw std::underflow_error("underflow_error");
+				return front_node->data;
+			}
+
+			void pop() {
+				if ( empty() )
+					throw std::underflow_error("underflow_error");
+				Node<T>* tmp = front_node;
+				front_node = front_node->next;
+				delete tmp;
+				--size_;
+			}
+	};
+
+	template<typename T>
+	class List {
+		private:
+			size_t size_;
+			Node<T>* head;
+			Node<T>* tail;
+		public:
+			bool empty() const { return size_ == 0; }
+			size_t size() const { return size_; }
+			
+			List() : size_(0) { head = tail = nullptr; }
+			void clear() {
+				while ( head ) {
+					Node<T>* tmp = head;
+					head = head->right;
+					std::cout << __func__ << " : " << tmp->data << std::endl;
+					delete tmp;
+				}
+				head = tail = nullptr;
+				size_ = 0;
+			}
+			~List() { clear(); }
+
+			void push_back(T data) {
+				Node<T>* new_node = new Node<T>(data);
+				if ( tail ) {
+					new_node->left = tail;
+					tail->right = new_node;
+					tail = new_node;
+				}
+				else
+					head = tail = new_node;
+				++size_;
+			}
+
+			void pop_back() {
+				if ( tail == nullptr )
+					throw std::underflow_error("underflow_error");
+				else if ( tail->left == nullptr ) // single node
+					clear();
+				else {
+					Node<T>* tmp = tail;
+					tail = tail->left;
+					tail->right = nullptr;
+					delete tmp;
+				}
+				--size_;
+			}
+
+			void push_front(T data) {
+				Node<T>* new_node = new Node<T>(data);
+				if ( head ) {
+					head->left = new_node;
+					new_node->right = head;
+					head = new_node;
+				}
+				else
+					head = tail = new_node;
+				++size_;
+			}
+
+			void pop_front() {
+				if ( size_ == 0 )
+					throw std::underflow_error("underflow_error");
+
+				else if ( size_ == 1 ) // single node
+					clear();
+				else {
+					Node<T>* tmp = head;
+					head = head->right;
+					head->left = nullptr;
+					delete tmp;
+				}
+				--size_;
+			}
+
+	};
+
+	template<typename T, size_t bucket_size = 10>
+	class Hash {
+		private:
+			std::array<std::list<T>, bucket_size> table;
+
+		public:
+			/*size_t hash(std::string& str ) const {
+				size_t hash_idx = 0;
+				char *p = str.c_str();
+				while( *p )
+					hash_idx += *p++;
+				return hash_idx % bucket_size;
+
+			}*/
+
+			size_t hash(T& data) const {
+				std::hash<T> hash_idx;
+				return hash_idx(data) % bucket_size;
+			}
+
+			void insert(T t) {
+				int idx = hash(t);
+				table[idx].push_back(t);
+			}
+
+			T find(T t) const {
+				int idx = hash(t);
+				std::list<T>& list = table[idx];
+
+				return list.find(t);
+				//return (data != list.end()) ? data : nullptr;
+			}
+
+			void traverse() const {
+				int idx = 0;
+				std::for_each(table.begin(), table.end(), [&idx](std::list<T> list) {
+					std::cout << idx++ << " <<--->> ";
+					for ( T& t : list ) {
+						std::cout << t << " --> "; 
+					}
+					std::cout << std::endl;
+				} );
+			}
+
+			void erase(T t) {
+				int idx = hash(t);
+				std::list<T>& list = table[idx];
+				return list.remove(t);
+			}
 	};
 
 }
