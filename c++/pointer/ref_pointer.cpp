@@ -128,6 +128,7 @@
 
 #include <iostream>
 #include <string>
+#include <exception>
 
 
 
@@ -143,6 +144,137 @@ class Square {
 		int area() { return len * len ;}
 
 };
+
+namespace mylib {
+
+template<typename T>
+struct custom_deleter {
+	void operator()(T *t) { delete t; t = nullptr; }
+};
+
+template<typename T, typename Deleter = custom_deleter<T>>
+class Unique_ptr {
+	private:
+		T *ptr_ = nullptr;
+		Deleter operator_delete;
+	public:
+		Unique_ptr() : ptr_(nullptr) {}
+		Unique_ptr(std::nullptr_t) : ptr_(nullptr) {}
+		explicit Unique_ptr(T* ptr) noexcept : ptr_(std::move(ptr)) {}
+		~Unique_ptr() { std::cout << __func__ << std::endl; operator_delete(ptr_);}
+
+		Unique_ptr(const Unique_ptr<T>& unique_ptr) = delete;
+		Unique_ptr<T>& operator = (const Unique_ptr<T>& unique_ptr) = delete;
+
+		Unique_ptr(Unique_ptr<T>&& unique_ptr) noexcept : ptr_(std::move(unique_ptr->ptr_)) { unique_ptr->ptr_ = nullptr; }
+		Unique_ptr<T>& operator = (Unique_ptr<T>&& unique_ptr) noexcept {
+			if ( this == unique_ptr ) return *this;
+			delete ptr_;
+			ptr_ = std::move(unique_ptr->ptr_);
+			unique_ptr->ptr_ = nullptr;
+			return *this;
+		}
+
+		T* operator ->() const { return ptr_; }
+		T& operator *() const { return *ptr_; }
+
+		T* get() const noexcept { return ptr_; }
+		explicit operator bool() const noexcept { return ptr_; }
+
+		T* release()
+		{
+			//return std::exchange(ptr_, nullptr); // from c++14
+			//std::exchange is a setter and returning the old value
+			//int z = std::exchange(x, y);
+			//x is assigned the value of y,
+			//z is assigned the value that x had initially.
+			T *result = nullptr;
+			std::swap(result, ptr_);
+			return result;
+		}
+
+		void reset(T *ptr) noexcept(false)
+		{
+			if ( ptr == nullptr )
+				throw std::invalid_argument("An invalid pointer was passed, resources will not be swapped");
+			operator_delete(ptr_);
+			std::swap(ptr_, ptr);
+		}
+};
+
+template<typename T, typename Deleter = custom_deleter<T>>
+class Shared_ptr {
+	private:
+		T *ptr_;
+		int *count;
+		Deleter operator_delete;
+
+	public:
+		explicit Shared_ptr(T *ptr = nullptr) : ptr_(ptr), count(new int(0))
+		{
+			if ( ptr_ )
+				++(*count);
+		}
+
+		~Shared_ptr()
+		{
+			if ( count != nullptr )
+			{
+				--(*count);
+				if ( *count == 0 ) {
+					operator_delete(ptr_);
+					delete count;
+				}
+			}
+		}
+
+		Shared_ptr(const Shared_ptr<T>& shared_ptr)
+		{
+			ptr_ = shared_ptr->ptr_;
+			count = shared_ptr->count;
+			++(*count);
+		}
+
+		Shared_ptr<T>& operator = (const Shared_ptr<T>& shared_ptr)
+		{
+			/*if ( count != nullptr )
+			{
+				--(*count);
+				if ( *count == 0 )
+					delete ptr_;
+			}*/
+
+			ptr_ = shared_ptr->ptr_;
+			count = shared_ptr->count;
+			++(*count);
+			return *this;
+		}
+
+		T& operator * () const { return *ptr_; }
+		T* operator -> () const { return ptr_; }
+		
+		T* get() const noexcept { return ptr_; }
+		explicit operator bool() const noexcept { return ptr_; }
+
+		size_t use_count() const { return (count == nullptr ) ? 0 : *count; }
+
+		void reset()
+		{
+			if ( count != nullptr )
+			{
+				--(*count);
+				if ( count == 0 )
+				{
+					operator_delete(ptr_);
+					delete count;
+				}
+				ptr_ = nullptr;
+				count = nullptr;
+			}
+		}
+};
+}
+
 
 // https://medium.com/analytics-vidhya/c-shared-ptr-and-how-to-write-your-own-d0d385c118ad  - rewrite using this, below one is wrong
 namespace my {
@@ -206,7 +338,7 @@ class Student {		// A class which always create instance in heap
 		int id;
 		std::string name;
 		Student(int id, std::string name) : id(id), name(name) { }
-		~Student() { std::cout << "destructor invoked" << std::endl; }
+		~Student() { std::cout << __func__ << std::endl; }
 
 	public:
 		static Student *createStudent(int id, std::string name) {
@@ -224,10 +356,10 @@ class Employee {		// A class which always create instance in stack
 		int id;
 		std::string name;
 
-		void *operator new(size_t)   {}
-		void *operator new[](size_t) {}
-
 	public:
+		void *operator new(size_t)   = delete; // delete this function or move it to private section
+		void *operator new[](size_t) = delete; // delete this function or move it to private section
+
 		Employee(int id, std::string name) : id(id), name(name) { }
 		~Employee() { std::cout << "destructor invoked" << std::endl; }
 
@@ -236,6 +368,10 @@ class Employee {		// A class which always create instance in stack
 		}
 };
 
+void my_smart_ptr_test()
+{
+	//mylib::Unique_ptr<Student> student = Student::createStudent(46, "siva");
+}
 int main() {
 
 	//Student student(2, "ganesh");                -> compilation error
@@ -252,6 +388,8 @@ int main() {
 
 	my::shared_ptr<Square> sPtr(new Square(4));
 	std::cout << "Square area(4) = " << sPtr->area() << std::endl;
+
+	my_smart_ptr_test();
 
 	return 0;
 }
