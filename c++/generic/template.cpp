@@ -45,11 +45,36 @@ class Accum<Person> {
 		int operator+=(Person const& t)      { return total = total + t.getNumber() ; }
 };
 
+// Implement a template boolean IsSameClass() that takes class A and B as template parameters. It should compare class A and B and return false when they are different classes and true if they are the same class
+
+class Base {
+};
+class Derived {
+};
+
+template<typename T, typename U>
+struct is_same {
+	static const bool value = false;
+};
+
+template<typename T>
+struct is_same<T, T> {
+	static const bool value = true;
+};
+
+template<typename T, typename U>
+bool is_same_class() {
+	return is_same<T, U>::value;
+}
+
 int main(int argc, char *argv[], char **env) {
 
 	int a = 10, b = 20;
 
 	printargs(argc, argv, env);
+	
+	std::cout << "is_same_class<Base, Derived>() : " << is_same_class<Base, Derived>() << std::endl;
+	std::cout << "is_same_class<Base, Base>()    : " << is_same_class<Base, Base>() << std::endl;
 
 	std::cout << max(a, b) << std::endl;
 	std::cout << max<double>(a, 20.0) << std::endl;
@@ -76,6 +101,8 @@ int main(int argc, char *argv[], char **env) {
 	return 0;
 }
 
+
+
 void printargs(int argc, char *argv[], char **env){
 
 	std::vector<std::string> v(argv, argv+argc);
@@ -86,5 +113,6 @@ void printargs(int argc, char *argv[], char **env){
 	std::set<char> s(str.c_str(), str.c_str() + 10);
 	for ( auto it = s.begin(); it != s.end(); it++)
 		std::cout << *it << std::endl;
-	std::cout << s.at(2) << std::endl;
+
+
 }

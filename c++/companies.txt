@@ -34,6 +34,9 @@ Goldman Sachs
 Morgan Stanely
 Bank of America
 HSBC
+Citi
+Credit Suisse
+Barclays
 Standard Charted
 Worldline
 FIS
@@ -43,11 +46,14 @@ Paytm
 Square
 Tsys
 ACI
-NSE
+NSE IT
 BSE
 Nasdaq
 E&Y
 intuit
+Mu trade
+DE Shaw
+
 
 Microsoft
 Google

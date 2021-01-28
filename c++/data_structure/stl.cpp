@@ -68,8 +68,14 @@
  *
  * ***************************************************** Iterator **********************************************************************
  *
- * Iterators are used to point to the containers in STL.
- * Algorithms in STL don’t work on containers, instead they work on iterators, they manipulate the data pointed by the iterators
+ * Iterators play a critical role in connecting algorithm with containers along with the manipulation of data stored inside the containers.
+ * 
+ * An iterator is similar to pointer can point to elements in an array and can iterate through them using the increment operator (++).
+ *
+ * But, all iterators do not have similar functionality as that of pointers.
+ *
+ * Based upon the functionality they can be classified into five major categories:
+ * 
  *
  * syntax : container_type <parameter_list>::iterator iterator_name
  *
@@ -89,11 +95,11 @@
  *
  * Types of Iterators:
  *
- * 	1. Input Iterators
- * 	2. Output Iterators
- * 	3. Forward Iterator
- * 	4. Bidirectional Iterators
- * 	5. Random-Access Iterators
+ * 	1. Input Iterators ( only be used in a single-pass algorithms, no element is accessed more than once )
+ * 	2. Output Iterators ( only be used in a single-pass algorithms, but not for accessing elements, but for being assigned elements )
+ * 	3. Forward Iterator ( combined of input and output iterators, moves in forward direction and that too one step at a time )
+ * 	4. Bidirectional Iterators ( same as forward iterator but can move both the directions )
+ * 	5. Random-Access Iterators ( powerful iterator, combined all of the above iterator features, provides random access, this is the one whose functionality is similar to pointer )
  *
  * ex : iterator_test()
  *
@@ -453,6 +459,38 @@
  *
  * 	- same as unordered set, except unordered multiset allows duplicate keys
  * 	- unordered_multiset<object_type> unordered_multiset_name
+ *
+ * ******************************************************************************************************************************
+ *
+ * Which one to use ?
+ *
+ * array vs vector
+ * 	array  - fixed size array
+ * 	vector - dynamic size array, will double it's size when ever size = capacity
+ *
+ * vector vs list
+ * 	vector - provides random access operator[]
+ * 	       - much efficient if insert or delete are only in the end
+ * 	       - insert or delete any place other than end, requires costlier reallignment
+ * 	       - memory reallocation and copy the complete vector opeartion required size = capacity
+ * 	list   - doesn't provide's random access
+ * 	       - insert/delete is easy, no reallignment
+ *
+ * vector vs map
+ * queue vs deque
+ * 	queue - we can insert only in one end and remove from other end
+ * 	deque - insert and remove from both the ends .
+ * 	      - Provides random access operator[] like vector
+ * 	      - So using deque , we can model both stack and queue
+ * map vs set
+ * map vs multimap
+ * map vs unordered_map
+ *
+ *
+ *
+ *
+ *
+ *
  *
  *
  * *************************************************************************************************************************************/

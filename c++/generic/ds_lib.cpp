@@ -114,6 +114,15 @@ void hash_table_test()
 
 	hash_table.erase("two");
 	hash_table.traverse();
+
+	// custom class as key required 2 additional functions
+	// 1. std::equal_to<T> collision manage -> required to implement 'operator ==' overload function
+	// 2. std::hash<T>     template specialization for std::hash struct for handle hash for custom class
+	
+	dsa::Hash<Employee, 10> emp_hash_table;
+	emp_hash_table.insert(Employee(1, "siva", 100.00));
+	emp_hash_table.insert(Employee(2, "kanna", 200.00));
+	emp_hash_table.insert(Employee(3, "kannan", 300.00));
 }
 
 int main()

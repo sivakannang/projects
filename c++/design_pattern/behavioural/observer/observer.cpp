@@ -9,7 +9,6 @@
 
 #include <iostream>
 #include <string>
-#include <memory>
 #include <list>
 #include <algorithm>
 
@@ -21,15 +20,15 @@ class IObserver {
 
 class Subject {
 	private:
-		std::list<std::shared_ptr<IObserver>> observers;
+		std::list<IObserver *> observers;
 		void notify_all(const std::string& msg) {
 			for ( auto observer : observers)
 				observer->update(msg);
 		}
 	public:
 		~Subject() { std::cout << __func__ << std::endl; }
-		void attach(std::shared_ptr<IObserver> observer) { observers.push_back(observer); }
-		void detach(std::shared_ptr<IObserver> observer) { observers.remove(observer); }
+		void attach(IObserver& observer) { observers.push_back(&observer); }
+		void detach(IObserver& observer) { observers.remove(&observer); }
 		void set_battery_level(int battery_level)
 		{
 			int BAT_THREASOLD = 30;
@@ -62,21 +61,21 @@ class Audio : public IObserver {
 
 int main()
 {
-	std::unique_ptr<Subject> subject = std::make_unique<Subject>();
-	std::shared_ptr<Display> display = std::make_shared<Display>();
-	std::shared_ptr<Audio> audio     = std::make_shared<Audio>();
+	Subject subject;
+	Display display;
+	Audio audio;
 
-	subject->attach(audio);
-	subject->attach(display);
+	subject.attach(audio);
+	subject.attach(display);
 
-	subject->set_battery_level(50);
-	subject->set_battery_level(40);
-	subject->set_battery_level(30);
-	subject->set_battery_level(20);
+	subject.set_battery_level(50);
+	subject.set_battery_level(40);
+	subject.set_battery_level(30);
+	subject.set_battery_level(20);
 
-	subject->detach(audio);
+	subject.detach(audio);
 
-	subject->set_battery_level(10);
+	subject.set_battery_level(10);
 
 	return 0;
 }

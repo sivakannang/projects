@@ -17,17 +17,13 @@ class Employee
 	public:
 		Employee(long rollno, std::string name, double salary) : rollno(rollno), name(name), salary(salary) {}
 
-		size_t hash(int bucket_size)
-		{
-			size_t hash_idx = 0;
-			char *p = (char *)name.c_str();
-			while( *p )
-				hash_idx += *p++;
-			return hash_idx % bucket_size;
-		}
+		long get_rollno() const { return rollno; }
+		std::string get_name() const { return name; }
+		double get_salary() const { return salary; }
 
-		bool operator < (const Employee &employee) const { return this->rollno < employee.rollno; }
-		bool operator > (const Employee &employee) const { return this->rollno > employee.rollno; }
+		bool operator <  (const Employee &employee) const { return this->rollno < employee.rollno; }
+		bool operator >  (const Employee &employee) const { return this->rollno > employee.rollno; }
+		bool operator == (const Employee &e       ) const { return rollno == e.rollno && name == e.name && salary == e.salary; } 
 
 		friend std::ostream &operator<<( std::ostream &os, const Employee &employee)  {
 			os << "rollno : " << employee.rollno << " , name : " << employee.name << " , salary : " << employee.salary << std::endl;
@@ -47,6 +43,16 @@ class Employee
 			return is;
 		}
 };
+
+namespace std {
+	template<>
+	struct hash<Employee> {
+		size_t operator() (const Employee& emp) const {
+
+			return std::hash<long>()(emp.get_rollno()) ^ std::hash<std::string>()(emp.get_name()) ^ std::hash<double>()(emp.get_salary());
+		}
+	};
+}
 
 namespace dsa
 {
@@ -279,25 +285,20 @@ namespace dsa
 
 	};
 
-	template<typename T, size_t bucket_size = 10>
+	template<typename T, size_t bucketcount = 10>
 	class Hash {
 		private:
-			std::array<std::list<T>, bucket_size> table;
+			std::array<std::list<T>, bucketcount> table;
 
 		public:
-			/*size_t hash(std::string& str ) const {
-				size_t hash_idx = 0;
-				char *p = str.c_str();
-				while( *p )
-					hash_idx += *p++;
-				return hash_idx % bucket_size;
-
-			}*/
-
 			size_t hash(T& data) const {
-				std::hash<T> hash_idx;
-				return hash_idx(data) % bucket_size;
+				//std::hash<T> hash_idx;
+				//return hash_idx(data) % bucketcount;
+				return std::hash<T>()(data) % bucketcount;
 			}
+
+			size_t bucket_count() const { return bucketcount; }
+		        size_t bucket_size(int bucket_idx) const { return table[bucket_idx].size(); }	
 
 			void insert(T t) {
 				int idx = hash(t);
