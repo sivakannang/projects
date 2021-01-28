@@ -224,6 +224,8 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <iterator>
+#include <algorithm>
 
 using namespace std;
 
@@ -235,27 +237,59 @@ void stringStream();
 #define SIZEOF(val) ((char *)(&val+1) - (char *)&val)
 #define DECLARE_TYPE(type) __typeof__(type) newvar
 
-std::vector<std::string> split(const std::string& s, char delimeter ) {
+std::vector<std::string> split_str(const std::string& s, char delimeter ) {
 
 	std::vector<std::string> v;
-	int idx = 0;
-	int eidx = 0;
-	int len = s.length();
+	int idx = 0, pos = 0;
 
-	while ( idx < len ) {
-
-		eidx = s.find(delimeter, idx );
-
-		if ( eidx != std::string::npos ) {
-			if ( idx != eidx ) // if token found in the same idx, just increment the idx and continue 
-				v.push_back ( s.substr(idx, eidx - idx) );
-			idx = eidx + 1;
-		} else {
-			if ( idx < len )
-				v.push_back(s.substr(idx));
-			idx = len;
-		}
+	while ( (pos = s.find(delimeter, idx)) != std::string::npos  ) {
+		if ( pos != idx ) // if token found in the same index, increment pos by 1
+			v.push_back(s.substr(idx, pos-idx));
+		idx = pos + 1;
 	}
+
+	if ( idx < s.length() )
+		v.push_back(s.substr(idx));
+
+	return v;
+}
+
+
+std::vector<std::string> split(const std::string& str, char delimeter)
+{
+	std::string token;
+	std::istringstream iss(str);
+	std::vector<std::string> v;
+
+	while ( std::getline(iss, token, delimeter) )
+		if ( token.length() > 0 )
+			v.push_back(token);
+	return v;
+}
+
+template<typename T>
+std::vector<T> split(const std::string& str)
+{
+	std::istringstream iss(str);
+	//std::istream_iterator<std::string> beg(iss), end;
+	//std::vector<T> vec(beg, end);
+	//return vec;
+	return std::vector<T>( (std::istream_iterator<T>(iss)), std::istream_iterator<T>() );
+}
+
+void test_split() {
+
+	auto vec_str = split<std::string>("this is sample string");
+	std::for_each( vec_str.begin(), vec_str.end(), [](auto& val) { std::cout << val << std::endl; });
+
+	auto vec_int(split<int>("1 2 3   4 5"));
+	std::for_each( vec_int.begin(), vec_int.end(), [](auto& val) { std::cout << val << std::endl; });
+
+	vec_str = split("1,2,3,,,4,5", ',');
+	std::for_each( vec_int.begin(), vec_int.end(), [](auto& val) { std::cout << val << std::endl; });
+	
+	vec_str = split_str("1,2,3,,,4,5", ',');
+	std::for_each( vec_int.begin(), vec_int.end(), [](auto& val) { std::cout << val << std::endl; });
 }
 
 int main()
@@ -275,6 +309,7 @@ int main()
 	cout << &arr << " " << &arr[1] << " " << &arr+1 << endl;
 	cout << &s << " " << &s[1] << " " << &s+1 << endl;
 	printf("\n %u %u %u", &s, &s[1], &s+1);
+	test_split();
 	return 0;
 }
 

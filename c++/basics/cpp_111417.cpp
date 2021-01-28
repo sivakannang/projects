@@ -38,14 +38,21 @@ constexpr int fact(int i);
 constexpr int fibanacci(int n); 
 void generate_random(); 
 
-int test_chrono_library(); 
+void test_chrono_library(); 
 void test_constexpr(int argc);
+
+template<typename T>
+void test_initializer_list(const std::initializer_list<T>& il);
+
+void test_auto_var();
 
 
 int main(int argc, char *args[], char **env) {
 
 	//test_chrono_library();
 	test_constexpr(argc);
+	test_initializer_list({1, 2, 3, 4, 5, 6});
+	test_initializer_list({"one", "two", "three", "four"});
 
 	return 0;
 }
@@ -72,7 +79,7 @@ void generate_random() {
 	std::sort(v.begin(), v.end());
 }
 
-int test_chrono_library() {
+void test_chrono_library() {
 
 
 	std::cout << "generate and sort vector(10000) begins" << std::endl;
@@ -127,6 +134,27 @@ void test_constexpr(int argc) {
 
 }
 
+template<typename T>
+void test_initializer_list(const std::initializer_list<T>& il) {
+
+	std::for_each(il.begin(), il.end(), [](auto &d) {
+			std::cout << d << std::endl;
+			});
+}
 
 
+void test_auto_var() {
+	std::map<int, std::string> map;
+	
+	map.insert({1, "one"});
+	if ( map.insert({1, "one"}).second == false )
+		std::cout << "insertion failed, duplicate not allowed" << std::endl;
+
+	// this capture supports from C++17
+	const auto& [it, status] = map.insert({2, "two");
+	std::cout << "insertion status : " << status << std::endl;
+
+	for ( const auto& [key, val] : map ) 
+		std::cout << key << " -> " << val << std::endl;
+}
 
