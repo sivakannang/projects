@@ -125,6 +125,21 @@ void hash_table_test()
 	emp_hash_table.insert(Employee(3, "kannan", 300.00));
 }
 
+void map_test() {
+	
+	dsa::Map<int, std::string> map;
+
+	map.insert(5, "five");
+	map.insert(1, "one");
+	map.insert(8, "eight");
+	map.insert(3, "three");
+	map.insert(4, "four");
+	map.insert(4, "four");
+
+	map.dfs_in_order();
+
+}
+
 int main()
 {
 	array_test();
@@ -133,5 +148,6 @@ int main()
 	queue_test();
 	list_test();
 	hash_table_test();
+	map_test();
 
 }

@@ -7,6 +7,7 @@
 #include <array>
 #include <list>
 #include <algorithm>
+#include <utility>
 
 class Employee
 {
@@ -144,8 +145,30 @@ namespace dsa
 			}
 	};
 
+	template<typename ...Args>
+	struct Node;
+
+	// Node1 for map
+	template<typename K, typename V>
+	struct Node<K, V> {
+		K key;
+		V value;
+		Node<K, V>* left;
+		Node<K, V>* right;
+		
+		Node(K key, V value, Node<K, V>* left = nullptr, Node<K, V>* right = nullptr) : key(key), value(value), left(left), right(right) {}
+			
+		friend std::ostream& operator << (std::ostream& os, const Node<K, V>* node)
+		{
+			os << node->key << " : " << node->value << std::endl;
+			return os;
+		}
+	};
+
+
+	// Node2 for others . Note - If we swap the place of Node1 and Node2, compiler will throw error 'redeclared with 2 template parameters'
 	template<typename T>
-	struct Node {
+	struct Node<T> {
 		T data;
 		Node<T>* next;    // for queue
 		Node<T>* left;    // for list or bst
@@ -154,6 +177,9 @@ namespace dsa
 		Node(T data, Node<T>* next = nullptr, Node<T>* left = nullptr, Node<T>* right = nullptr) : data(data), next(next), left(left), right(right) {}
 	};
 
+
+	
+	
 	template<typename T>
 	class Queue {
 		private:
@@ -310,6 +336,7 @@ namespace dsa
 				std::list<T>& list = table[idx];
 
 				return list.find(t);
+				//return table[hash(t)].find(t);
 				//return (data != list.end()) ? data : nullptr;
 			}
 
@@ -329,6 +356,70 @@ namespace dsa
 				std::list<T>& list = table[idx];
 				return list.remove(t);
 			}
+	};
+
+
+	template<typename K, typename V>
+	class Map {
+		private:
+			size_t m_size{};
+			Node<K, V>* head {};
+
+
+			void clear(Node<K, V>* node) {
+				if ( node == nullptr )
+					return;
+				clear(node->left);
+				clear(node->right);
+				std::cout << __func__ << " -> " << node;
+				delete node;
+			}
+			
+			void dfs_in_order(Node<K, V>* node) const {
+				if ( node == nullptr )
+					return;
+				dfs_in_order(node->left);
+				std::cout << node;
+				dfs_in_order(node->right);
+			}
+
+		public:
+			Map() = default;
+
+			~Map() { clear(head); }
+
+			size_t size() const { return m_size; }
+			
+			void insert(K key, V value) {
+				
+				if ( head == nullptr ) {
+					head = new Node<K, V>(key, value);
+					return;
+				}
+
+				Node<K, V> *cur = head;
+				Node<K, V> *parent = nullptr;
+				
+				while( cur ) {
+					parent = cur;
+					if ( key < cur->key )
+						cur = cur->left;
+					else if ( key > cur->key )
+						cur = cur->right;
+					else {
+						std::cout << "duplicates are not allowed" << std::endl;
+						return;
+					}
+				}
+
+				if ( key < parent->key )
+					parent->left = new Node<K, V>(key, value);
+				else
+					parent->right = new Node<K, V>(key, value);
+			}
+			void clear() { clear(head); }
+			void dfs_in_order() { dfs_in_order(head); };
+
 	};
 
 }

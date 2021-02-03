@@ -50,7 +50,7 @@ class Logger
 
 		~Logger() = default;
 		Logger(const Logger& logger) = default;
-		Logger& operator = (Logger& logger) = default;
+		Logger& operator = (const Logger& logger) = default;
 		Logger()
 		{
 			ofs.open("log.txt", std::ios::out | std::ios::app );

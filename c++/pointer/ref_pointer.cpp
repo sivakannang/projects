@@ -110,7 +110,8 @@
 *
 * std::shared_ptr<int>      p1 = std::make_shared<int>();
 * std::shared_ptr<Object>   p2 = std::make_shared<Object>("Lamp");
-* std::shared_ptr<Student> student(new Student[3])                      // From C++17
+* std::shared_ptr<Student>   student(new Student[3], [](int *p) { delete [] p; });    // Until C++14
+* std::shared_ptr<Student[]> student(new Student[3])                                  // From C++17
 * 
 * std::shared_ptr<int>  p3(new int[50], [](int *p) { delete[] p;} );    // Until C++17, for shared pointer arrays we can't use int[] ,we should specify int only
 * std::shared_ptr<Student> student(new Student[3], [](Student *s) {delete[] s;});  // Until C++17, shared pointer array calls delete instead of delete[], so need to write custom deletor . Also can't use make_shared() here, as it doesn't support customized deleter here
@@ -122,7 +123,7 @@
 *  But by wrapping A and B into std::make_uniques you are sure the leak will not occur
 *  Prefer using make_unique() or make_shared() , avoid using new()
 *
-* std::unique_ptr() supports operator[] for array versions but std::shared_ptr() doesn't supports operator[]  
+* for access array version ->    student.get()[idx] , for member access student.get()[idx].id
 *
 */
 
