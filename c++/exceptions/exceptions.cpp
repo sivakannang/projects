@@ -6,7 +6,9 @@
 * exception on threads
 * exception inheritance and override
 *
-*
+* C++ catch(std::exception& e ) vs catch(...)
+* throw vs throw "simple exception" , which one will catch this
+* 
 */
 #include <iostream>
 #include <string>

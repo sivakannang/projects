@@ -151,7 +151,7 @@ void test_auto_var() {
 		std::cout << "insertion failed, duplicate not allowed" << std::endl;
 
 	// this capture supports from C++17
-	const auto& [it, status] = map.insert({2, "two");
+	const auto& [it, status] = map.insert({2, "two"});
 	std::cout << "insertion status : " << status << std::endl;
 
 	for ( const auto& [key, val] : map ) 

@@ -16,8 +16,9 @@
  * std::unique_lock, std::lock_guard, or std::scoped_lock (since C++17) manage locking in a more exception-safe manner
  * 
  * std::lock         ->
- * std::lock_guard   -> smart lock
- * std::unique_lock  -> moveable but not copyable
+ * std::lock_guard   -> smart lock. automatically unlocks when scope ends.
+ * std::unique_lock  -> Can defer the lock at initialization time, also can unlock at any time, no need to wait till scope ends for unlock.
+ *                   -> moveable but not copyable . use unique_lock instead of lock_guard
  * std::scoped_lock  ->
  * std::lock_guard<std::mutex> smart_lock(mutex)
  * std::lock_guard<std::recursive_mutex> smart_lock<mutex>
