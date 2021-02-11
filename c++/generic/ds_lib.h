@@ -422,4 +422,122 @@ namespace dsa
 
 	};
 
+
+	class String {
+		
+		private:
+			int m_size;
+			char *m_ptr;
+
+			int strlen(const char* str)
+			{
+				size_t size = 0;
+				char *p = (char *)str;
+				while ( *p++ )
+					++size;
+				return size;
+			}
+
+			char *strcpy(char *dst, const char *src)
+			{
+				char *p = dst;
+				char *s = (char *)src;
+				char *d = dst;
+				while( *d++ = *s++) ;
+				return p;
+			}
+
+			char *strcat(char *dst, const char *src)
+			{
+				char *p = dst;
+				char *s = (char *)src;
+				char *d = dst;
+				while ( *d++ ) ;
+				--d;
+				while ( *d++ = *s++) ;
+				return p;
+			}
+
+		public:
+			size_t size() const { return m_size; }
+			const char* c_str() const { return m_ptr; }
+
+			String() : m_size(1), m_ptr(new char[m_size]) { *m_ptr = '\0'; }
+			~String() { delete [] m_ptr; m_ptr = nullptr; }
+
+			String(const char *str)
+			{
+				m_size = strlen(str) + 1; // +1 for NULL
+				m_ptr = new char[m_size];
+				strcpy(m_ptr, str);
+			}
+
+			String(const String& str)
+			{
+				m_size = str.size();
+				m_ptr = new char[m_size];
+				strcpy(m_ptr, str.c_str());
+			}
+
+			String& operator = (const String& str)
+			{
+				if ( this != &str )
+				{
+					delete [] m_ptr;
+					m_size = str.size();
+					m_ptr = new char[m_size];
+					strcpy(m_ptr, str.c_str());
+				}
+				return *this;
+			}
+
+			String(String&& str)
+			{
+				m_size = str.size();
+				m_ptr = str.m_ptr;
+				str.m_size = 0, str.m_ptr = nullptr;
+			}
+
+			String& operator = (String&& str)
+			{
+				if ( this != &str )
+				{
+					delete [] m_ptr;
+					m_size = str.size();
+					m_ptr = str.m_ptr;
+					str.m_size = 0, str.m_ptr = nullptr;
+				}
+				return *this;
+			}
+
+			String operator + ( const String& str)
+			{
+				String tmp;
+				delete [] tmp.m_ptr;
+
+				tmp.m_size = size() + str.size() -1; // -1 for eliminate 1 null char from two strings
+				tmp.m_ptr = new char[tmp.size()];
+				strcpy(tmp.m_ptr, c_str());
+				strcat(tmp.m_ptr, str.c_str());
+				return tmp;
+			}
+
+			friend std::ostream& operator << (std::ostream& os, const String& str)
+			{
+				os << str.c_str();
+				return os;
+			}
+
+			friend std::istream& operator >> (std::istream& is, String& str)
+			{
+				delete [] str.m_ptr;
+				char buffer[1024]{};
+				is >> buffer;
+				str.m_size = str.strlen((const char *)buffer) + 1; // +1 for NULL
+				str.m_ptr = new char[str.size()];
+				str.strcpy(str.m_ptr, (const char *)buffer);
+				return is;
+			}
+	};
+
 }
