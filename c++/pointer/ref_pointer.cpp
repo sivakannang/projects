@@ -1,30 +1,26 @@
 /*****************************************************************************************************************************************************************
  *
  *
- * malloc vs new
- * delete vs free
- * NULL and nullptr
- * lvalue rvalue xvalue
- * smart pointers
- * overflow in new
- * Singleton with thread safe
- * valgrind
- * https://isocpp.org/wiki/faq/freestore-mgmt
+ * malloc vs new :
+ * 	Both are using allocate memory but new allows to construct the object in the memory created
+ * Can we use free() for release the memory allocated using new ?
+ * 	nope, both may use diffrent mechanism for allocate memory, so do not mix it
+ * NULL and nullptr:
+ * 	NULL is a constant in C, that can be assigned to a pointer because of implicit convertion
+ * 	nullptr is a keyword that can convert into a pointer but not into integer.
+ * 
+ * lvalue rvalue:
+ * 	We can take the address of lvalue, rvalue is temporary object, there we can't take address
+ * 	int i = 5; ( here i is an lvalue and 5 is temporary object that is rvalue )
  *
- * double free/delete ?
- * 2d memory allocation
+ * double delete or free the memory twice ?
+ * 	No effect on a nullptr but if the pointer points an valid address, it will lead to crash
  *
- *
- * References in C++:
- *
- * - References are like constant pointers that are automatically dereferenced. There is no need to use the * to dereference a reference variable.
- * - It is a new name given to an existing storage. So when you are accessing the reference, you are actually accessing that storage.
- *
- *   References								Pointers
-	Reference must be initialized when it is created.	Pointers can be initialized any time.
-	Once initialized, we cannot reinitialize a reference.	Pointers can be reinitialized any number of time.
-	You can never have a NULL reference.			Pointers can be NULL.
-	Reference is automatically dereferenced.		* is used to dereference a pointer
+ * References in C++ :								Pointers
+ * 	Reference must be initialized when it is created.	Pointers can be initialized any time.
+ * 	Once initialized, we cannot reinitialize a reference.	Pointers can be reinitialized any number of time.
+ * 	You can never have a NULL reference.			Pointers can be NULL.
+ * 	Reference is automatically dereferenced.		* is used to dereference a pointer
  *
  *
  *
@@ -44,26 +40,7 @@
 *
 *******************************************************  Memory Management in C++  ********************************************************************
 *
-*
-*   
-*
-*
 *   		Heap <--- Stack <----- Data segment <---- Code Segment
-*
-*
-**************************************************  rvalues, lvalues, xvalues, glvalues, and prvalues *************************************************
-*
-*
-*
-*
-*
-*
-*
-************************************************** NULL and nullptr ***********************************************************************************
-*
-* NULL is a “manifest constant” (a #define of C) that’s actually an integer that can be assigned to a pointer because of an implicit conversion
-* nullptr is a keyword representing a value of self-defined type, that can convert into a pointer, but not into integers
-*
 *
 ************************************************** Smart pointers ***********************************************************************************
 *
@@ -75,7 +52,8 @@
 *             - Several std::shared_ptrs may own the same resource and an internal counter keeps track of them
 * weak_ptr    - like a std::shared_ptr, but it doesn't increment the counter
 *             - It use to avoid the cyclic reference
-* auto_ptr    - deprecated
+* auto_ptr    - deprecated , inefficient to handle arrays(it always calls delete in destructor, so need a custom deleter required for handle arrays for call delete[])
+*             - ownership will be moved simply when passed the value to a function, C++11 introduced unique_ptr, where std::move required to move the ownership.
 *
 * template< class T, class Deleter = std::default_delete<T> > class unique_ptr;
 *
@@ -403,6 +381,11 @@ char **get2dPointer(size_t row, size_t column) {
 	while ( row-- )
 		ptr[row] = new char[column];
 	return ptr;
+
+	// how to access n th value array using base pointer array
+	// *( p +  n )
+	// how to access value of 2d pointer array using base pointer
+	// *(*( p + row ) + col)
 }
 
 void release2dPointer(char **ptr, size_t row) {

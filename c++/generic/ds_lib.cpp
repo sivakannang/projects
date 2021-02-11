@@ -140,6 +140,35 @@ void map_test() {
 
 }
 
+void StringClassTest()
+{
+	dsa::String s1 = "Test string";
+	dsa::String s2 = "Sample String";
+	std::cout << s1 << std::endl;
+	std::cout << s2 << std::endl;
+	
+	dsa::String s3 = s2;
+	std::cout << s3 << std::endl;
+	
+	dsa::String s4 = s1 + s2;
+	std::cout << s4 << std::endl;
+	
+	s1 = s2;
+	
+	dsa::String s5 = std::move( dsa::String("sivakannan"));
+	std::cout << s5 << std::endl;
+	
+	s5 = std::move(dsa::String("Kavikuyil"));
+	dsa::String s6 = dsa::String("...........Siva"); // compiler optimize it only argument constructor called, non other construct calls here
+	
+	std::cout << s1 << std::endl;
+	std::cout << s2 << std::endl;
+	std::cout << s3 << std::endl;
+	std::cout << s4 << std::endl;
+	std::cout << s5 << std::endl;
+	std::cout << s6 << std::endl;
+}
+
 int main()
 {
 	array_test();
@@ -149,5 +178,6 @@ int main()
 	list_test();
 	hash_table_test();
 	map_test();
+	StringClassTest();
 
 }

@@ -121,7 +121,6 @@
  * 	* The address of the virtual Function is placed in the VTABLE and the compiler uses VPTR(vpointer) to point to the Virtual Function.
  *
  *
- *
  * Pure Virtual Function:
  *
  * 	- virtual functions with no definition, they start with virtual keyword and ends with = 0. Here is the syntax for a pure virtual function,
@@ -168,6 +167,26 @@
  *
  * 	note : Constructors are never Virtual, only Destructors can be Virtual.
  *
+ *
+ * Ques : We have a base class with a virtual function and a derived class which inherited it, so if we create 5 objetcs, how many vptr and vtable will be created ?
+ *
+ * Ans  : 5 vptr and 2 vtable ( Every class will have a vtable and every instance will have a vptr )
+ *
+ * Ques: What will be output ( assume it is 64 bit machine ) ?
+ *
+ * struct A {
+ *	int data[2] {10, 20};
+ *	virtual void f() {}
+ * }
+ * int main() {
+ *	A a;
+ *	int *arr = (int *)&a;
+ *	std::cout << arr[2] << std::endl; 
+ * }
+ *
+ * Ans : 10
+ * 	As it having virtual function, compiler will insert a vptr as a hidden/first member. As it is 64 machine , pointer size will be 8 bytes.
+ * 	So class size will be 16 bytes, so integer arr[2]  will point base address + 8 , which is data[0] , which is 10
  *
  *
  * *************************************************************************************************************************************************/
