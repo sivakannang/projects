@@ -102,17 +102,20 @@
  *
  * When a reference to a local object is returned, the returned reference can be used to chain function calls on a single object.
  *
+ *   int z = 10;
+ *
  *   Class Test {
 
 	 private:
-		 int x, y;
+		 int x, y, z = 20;
 	 public:
 		 Test(int i = 0, int j = 0) { this->x = i, this->y = j ;  }
 		 Test setX ( int a )        { x = a; return *this ; }
 		 Test setY ( int b )        { y = b; return *this ; }
-		 Test& setXp ( int a )        { x = a; return *this ; }
-		 Test& setYp ( int b )        { y = b; return *this ; }
+		 Test& setXp ( int a )      { x = a; return *this ; }
+		 Test& setYp ( int b )      { y = b; return *this ; }
 		 void print ( )             { cout << " x = " << x << " , y = " << y << endl; }
+		 void print_scope(int z)    { std::cout << z << " : " << this->z << " : " << ::z << std::endl;}
      }
 
      int main() {
@@ -124,6 +127,7 @@
 	     Test tst;
 	     tst.setXp(10).setYp(20);
 	     tst.print();  // prints 10, 20
+	     tst.print_scope(30);  // prints 30 : 20 : 10 
      }
 
  *  -------------------------------------------------------------------------------------------------------------------------------------
@@ -212,10 +216,9 @@
 
  *  
  *
- * mutable with const objects:
+ * mutable with const objects:  [ static, const and reference member's can't be declared as mutable, compiler will throw error ]
  *   mutable keyword is used with member variables of class, which we want to change even if the object is of const type.
  *   mutable is particularly useful if most of the members should be constant but a few need to be updateable.
- *   cannot use the mutable specifier with names declared as static or const, or reference
  *
  *   Consider this example where use of mutable can be useful.
  *   Suppose you go to hotel and you give the order to waiter to bring some food dish.

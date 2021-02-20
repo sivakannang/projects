@@ -106,13 +106,13 @@ void Tree::post_order(Node *node) {
 	std::cout << node->data << " ";
 }
 
-void level_order(Node *node) {
+void level_order(Node *root) {
     
-	if ( node == nullptr )
+	if ( root == nullptr )
 		return;
 	
 	std::queue<Node *> q;
-	q.push(node);
+	q.push(root);
 
     while ( !q.empty() ) {
 		
