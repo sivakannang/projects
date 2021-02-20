@@ -12,70 +12,58 @@
 #include <list>
 #include <algorithm>
 
+// Observer interface
 class IObserver {
 	public:
-		virtual void update(const std::string &msg) = 0;
-		virtual ~IObserver() { std::cout << __func__ << std::endl; }
+		virtual void update(const int battery_level) = 0;
+		virtual ~IObserver() = default;
 };
 
-class Subject {
+// Observable Subject
+class Battery {
 	private:
+		int m_battery_level;
 		std::list<IObserver *> observers;
-		void notify_all(const std::string& msg) {
+		void notify_all() {
 			for ( auto observer : observers)
-				observer->update(msg);
+				observer->update(m_battery_level);
 		}
 	public:
-		~Subject() { std::cout << __func__ << std::endl; }
 		void attach(IObserver& observer) { observers.push_back(&observer); }
 		void detach(IObserver& observer) { observers.remove(&observer); }
-		void set_battery_level(int battery_level)
-		{
-			int BAT_THREASOLD = 30;
-			std::cout << "Current battery level : " << battery_level << std::endl;
-			if ( battery_level < BAT_THREASOLD )
-			{
-				std::string msg = "LOW POWER : " + std::to_string(battery_level);
-				notify_all(msg);
-			}
+
+		void set_battery_level(int battery_level) {
+			m_battery_level = battery_level;
+			notify_all();
 		}
 };
 
+// List of observers
 class Display : public IObserver {
-	private:
-		std::string cls;
 	public:
-		Display() { cls = __func__; }
-		~Display() { std::cout << cls << "::" << __func__ << std::endl; }
-		void update(const std::string& msg) override { std::cout << cls << "::" << __func__ << " -> " << msg << std::endl; }
+		void update(const int battery_level) override { std::cout << "Display::update() received event -> " << battery_level << std::endl; }
 };
 
-class Audio : public IObserver {
-	private:
-		std::string cls;
+class Printer : public IObserver {
 	public:
-		Audio() { cls = __func__; }
-		~Audio() { std::cout << cls << "::" << __func__ << std::endl; }
-		void update(const std::string& msg) override { std::cout << cls << "::" << __func__ << " -> " << msg << std::endl; }
+		void update(const int battery_level) override { std::cout << "Printer::update() received event -> " << battery_level << std::endl; }
 };
 
 int main()
 {
-	Subject subject;
+	Battery battery;
 	Display display;
-	Audio audio;
+	Printer printer;
 
-	subject.attach(audio);
-	subject.attach(display);
+	battery.attach(display);
+	battery.attach(printer);
 
-	subject.set_battery_level(50);
-	subject.set_battery_level(40);
-	subject.set_battery_level(30);
-	subject.set_battery_level(20);
+	battery.set_battery_level(30);
+	battery.set_battery_level(20);
 
-	subject.detach(audio);
+	battery.detach(printer);
 
-	subject.set_battery_level(10);
+	battery.set_battery_level(10);
 
 	return 0;
 }

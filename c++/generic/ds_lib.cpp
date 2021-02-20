@@ -9,6 +9,8 @@
 
 void array_test()
 {
+	std::cout << "<<---------- " << __func__ << "---------->>" << std::endl;
+	
 	dsa::Array<int, 4> arr;
 	arr[0] = 0, arr[1] = 1, arr[2] = 2, arr[3] = 3;
 
@@ -28,6 +30,8 @@ void array_test()
 void vector_test()
 {
 
+	std::cout << "<<---------- " << __func__ << "---------->>" << std::endl;
+	
 	dsa::Vector<std::string> v;
 
 	v.push_back("zero");
@@ -46,6 +50,8 @@ void vector_test()
 
 void stack_test()
 {
+	std::cout << "<<---------- " << __func__ << "---------->>" << std::endl;
+	
 	dsa::Stack<std::string> stack;
 
 	stack.push("zero");
@@ -63,23 +69,30 @@ void stack_test()
 
 void queue_test()
 {
+	std::cout << "<<---------- " << __func__ << "---------->>" << std::endl;
+	
 	dsa::Queue<std::string> queue;
 
 	queue.push("zero");
 	queue.push("one");
 	queue.push("two");
 
-	std::cout << queue.top() << std::endl;
+	std::cout << queue.front() << std::endl;
+	std::cout << queue.back() << std::endl;
 	
 	queue.pop();
-	std::cout << queue.top() << std::endl;
+	std::cout << queue.front() << std::endl;
+	std::cout << queue.back() << std::endl;
 
 	queue.push("three");
-	std::cout << queue.top() << std::endl;
+	std::cout << queue.front() << std::endl;
+	std::cout << queue.back() << std::endl;
 }
 
 void list_test()
 {
+	std::cout << "<<---------- " << __func__ << "---------->>" << std::endl;
+	
 	dsa::List<std::string> list;
 
 	list.push_back("zero");
@@ -95,6 +108,8 @@ void list_test()
 
 void hash_table_test()
 {
+	std::cout << "<<---------- " << __func__ << "---------->>" << std::endl;
+	
 	dsa::Hash<std::string, 10> hash_table;
 	
 	hash_table.insert("zero");
@@ -115,6 +130,8 @@ void hash_table_test()
 	hash_table.erase("two");
 	hash_table.traverse();
 
+	std::cout << hash_table.find("five") << std::endl;
+
 	// custom class as key required 2 additional functions
 	// 1. std::equal_to<T> collision manage -> required to implement 'operator ==' overload function
 	// 2. std::hash<T>     template specialization for std::hash struct for handle hash for custom class
@@ -125,7 +142,35 @@ void hash_table_test()
 	emp_hash_table.insert(Employee(3, "kannan", 300.00));
 }
 
+void unordered_map_test() {
+	
+	std::cout << "<<---------- " << __func__ << "---------->>" << std::endl;
+	
+	dsa::Unordered_map<int, std::string> unordered_map;
+
+	unordered_map.insert(5, "five");
+	unordered_map.insert(1, "one");
+	unordered_map.insert(8, "eight");
+	unordered_map.insert(3, "three");
+	unordered_map.insert(4, "four");
+	unordered_map.insert(4, "four");
+	unordered_map.insert(11, "eleven");
+	unordered_map.insert(12, "tweleve");
+	unordered_map.insert(13, "thirteen");
+	unordered_map.insert(14, "fourteen");
+	unordered_map.insert(15, "fifteen");
+	unordered_map.insert(16, "sixteen");
+
+	unordered_map.traverse();
+	std::cout << unordered_map.find(16) << std::endl;
+	unordered_map.erase(16);
+	unordered_map.traverse();
+
+}
+
 void map_test() {
+	
+	std::cout << "<<---------- " << __func__ << "---------->>" << std::endl;
 	
 	dsa::Map<int, std::string> map;
 
@@ -140,8 +185,10 @@ void map_test() {
 
 }
 
-void StringClassTest()
+void string_test()
 {
+	std::cout << "<<---------- " << __func__ << "---------->>" << std::endl;
+	
 	dsa::String s1 = "Test string";
 	dsa::String s2 = "Sample String";
 	std::cout << s1 << std::endl;
@@ -178,6 +225,7 @@ int main()
 	list_test();
 	hash_table_test();
 	map_test();
-	StringClassTest();
+	string_test();
+	unordered_map_test();
 
 }

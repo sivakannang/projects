@@ -110,10 +110,100 @@
 #include <exception>
 
 
+template<typename T>
+T **allocate_2d(size_t row, size_t column) {
+
+	T **ptr = new T*[row];
+	while ( row-- )
+		ptr[row] = new T[column];
+	return ptr;
 
 
-char **get2dPointer(size_t row, size_t column);
-void release2dPointer(char **ptr, size_t row);
+}
+
+template<typename T>
+void release_2d(T **ptr, size_t row) {
+	
+	while(row--)
+		delete [] ptr[row];
+	delete [] ptr;
+}
+
+template<typename T>
+int ***allocate_3d(size_t l1, size_t l2, size_t l3)
+{
+	T ***ptr = new T**[l1];
+
+	for ( int i =0; i < l1; ++i) {
+		ptr[i] = new T*[l2];
+		for ( int j = 0; j < l2; ++j )
+			ptr[i][j] = new T[l3];
+	}
+	return ptr;
+}
+
+template<typename T>
+void release_3d(T ***ptr, size_t l1, size_t l2)
+{
+	for ( int i = 0; i < l1; ++i)
+	{
+		for ( int j = 0; j < l2; ++j) {
+			delete[] ptr[i][j];
+			ptr[i][j] = nullptr;
+		}
+		delete[] ptr[i];
+		ptr[i] = nullptr;
+	}
+	delete[] ptr;
+	ptr = nullptr;
+}
+
+void fill_3d(int ***ptr, int l1, int l2, int l3)
+{
+    int count = 0;
+    for ( int i = 0; i < l1; ++i)
+        for ( int j = 0; j < l2; ++j)
+            for ( int k = 0; k < l3; ++k)
+                ptr[i][j][k] = ++count;
+}
+
+template<typename T>
+void display_3d(T ***ptr, int l1, int l2, int l3)
+{
+    for ( int i = 0; i < l1; ++i) {
+        for ( int j = 0; j < l2; ++j) {
+            for ( int k = 0; k < l3; ++k)
+                std::cout << ptr[i][j][k] << " ";
+            std::cout << std::endl;
+        }
+        std::cout << std::endl << std::endl;
+    }
+    
+}
+
+void fill_2d(int **ptr, int row, int col)
+{
+    int count = 0;
+    for ( int i = 0; i < row; ++i)
+        for ( int j = 0; j < col; ++j)
+            ptr[i][j] = ++count;
+}
+
+// how to access i th position value of array using only base pointer             ->  *( p +  i )
+// how to access value of 2d pointer array using base pointer                     ->  *(*( p + i ) + j )
+// how to access value of 3d pointer array without using operator[]               ->  *(*(*( p + i ) + j ) + k )
+
+
+template<typename T>
+void display_2d(T **ptr, int row, int col)
+{
+    for ( int i = 0; i < row; ++i) {
+        for ( int j = 0; j < col; ++j)
+            std::cout << ptr[i][j] << " ";
+            // std::cout << *(*(ptr + i) + j) << " "; // this is without using operator []
+        std::cout << std::endl;
+    }
+}
 
 class Square {
 	private:
@@ -181,6 +271,8 @@ class Unique_ptr {
 		}
 };
 
+
+// https://medium.com/analytics-vidhya/c-shared-ptr-and-how-to-write-your-own-d0d385c118ad  - rewrite using this, below one is wrong
 template<typename T, typename Deleter = custom_deleter<T>>
 class Shared_ptr {
 	private:
@@ -255,62 +347,6 @@ class Shared_ptr {
 }
 
 
-// https://medium.com/analytics-vidhya/c-shared-ptr-and-how-to-write-your-own-d0d385c118ad  - rewrite using this, below one is wrong
-namespace my {
-template <typename T>
-class shared_ptr {
-
-	private:
-		T *ptr;
-		int refCount;
-
-	public:
-
-		shared_ptr(T *p = nullptr ) : ptr(p), refCount(0) {
-			std::cout << "my::shared_ptr -> Constructor invoked, refCount = " << ++refCount << std::endl;
-		}
-
-		shared_ptr( const shared_ptr& sp)  {
-			ptr = sp.ptr;
-			refCount = sp.refCount + 1;
-			std::cout << "my::shared_ptr -> Copy Constructor invoked, refCount = " << ++refCount << std::endl;
-		}
-
-		shared_ptr& operator= (const shared_ptr& sp) {
-			ptr = sp.ptr;
-			refCount = sp.refCount + 1;
-			std::cout << "my::shared_ptr -> Copy Assignment invoked, refCount = " << ++refCount << std::endl;
-		}
-
-		~shared_ptr() {
-			--refCount;
-			std::cout << "my::shared_ptr -> Destructor invoked, refCount = " << refCount << std::endl;
-			if ( refCount == 0) {
-				delete ptr;
-				std::cout << "my::shared_ptr -> Resource released, refCount = " << refCount << std::endl;
-			}
-		}
-
-		T& operator *()  { std::cout << "my::shared_ptr -> Dereference invoked" << std::endl; return *ptr; }
-		T* operator ->() { std::cout << "my::shared_ptr -> Get address invoked" << std::endl;return ptr; }
-		int use_count() const { return refCount; }
-		T *get() const { return ptr; }
-		void reset( T *p = nullptr) {
-			if ( refCount > 0 ) {
-				delete ptr;
-				refCount = 0;
-			}
-
-			if ( p ) {
-				ptr = p;
-				refCount = 1;
-			}
-		}
-
-
-};
-}
-
 class Student {		// A class which always create instance in heap
 
 	private:
@@ -362,8 +398,8 @@ int main() {
 	employee.print();
 	//Employee *emp = new Employee(6, "six");  -> compilation error
 	
-	char **ptr = get2dPointer(20, 100);
-	release2dPointer(ptr, 20);
+	char **ptr = allocate_2d<char>(20, 100);
+	release_2d<char>(ptr, 20);
 
 	my::shared_ptr<Square> sPtr(new Square(4));
 	std::cout << "Square area(4) = " << sPtr->area() << std::endl;
@@ -372,27 +408,4 @@ int main() {
 
 	return 0;
 }
-
-
-
-char **get2dPointer(size_t row, size_t column) {
-
-	char **ptr = new char*[row];
-	while ( row-- )
-		ptr[row] = new char[column];
-	return ptr;
-
-	// how to access n th value array using base pointer array
-	// *( p +  n )
-	// how to access value of 2d pointer array using base pointer
-	// *(*( p + row ) + col)
-}
-
-void release2dPointer(char **ptr, size_t row) {
-	
-	while(row--)
-		delete [] ptr[row];
-	delete [] ptr;
-}
-
 

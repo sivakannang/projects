@@ -505,19 +505,39 @@
 #include <algorithm>
 #include <map>
 #include <list>
+#include <set>
 
 using namespace std;
 
 void pair_tuble_test();
 void array_test();
-void print_array(auto &arr);
 void iterator_test();
 void vector_test();
 void map_test();
 void list_test();
 
+template<typename T>
+void print_array(T& arr){
+	for ( auto &e : arr )
+		std::cout << e << " ";
+	std::cout << std::endl;
+}
 
-int main(){
+void args_test(int argc, char *argv[], char **env) {
+
+	int idx = 0;
+	while ( idx < argc )
+		std::cout << argv[idx++] << std::endl;
+	
+	while ( *env )
+		std::cout << *env++ << std::endl;
+
+	std::set<std::string> m_set(argv, argv+argc);
+	for ( auto& str : m_set)
+		std::cout << str << std::endl;
+
+}
+int main(int argc, char *argv[], char **env){
 
 	//pair_tuble_test();
 	//array_test();
@@ -525,6 +545,7 @@ int main(){
 	//vector_test();
 	//map_test();
 	list_test();
+	args_test(argc, argv, env);
 
 	return 0;
 }
@@ -619,11 +640,6 @@ void array_test() {
 
 }
 
-void print_array(auto &arr){
-	for ( auto &e : arr )
-		std::cout << e << " ";
-	std::cout << std::endl;
-}
 
 /*template<class Container>
 void print(const Container &container){

@@ -170,7 +170,7 @@
  *
  * Ques : We have a base class with a virtual function and a derived class which inherited it, so if we create 5 objetcs, how many vptr and vtable will be created ?
  *
- * Ans  : 5 vptr and 2 vtable ( Every class will have a vtable and every instance will have a vptr )
+ * Ans  : 5 vptr and 2 vtable ( one vtable per class and one vptr per object/instance )
  *
  * Ques: What will be output ( assume it is 64 bit machine ) ?
  *

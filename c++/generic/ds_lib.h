@@ -45,6 +45,7 @@ class Employee
 		}
 };
 
+// template specialization
 namespace std {
 	template<>
 	struct hash<Employee> {
@@ -105,7 +106,6 @@ namespace dsa
 			{
 				if ( size_ == capacity_ )
 				{
-					int idx = 0;
 					capacity_ = capacity_ * 2;
 					T *tmp = new T[ capacity_ ];
 					for ( int idx = 0; idx < size_; idx++ )
@@ -157,6 +157,10 @@ namespace dsa
 		Node<K, V>* right;
 		
 		Node(K key, V value, Node<K, V>* left = nullptr, Node<K, V>* right = nullptr) : key(key), value(value), left(left), right(right) {}
+
+		bool operator == (const Node<K, V>& node) {
+			return key == node.key && value == node.value;
+		}
 			
 		friend std::ostream& operator << (std::ostream& os, const Node<K, V>* node)
 		{
@@ -217,10 +221,16 @@ namespace dsa
 				++size_;
 			}
 
-			T top() const {
+			T front() const {
 				if ( empty() )
 					throw std::underflow_error("underflow_error");
 				return front_node->data;
+			}
+
+			T back() const {
+				if ( empty() )
+					throw std::underflow_error("underflow_error");
+				return rear_node->data;
 			}
 
 			void pop() {
@@ -332,29 +342,70 @@ namespace dsa
 			}
 
 			T find(T t) const {
-				int idx = hash(t);
-				std::list<T>& list = table[idx];
-
-				return list.find(t);
-				//return table[hash(t)].find(t);
-				//return (data != list.end()) ? data : nullptr;
+				auto& list = table[ std::hash<T>()(t) % bucketcount ];
+				auto it = std::find(list.begin(), list.end(), t);
+				if ( it != list.end())
+					return *it;
+				return nullptr;
 			}
 
 			void traverse() const {
 				int idx = 0;
 				std::for_each(table.begin(), table.end(), [&idx](std::list<T> list) {
-					std::cout << idx++ << " <<--->> ";
+					std::cout << idx++ << " : ";
 					for ( T& t : list ) {
-						std::cout << t << " --> "; 
+						std::cout << t << " -> "; 
 					}
 					std::cout << std::endl;
 				} );
 			}
 
 			void erase(T t) {
-				int idx = hash(t);
-				std::list<T>& list = table[idx];
-				return list.remove(t);
+				table[ std::hash<T>()(t) % bucketcount ].remove(t);
+			}
+	};
+
+	template<typename K, typename V, size_t bucketcount = 10>
+	class Unordered_map {
+		private:
+			std::array<std::list<Node<K, V>>, bucketcount> table;
+		public:
+			size_t bucket_count() const { return bucketcount; }
+		        size_t bucket_size(int bucket_idx) const { return table[bucket_idx].size(); }
+
+			void insert(K key, V value) {
+				int idx = std::hash<K>()(key) % bucketcount ;
+				table[idx].push_back(Node<K, V>(key, value));
+			}
+
+			V find(K key) const {
+				int idx = std::hash<K>()(key) % bucketcount;
+				for ( auto& node : table[idx] ) {
+					if ( node.key == key )
+						return node.value;
+				}
+				return nullptr;
+			}
+
+			bool erase(K key) {
+				auto& list = table[ std::hash<K>()(key) % bucketcount ];
+				for ( auto& node : list ) {
+					if ( node.key == key ) {
+						list.remove(node);
+						return true;
+					}
+				}
+				return false;
+			}
+
+			void traverse() const {
+				int idx = 0;
+				for ( auto& list : table ) {
+					std::cout << idx++ << " : ";
+					for ( auto& node : list )
+						std::cout << "< " << node.key << " , " << node.value << " > ";
+					std::cout << std::endl;
+				}
 			}
 	};
 
