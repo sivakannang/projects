@@ -216,6 +216,31 @@ void string_test()
 	std::cout << s6 << std::endl;
 }
 
+void graph_test() {
+
+	{	
+		using namespace dsa::directed_graph;
+
+		std::vector<Edge<int>> edges = { { 0, 1 }, { 1, 2 }, { 2, 0 }, { 2, 1 }, { 3, 2 }, { 4, 5 }, { 5, 4 } };
+
+		Graph<int> graph(edges, 6);
+		graph.print();
+	}
+
+	{
+		using namespace dsa::directed_graph_weight;
+
+		std::vector<Edge> edges = {
+			 // `(x, y, w)` —> edge from `x` to `y` having weight `w`
+			 { 0, 1, 6 }, { 1, 2, 7 }, { 2, 0, 5 }, { 2, 1, 4 },
+			 { 3, 2, 10 }, { 5, 4, 1 }, { 4, 5, 3 }
+		};
+		
+		Graph graph(edges, 6);
+		graph.print();
+	}
+}
+
 int main()
 {
 	array_test();
@@ -227,5 +252,6 @@ int main()
 	map_test();
 	string_test();
 	unordered_map_test();
+	graph_test();
 
 }
