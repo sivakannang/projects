@@ -591,4 +591,72 @@ namespace dsa
 			}
 	};
 
+	namespace directed_graph {
+
+	template<typename T>
+	struct Edge {
+		T src;
+		T dst;
+	};
+
+	// Directed Graph
+	template<typename T>
+	class Graph {
+		private:
+			std::vector<std::vector<T>> vec;
+			int node_count;
+		public:
+			Graph(std::vector<Edge<T>> edges, int N ) : node_count(N) {
+				vec.resize(node_count);
+				for ( auto& edge : edges ) {
+					vec[edge.src].push_back(edge.dst);
+					// Uncomment the following code for undirected graph
+					//vec[edge.dst].push_back(edge.src);
+				}
+			}
+
+			void print() {
+				for ( int i = 0; i < node_count; ++i ) {
+					std::cout << i << " --> ";
+					for ( auto& t : vec[i] )
+						std::cout << t << " ";
+					std::cout << std::endl;
+				}
+			}
+	};
+	}
+
+
+	namespace directed_graph_weight {
+		
+		struct Edge {
+			int src;
+			int dst;
+			int weight;
+		};
+
+		class Graph {
+			private:
+				std::vector<std::vector<std::pair<int, int>>> vec;
+				int node_count;
+			public:
+				Graph(const std::vector<Edge>& edges, int N) : node_count(N) {
+					vec.resize(node_count);
+					for ( auto& edge : edges ) {
+						vec[edge.src].push_back({edge.dst, edge.weight});
+						// uncomment the following line for undirected graph
+						// vec[edge.dst].push_back( {edge.src, edge.weight} );
+					}
+				}
+
+				void print() {
+					for ( int i = 0; i < node_count; ++i ) {
+						for ( auto& pair : vec[i] )
+							std::cout << "( " << i << " " << pair.first << " " << pair.second << " ) ";
+						std::cout << std::endl;
+					}
+				}
+		};
+	}
+
 }
