@@ -17,13 +17,14 @@ EMPLOYEE *head;
 
 NODE *delete_bykey(int key, NODE *head);
 
-// 1. Remove duplicates from a sorted linked list
-// 2. Remove duplicates from a unsorted linked list
-// 3. Sort a linked list // Merge
+// 1. Sort a Linked list
+// 2. Remove duplicates from a sorted linked list
+// 3. Remove duplicates from a unsorted linked list
 // 4. Reverse a Linked List
-// 5. Find/Detect loop is in linked list
-// 6. Copy a linked list
-// 7 . Middle of Linked List
+// 5. Pair wise swap
+// 6. Find/Detect loop is in linked list
+// 7. Detect and Remove loop from a list
+// 8. Middle of Linked List
 
 int main()
 {
@@ -40,8 +41,8 @@ int main()
 		printf("\n02:Delete Front");
 		printf("\n03:Insert Rear");
 		printf("\n04:Delete Rear");
-		printf("\n05:Display");
-		printf("\n06:Length");
+		printf("\n05:Display List");
+		printf("\n06:List Size");
 		printf("\n07:Search");
 		printf("\n08:Sort");
 		printf("\n09:Reverse");
@@ -74,11 +75,11 @@ int main()
 				head = delete_rear(head);
 				break;
 
-			case DISPLAY:
+			case LIST:
 				displayList(head);
 				break;
 
-			case GET_COUNT:
+			case LIST_SIZE:
 				printf("\nList length : %d", length(head));
 				break;
 
@@ -137,14 +138,15 @@ int main()
 }
 
 
-EMPLOYEE *insert_front(EMPLOYEE employee, EMPLOYEE *head)
+NODE *insert_front(NODE node, NODE *head)
 {
-	EMPLOYEE *temp = (EMPLOYEE *)malloc(sizeof(EMPLOYEE));
+	NODE *tmp = (NODE *)malloc(sizeof(NODE));
 
-	*temp = employee;
-	temp->next = head;
+	*tmp = node;
 
-	return temp;
+	tmp->next = head;
+
+	return tmp;
 }
 
 void display(NODE first)
@@ -152,51 +154,45 @@ void display(NODE first)
 	
 }
 
-EMPLOYEE *delete_front(EMPLOYEE *head)
+NODE *delete_front(NODE *head)
 {
-	EMPLOYEE *temp;
-
-	if ( head == NULL){
+	if ( head == NULL)
+	{
 		printf("\nList is Empty, cannot delete\n");
 		return head;
 	}
 
-	temp = head;          // Retain address of the first node to be deleted
-	temp = temp->next;    // Obtain address of the second node
-	
-	FREE(head);           // Delete the first node
+	NODE *tmp = head;
 
-	return temp;          // Return the address of the first node
+	head = head->next;
+	
+	FREE(tmp);
+
+	return head;
 }
 
-EMPLOYEE *insert_rear(EMPLOYEE employee, EMPLOYEE *head)
+NODE *insert_rear(NODE node, NODE *head)
 {
 	
-	EMPLOYEE *temp;  // Points to newly created node
-	EMPLOYEE *cur;   // To hold the address of the last node
-	
-	
 	/* Obtain the new node and copy the item */
-	temp = (EMPLOYEE *)malloc(sizeof(EMPLOYEE));
-	*temp = employee;
-	temp->next = NULL;
+	NODE *tmp = (NODE *)malloc(sizeof(NODE));
+	*tmp = node;
+	tmp->next = NULL;
 
 	/* If list is empty return new node as the first node */
-	if ( head == NULL) return temp;
+	if ( head == NULL) return tmp;
 
 	/* If list exists obtain the address of the last node*/
-	cur = head;
+	NODE *cur = head;
 	while ( cur->next != NULL) cur = cur->next;
 
-	cur->next = temp;
+	cur->next = tmp;
 
 	return head; 
 }
 
-EMPLOYEE *delete_rear(EMPLOYEE *head)
+NODE *delete_rear(NODE *head)
 {
-	EMPLOYEE *cur, *prev;
-
 	/* Check for empty list */
 	if ( head == NULL){
 		printf("\nList is empty, cannot be delete\n");
@@ -211,8 +207,8 @@ EMPLOYEE *delete_rear(EMPLOYEE *head)
 
 
 	/* Obtain address of the last node and just just previous to that */
-	prev = NULL;
-	cur = head;
+	NODE *prev = NULL;
+	NODE *cur  = head;
 	while ( cur->next != NULL){
 		prev = cur;
 		cur = cur->next;
@@ -263,14 +259,13 @@ NODE *delete_bykey(int key, NODE *head)
 
 }
 
-int length(EMPLOYEE *head)
+int length(NODE *head)
 {
-	EMPLOYEE *cur;
 	int count = 0;
 
 	if ( head == NULL) return 0;
 
-	cur = head;
+	NODE *cur = head;
 	while ( cur != NULL ){
 		count++;
 		cur = cur->next;
@@ -279,13 +274,11 @@ int length(EMPLOYEE *head)
 	return count;
 }
 
-EMPLOYEE *search(EMPLOYEE *head, int key)
+NODE *search(NODE *head, int key)
 {
-	EMPLOYEE *emp;
-
 	if (head == NULL) return NULL;
 
-	emp = head;
+	NODE *emp = head;
 
 	while(emp != NULL){
 		if ( emp->id == key )  return emp;
@@ -299,13 +292,11 @@ EMPLOYEE *search(EMPLOYEE *head, int key)
 
 EMPLOYEE *concat(EMPLOYEE *first, EMPLOYEE *second)
 {
-	EMPLOYEE *cur;
-
 	if ( first == NULL )  return second;
 
 	if ( second == NULL ) return first;
 
-	cur = first;
+	NODE *cur = first;
 	while( cur->next != NULL)
 		cur = cur->next;
 
@@ -314,25 +305,43 @@ EMPLOYEE *concat(EMPLOYEE *first, EMPLOYEE *second)
 	return first;
 }
 
-EMPLOYEE *reverse(EMPLOYEE *head)
+// https://www.geeksforgeeks.org/reverse-a-linked-list/
+NODE *reverse(NODE *head)
 {
 	
-	EMPLOYEE *cur = head, *prev = NULL, *next = NULL;
+	NODE *cur = head, *prev = NULL, *nxt = NULL;
 
-	while ( cur != NULL )
+	if ( head == NULL || head->next == NULL )
+		return head;
+
+	while ( cur->next != NULL )
 	{
-		next = cur->next;     // Obtain the address of the second node of list to be reversed
-		cur->next = prev;     // Attach first node of the list to be reversed, at the beginning of the partially reversed list
-		prev = cur;           // Point cur to point to newly partially reversed list
-		cur = next;           // Point first to point to the list to be reversed
+		nxt = cur->next;     // Obtain the address of the second node of list to be reversed
+		cur->next = prev;    // Attach first node of the list to be reversed, at the beginning of the partially reversed list
+		prev = cur;          // Point cur to point to newly partially reversed list
+		cur = nxt;           // Point first to point to the list to be reversed
 	}
 
-	return prev;                    // Contains address of the reversed list 
-
+	cur->next = prev;
+	return cur;                    // Contains address of the reversed list 
 	
 }
 
+bool has_cycle(NODE *head)
+{
+	NODE *slow = head;
+	NODE *fast = head;
 
+	while ( slow && fast && fast->next )
+	{
+		slow = slow->next;
+		fast = fast->next->next;
+
+		if ( slow == fast )
+			return true;
+	}
+	return false;
+}
 
 /*NODE *clone(NODE *head)
 {
@@ -418,28 +427,35 @@ NODE *removeDuplicateUnSorted(NODE *head)
 	return head;
 }
 
-EMPLOYEE *pair_wise_swap(EMPLOYEE *head)
+NODE *pair_wise_swap(NODE *head)
 {
-	EMPLOYEE *first = head;
-	EMPLOYEE *second = NULL;
-	EMPLOYEE *prev   = NULL;
-
 	if ( head == NULL || head->next == NULL)
 		return head;
 
+	NODE *prev = head;
+	NODE *cur  = head->next;
+	NODE *nxt  = NULL;
+
 	head = head->next;
 
-	while( first && first->next )
+	while( cur )
 	{
-		second = first->next;
-		first->next = second->next;
-		second->next = first;	
-		
-		if ( prev != NULL)
-			prev->next = second;
-		prev = first;
-		first = first->next;
+		nxt        = cur->next;
+		cur->next  = prev;
+		prev->next = nxt;
 
+		if ( nxt == NULL || nxt->next == NULL )
+		{
+			prev->next = nxt;
+			break;
+		}
+		else
+		{
+			prev->next = nxt->next;
+		}
+
+		prev = nxt;
+		cur  = prev->next;
 	}
 
 	return head;
@@ -448,9 +464,10 @@ EMPLOYEE *pair_wise_swap(EMPLOYEE *head)
 
 int comp_id (const void * a, const void * b);
 
-EMPLOYEE *sort(EMPLOYEE *head)
+NODE *sort(NODE *head)
 {
-	//qsort(head, length(head), sizeof(EMPLOYEE), comp_id);	
+	//qsort(head, length(head), sizeof(EMPLOYEE), comp_id)i;
+	return head;	
 	
 }
 
@@ -459,9 +476,9 @@ int comp_id (const void * a, const void * b)
 	return ( ((EMPLOYEE *)a)->id - ((EMPLOYEE *)b)->id );
 }
 
-void displayList(EMPLOYEE *head)
+void displayList(NODE *head)
 {
-	EMPLOYEE *tmp = head;
+	NODE *tmp = head;
 	
 	if ( tmp == NULL)
 	{
@@ -498,7 +515,7 @@ EMPLOYEE getInfo()
 
 	printf("\nEnter age                : ");
 	fflush(stdin);
-        scanf("%d", &emp.age);
+        scanf("%hu", &emp.age);
 
 	printf("\nEnter department         : ");	
 	fflush(stdin);
@@ -532,10 +549,3 @@ void FREE(EMPLOYEE *employee)
 	printf("\nRecord deleted\n");
 }
 
-void flush(FILE *std)
-{
-	int c;
-
-	while((c = getchar()) != '\n' && c != EOF)
-		;
-}

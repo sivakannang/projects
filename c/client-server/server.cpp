@@ -2,7 +2,56 @@
       g++ server.cpp -lssl -lpthread -o server
 */
 
-
+/****************************************************************************
+ *
+ * int socket(int domain, int type, int protocol);
+ *
+ * int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
+ * int listen(int sockfd, int backlog);
+ * int accept(int sockfd, struct sockaddr *addr, socklen_t addrlen);
+ *
+ * int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+ *
+ * ssize_t send(int sockfd, const void buf[.size], size_t size, int flags);
+ * ssize_t recv(int sockfd, void buf[.size], size_t size, int flags);
+ *
+ * ssize_t read(int fd, void buf[.count], size_t count);
+ * ssize_t write(int fd, const void buf[.count], size_t count);
+ *
+ * int close(int fd);
+ *
+ * ssize_t sendto(int sockfd, const void buf[.size], size_t size, int flags, const struct sockaddr *dest_addr, socklen_t addrlen);
+ * ssize_t recvfrom(int sockfd, void buf[restrict .size], size_t size, int flags, struct sockaddr *src_addr, socklen_t *addrlen);
+ *
+ * int setsockopt(int socket, int level, int option_name, const void *option_value, socklen_t option_len);
+ * int getsockopt(int socket, int level, int option_name, void *option_value, socklen_t *option_len);
+ * int fcntl(int fd, int op, ... );
+ * int ioctl(int fd, unsigned long op, ...);
+ *
+ * int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *excepfds, struct timeval *timeout);
+ * void FD_CLR(int fd, fd_set *set);
+ * int  FD_ISSET(int fd, fd_set *set);
+ * void FD_SET(int fd, fd_set *set);
+ * void FD_ZERO(fd_set *set);
+ *
+ * int poll(struct pollfd *fds, nfds_t nfds, int timeout);
+ * struct pollfd {
+ * 	int   fd;         // file descriptor
+ * 	short events;     // requested events
+ * 	short revents;    // returned events
+ * };
+ *
+ *
+ * int epoll_create(int size);
+ * int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event);
+ * int epoll_wait(int epfd, struct epoll_event events[.maxevents], int maxevents, int timeout);
+ *
+ *
+ *
+ *
+ *
+ *
+ * *************************************************************************/
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -334,7 +383,7 @@ SSL_CTX *initialize_ctx (char *certfile, char *keyfile, char *CA, char *password
 	}
 
 	/* Create our context*/
-	meth = (SSL_METHOD *)SSLv3_method ();
+	meth = (SSL_METHOD *)SSLv23_method ();
 	//meth = (SSL_METHOD *)TLS_method ();
 	ctx = SSL_CTX_new (meth);
 	
@@ -511,9 +560,9 @@ int Time_Get(char *outField)
 
 	time_t t = time(0);
 	struct tm* lt = localtime(&t);
- 	char time_str[40] = {0};
-
-    sprintf(time_str, "\n%02d%02d%02d: %02d/%02d/%02d: => ", lt->tm_hour, lt->tm_min, lt->tm_sec, lt->tm_mon + 1, lt->tm_mday, lt->tm_year - 100);
+ 	char time_str[128] = {0};
+	
+	sprintf(time_str, "\n%02d%02d%02d: %02d/%02d/%02d: => ", lt->tm_hour, lt->tm_min, lt->tm_sec, lt->tm_mon + 1, lt->tm_mday, lt->tm_year - 100);
 
 	strncat(outField, time_str, strlen(time_str));
 	return lt->tm_mon + 1;
@@ -590,7 +639,7 @@ SOCKET Socket_Init(const char *host, unsigned short port, unsigned short maxQueu
 {
 
 	int ret = 0;
- 	SOCKET server = NULL;
+ 	SOCKET server = 0;
 	struct sockaddr_in server_address;
 	int reuse = _TRUE;
 	
@@ -938,7 +987,7 @@ short server_multiThread(void)
 {
 
 	SocketHandle Server= {0};
-	SOCKET client = NULL;
+	SOCKET client = 0;
 	SocketInfo sockInfo = getSocketInfo();
 	struct sockaddr client_address = {0};
 	socklen_t client_address_len = sizeof(client_address);
@@ -1139,7 +1188,7 @@ short server_select_with_client_array()
 				{
 					File_Log("%s:%d => RCV : %d %s", inet_ntoa(address.sin_addr), ntohs(address.sin_port), ret, buffer);
 					ret = (ret > 0) ? ret : 1;
-					buffer[ret] = NULL;
+					buffer[ret] = '\0';
 					ret = send(sd, buffer, ret, 0);
 					File_Log("%s:%d => SND : %d %s", inet_ntoa(address.sin_addr), ntohs(address.sin_port), ret, buffer);
 				}
@@ -1617,7 +1666,7 @@ short server_epoll()
 
 int main()
 {
-	short choice = 0;
+	int choice = 0;
 	
 	printf("\n\n\n---------------- Choose the server you want to run -------------------------\n");
 	printf("\n 1. Server");

@@ -97,7 +97,7 @@ short getPinBlock(char *pan, char *pin, byte *key, byte * pinBlock)
 
 	strncpy(ipPan, &pan[strlen(pan)-13], 12);
 
-	sprintf(ipPin, "%02d%s", strlen(pin), pin);
+	sprintf(ipPin, "%02d%s", (int)strlen(pin), pin);
 	padChar(ipPin, 16, 'F');
 
 	printf("\nPan: %s", ipPan);

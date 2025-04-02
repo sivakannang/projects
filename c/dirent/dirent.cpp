@@ -195,7 +195,7 @@ STATUS Dir_List(char *path, int level)
 {
 	STATUS status = FAIL;
 	struct dirent *entry = NULL;
-	char newPath[256] = {0};
+	char newPath[512] = {0};
 
 	DIR *dir = Dir_Open(path);
 	if ( dir == NULL)
@@ -264,7 +264,7 @@ STATUS makeAlienoPackage(char *srcPath, char *dstPath, char *nameIdx, int level)
 {
 	STATUS status = FAIL;
 	struct dirent *entry = NULL;
-	char newPath[256] = {0};
+	char newPath[512] = {0};
 	char newNameIdx[48] = {0};
 	char dstFileName[256] = {0};
 
@@ -287,7 +287,7 @@ STATUS makeAlienoPackage(char *srcPath, char *dstPath, char *nameIdx, int level)
 			makeAlienoPackage(newPath, dstPath, newNameIdx, level+1);
 
 		}else{
-			char cmd[256] = {0};
+			char cmd[1024] = {0};
 			memset(dstFileName, 0, sizeof(dstFileName));	
 			sprintf(dstFileName, "%s%s", nameIdx, entry->d_name);
 

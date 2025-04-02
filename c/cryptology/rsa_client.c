@@ -1,3 +1,5 @@
+// gcc rsa_client.c rsa.c -o rsa_client -lcrypto
+
 #include <openssl/pem.h>
 #include <openssl/ssl.h>
 #include <openssl/rsa.h>

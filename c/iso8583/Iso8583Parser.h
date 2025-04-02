@@ -75,7 +75,6 @@ typedef struct packetField
 	unsigned char D101[19];  //Ans 17 Customer Phone, optional field
 	unsigned char D102[21];  //N 19 Source Account Number
 	unsigned char D103[21];  //N 19 Destination Account Number
-	unsigned char D103[21];  //ans ..28  Authentication Token
 	unsigned char D104[31];  //N 19 Bill Number
 	unsigned char D120[19];  //ans 16  Device ID / Transaction tracking ID 
 	unsigned char D128[5];   //b 16    Client UUID 

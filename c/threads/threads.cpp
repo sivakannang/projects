@@ -290,6 +290,7 @@ int thread_cancel()
 		DBG_PRINT("Thread status cancelled");
 	else
 		DBG_PRINT("Oops !!!!! Thread was not cancelled and we shouldn't be here");
+	return 0;
 
 }
 
@@ -314,6 +315,7 @@ void *doSomething_3(void *arg)
 
 	sleep(20);
 	DBG_PRINT("Oops !!!!! we shouldn't be here");
+	return NULL;
 }
 
 
@@ -371,7 +373,7 @@ int Time_Get(char *outField)
 
 	time_t t = time(0);
 	struct tm* lt = localtime(&t);
- 	char time_str[40] = {0};
+ 	char time_str[128] = {0};
 	struct timeval now = {0};
 	long long milliSeconds = 0;
 	gettimeofday(&now, NULL);
@@ -381,7 +383,7 @@ int Time_Get(char *outField)
 
 	milliSeconds = now.tv_usec/1000;
 	
-	sprintf(time_str, "\n%02d/%02d/%02d %02d%02d%02d:%04ld => ", lt->tm_mon + 1, lt->tm_mday, lt->tm_year - 100, lt->tm_hour, lt->tm_min, lt->tm_sec, milliSeconds);
+	sprintf(time_str, "\n%02d/%02d/%02d %02d%02d%02d:%04lld => ", lt->tm_mon + 1, lt->tm_mday, lt->tm_year - 100, lt->tm_hour, lt->tm_min, lt->tm_sec, milliSeconds);
 
 	strncat(outField, time_str, strlen(time_str));
 	return lt->tm_mon + 1;

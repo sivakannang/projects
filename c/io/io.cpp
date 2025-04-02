@@ -89,6 +89,9 @@
  * void rewind(FILE *fp)
  * int fflush(FILE *fp)
  * int fpurge(FILE *stream)
+ * int fileno(FILE *stream)
+ * int ftruncate(int fildes, off_t length);
+ * int fstat(int fildes, struct stat *buf);
  *
  * int fclose(FILE *fp)
  *
@@ -131,7 +134,21 @@
  * 
  ******************************************************************************/
 
-
+/*************************** File operations **********************************
+ *
+ * int remove(const char *pathname);
+ * int rename(const char *oldpath, const char *newpath);
+ * int chmod(const char *pathname, mode_t mode);
+ * int chown(const char *pathname, uid_t owner, gid_t group);
+ * int mkdir(const char *pathname, mode_t mode);
+ * int rmdir(const char *pathname);
+ * int chdir(const char *path);
+ * char *getcwd(char buf[.size], size_t size);
+ * char *get_current_dir_name(void);
+ * int stat(const char *restrict pathname, struct stat *statbuf);
+ * int truncate(const char *path, off_t length);
+ *
+ * ***************************************************************************/
 
 /********* Commnad line arguments and Environment variables capture ************
  
@@ -156,7 +173,7 @@ int main(int argc, char *argv[], char **env)
 
 #ifdef _WIN32
 	#include <io.h>
-	#include <sys/stat.h>
+
 #else
 	#include <unistd.h>
 #endif
@@ -166,7 +183,7 @@ int main(int argc, char *argv[], char **env)
 #include <string.h>
 #include <time.h>
 #include <errno.h>
-
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <stdarg.h>
 
@@ -227,7 +244,7 @@ char *File_Read(char *filename)
 
 	buffer[property.st_size] = 0;
 
-	printf("\nsize : =>%d %d %d<=", property.st_size, ret, buffer[property.st_size]);
+	printf("\nsize : =>%ld %d<=", property.st_size, ret);
 
 	return buffer;
 
@@ -309,6 +326,7 @@ int File_Log(const char* format, ...)
 			case EACCES: //return _ERR_FILE_ACCESS; 
 			case EMFILE: //return _ERR_FILE_TOO_MANY_HANDLERS;
 			default: //return _ERR_FILE_UNKNOWN;
+				printf("\n errno = %d , errstr = %s" , errno, strerror(errno));
 				return -1;
 		}
 	}
@@ -325,8 +343,8 @@ int File_Log(const char* format, ...)
 
 char *FGETS(char *s, int max, FILE *fp)
 {
-	register int c;
-	register char *p;
+	int c;
+	char *p;
 
 	p = s;
 	while ( --max > 0 && (c = getc(fp)) != EOF)
@@ -372,7 +390,7 @@ int Time_Get(char *outField)
 
 	time_t t = time(0);
 	struct tm* lt = localtime(&t);
- 	char time_str[40] = {0};
+ 	char time_str[128] = {0};
 	
 	sprintf(time_str, "\n%02d%02d%02d: %02d/%02d/%02d: => ", lt->tm_hour, lt->tm_min, lt->tm_sec, lt->tm_mon + 1, lt->tm_mday, lt->tm_year - 100);
 
@@ -415,4 +433,3 @@ int main(int argc, char *argv[], char **env)
 	return 0;
 }
 
-//stream buffering operations

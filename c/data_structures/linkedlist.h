@@ -21,8 +21,8 @@ typedef enum
 	DELETE_FRONT,
 	INSERT_REAR,
 	DELETE_REAR,
-	DISPLAY,
-	GET_COUNT,
+	LIST,
+	LIST_SIZE,
 	SEARCH,
 	SORT,
 	REVERSE,
@@ -36,19 +36,19 @@ typedef enum
 
 EMPLOYEE getInfo();
 void displayInfo(EMPLOYEE *employee);
-void FREE(EMPLOYEE *employee);
+void FREE(NODE *node);
 
-EMPLOYEE *insert_front(EMPLOYEE employee, EMPLOYEE *head);
-EMPLOYEE *delete_front(EMPLOYEE *head);
-EMPLOYEE *insert_rear(EMPLOYEE employee, EMPLOYEE *head);
-EMPLOYEE *delete_rear(EMPLOYEE *head);
-int length(EMPLOYEE *head);
-void displayList(EMPLOYEE *head);
-EMPLOYEE *search(EMPLOYEE *head, int key);
-EMPLOYEE *sort(EMPLOYEE *head);
-EMPLOYEE *reverse(EMPLOYEE *head);
-EMPLOYEE *pair_wise_swap(EMPLOYEE *head);
-EMPLOYEE *concat(EMPLOYEE *first, EMPLOYEE *second);
+NODE *insert_front(NODE node, NODE *head);
+NODE *delete_front(NODE *head);
+NODE *insert_rear(NODE node, NODE *head);
+NODE *delete_rear(NODE *head);
+int length(NODE *head);
+void displayList(NODE *head);
+NODE *search(NODE *head, int key);
+NODE *sort(NODE *head);
+NODE *reverse(NODE *head);
+NODE *pair_wise_swap(NODE *head);
+NODE *concat(NODE *first, NODE *second);
 NODE *removeDuplicateSorted(NODE *head);
 NODE *removeDuplicateUnSorted(NODE *head);
 #endif
