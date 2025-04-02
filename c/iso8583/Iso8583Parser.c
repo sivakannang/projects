@@ -8,12 +8,36 @@
 #include "time.h"
 #include "stddef.h"
 #include "stdarg.h"
-#include "svc.h"
 #include "errno.h"
-#include "userEntry.h"
 #include "Iso8583Parser.h"
 //#include "windows.h"
 
+char *padChar(char *src, int pLen, int ch)
+{
+
+        int sLen, dir;
+        char *p = src;
+
+        dir = (pLen < 0) ? 'l' : 'r';
+        if ( dir == 'l' )
+                pLen = -pLen;
+
+        src[pLen] = 0;
+        sLen = strlen(src);
+
+        if(sLen >= pLen)
+                return src;
+
+        if (dir == 'l')
+                memmove(src + pLen - sLen, src, sLen);
+        else
+                (p+=sLen);
+
+        memset(p, ch, pLen - sLen);
+
+        return src;
+
+}
 
 int pack(IsoPkt *isoPkt, unsigned char *pkt)
 {
@@ -2127,48 +2151,31 @@ int padChar(char *src, int len, const char ch)
 
 static int File_Log(const char* format, ...)
 {
-	/*
+	
 	int ret=0;
-	int month = 0;
-	int fp = 0;
-	char buffer[15001] = {'\0'};
-	char logfile[30] = {'\0'};	
+	char buffer[10240] = {'\0'};
+	char logfile[256] = {'\0'};
 
 	va_list args;
-
-	strncat(buffer, "\n", 1);
-	//month = Time_Get(&buffer[1]);
-
 	va_start(args, format);
 	vsprintf (&buffer[strlen(buffer)], format, args );
 	va_end(args);	
 
-	sprintf(logfile, "log.txt", month);
+	sprintf(logfile, "%s", "log.txt");
 
-	printf("%s", buffer);
+	printf("\n%s", buffer);
 
+	FILE *fp = fopen (logfile, "a");
+        if ( fp == NULL )
+		return 0;	
 
-	//fp = open (logfile, O_WRONLY|O_APPEND|O_CREAT, S_IWRITE | S_IREAD); // S_IWRITE - Open or Create with write permission 
-	fp = open (logfile, O_WRONLY|O_APPEND|O_CREAT); 
-	if(fp<0)
-	{
-		switch(errno)
-		{
-			case EACCES: //return _ERR_FILE_ACCESS; 
-			case EMFILE: //return _ERR_FILE_TOO_MANY_HANDLERS;
-			default: //return _ERR_FILE_UNKNOWN;
-				return -1;
-		}
-	}
+	ret = fwrite(buffer, strlen(buffer), 1, fp);
+	fwrite("\n", 1, 1, fp);
 
-	ret = write(fp, (const char *)buffer,strlen(buffer));
-
-	close(fp);
+	fclose(fp);
 
 	return ret;
-	*/
 
-	return 0;
 
 }
 
@@ -2275,7 +2282,7 @@ int parserTest(void)
 
 /*********************************************** Test Function for Iso8583 Parser *************************
  *
- *
+ */
 
 int main()
 {
@@ -2283,7 +2290,7 @@ int main()
 	return 0;
 }
 
-*
+/*
 *
 * ********************************************************************************************************/
 

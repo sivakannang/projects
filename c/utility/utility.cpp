@@ -25,8 +25,6 @@
  *
  * realloc(ptr, 0)               == free(ptr)
  *
- * near far and hugepointers
- *
  * how free() api, free the memory without we are passing the allocated memory size ?
  *
 *******************************************************************************/
@@ -51,7 +49,6 @@ size_t top_of_stack;
 
 
 /************************* Structure Packing ***********************************/
-#ifdef _WIN32
 
 #pragma pack(push, 1) // exact fit - no padding
 struct DATE{
@@ -61,17 +58,6 @@ struct DATE{
 	unsigned char nYear; 
 }; 
 #pragma pack(pop) //back to whatever the previous packing mode was
-
-#else
-
-struct DATE{
-	unsigned char nWeekDay;
-	unsigned char nMonthDay;
-	unsigned char nMonth;
-	unsigned char nYear;
-}__attribute__((packed));
-
-#endif
 
 /******************************** Structure Bit Field *****************************/
 
@@ -141,7 +127,7 @@ int ATOI(const char *s);
 
 void **allocate2dPtr(int row, int column, int blockSize);
 void free2dPtr(void **ptr, int row, int column);
-size_t stack_size()
+size_t stack_size();
 
 char *STRREV_BY_IDX_LEN(char *p, int sidx, int eidx);
 char *WORDREV(char *s);
@@ -206,7 +192,7 @@ bool ISDIGIT_STR(const char *str)
 		return false;
 
 	while(ISDIGIT(*str))
-		str++;
+		++str;
 
 	return *str ? false : true;
 	
@@ -219,7 +205,7 @@ bool ISALPHA_STR(const char *str)
 		return false;
 
 	while(ISALPHA(*str))
-		str++;
+		++str;
 
 	return *str ? false : true;
 }
@@ -231,7 +217,7 @@ bool ISALNUM_STR(const char *str)
 		return false;
 
 	while(ISALNUM(*str))
-		str++;
+		++str;
 
 	return *str ? false : true;
 }
@@ -243,7 +229,7 @@ char *TOLOWER_STR(char *str)
 	char *ptr =str;
 
 	while(*str = TOLOWER(*str))
-	     str++;
+	     ++str;
 
 	return ptr;
 
@@ -254,7 +240,7 @@ char *TOUPPER_STR(char *str)
 	char *ptr =str;
 
 	while(*str = TOUPPER(*str))
-	     str++;
+	     ++str;
 
 	return ptr;
 
@@ -266,7 +252,7 @@ size_t STRLEN(const char *str)
 	size_t length =0;
 
 	while(*str++)
-		length++;
+		++length;
 	
 	return length;
 }
@@ -333,7 +319,7 @@ char *STRNCAT (char *dest , const char *source , int len)
 char *STRREV_BY_IDX_LEN(char *p, int sidx, int eidx) {
 
 	char temp;
-	while ( sidx < eidx)
+	while ( sidx <= eidx)
 		temp = *(p+sidx), *(p+sidx++) = *(p+eidx), *(p+eidx--) = temp;
 	return p;
 }
@@ -365,11 +351,11 @@ char *WORDREV(char *s){
 char *STRREV(char *source)
 {
 	
-	int len = STRLEN(source)-1;
-	int pos =0, temp =0;
+	int eidx = STRLEN(source)-1;
+	int sidx =0, temp =0;
 
-	while(pos <= len)
-		temp = *(source+pos), *(source+pos++) = *(source+len), *(source+len--) = temp;
+	while(sidx < eidx)
+		temp = *(source+sidx), *(source+sidx++) = *(source+eidx), *(source+eidx--) = temp;
 
 	return source;
 		
@@ -436,7 +422,7 @@ char *STRSTR(const char *str, const char *substr)
 		if ( STRNCMP(str++, substr, len) == 0)
 			return (char *)str-1;
 		
-	return (char *)0;
+	return NULL;
 
 }
 
@@ -449,7 +435,7 @@ char *STRISTR(const char *str, const char *substr)
 		if ( STRNICMP(str++, substr, len) == 0)
 			return (char *)str-1;
 		
-	return (char *)0;
+	return NULL;
 
 }
 
@@ -488,40 +474,27 @@ char *STR_CHAR_REMOVE(char *str, int ch)
 
 }
 
-char *STR_REMOVE_DUP(char *s) {
+char *STR_REMOVE_DUP(char *str) {
 
+	char *p = str;
+	char *d = str;
 	bool charset[256] = {0};
 	char ch;
-	int idx=0, pos=0, i = 0, j = 0;
 
-	//O(n)
-	while ( *(s+pos)) {
+	if ( str == NULL )
+		return NULL;
 
-		ch = *(s+pos);
-		if ( charset[ch] == false){
+	while ( ch = *p++ )
+	{
+		if ( charset[ch] == false)
+		{
 			charset[ch] = true;
-			*(s+idx++) = *(s+pos);
+			*d++ = ch;
 		}
-		pos++;
 	}
+	*d = 0;
 
-
-	// O(2n)
-	/*for ( i = 0; i < strlen(s); i++) {
-
-		for ( j = 0; j < idx; j++) {
-			if ( s[j] == s[i])
-				break;
-		}
-
-		if ( j == idx)
-			s[idx++] = s[i];
-
-	}*/
-
-	s[idx] = 0;
-
-	return s;
+	return str;
 }
 
 char *PAD_CHAR(char *src, int pLen, int ch)
@@ -530,7 +503,9 @@ char *PAD_CHAR(char *src, int pLen, int ch)
 	int sLen, dir;
 	char *p = src;
 
-	pLen = ((dir = (pLen < 0) ? 'l' : 'r') == 'l') ? -pLen : pLen;
+	dir = (pLen < 0) ? 'l' : 'r';
+	if ( dir == 'l' )
+		pLen = -pLen;
 
 	src[pLen] = 0;
 	sLen = STRLEN(src);
@@ -538,7 +513,10 @@ char *PAD_CHAR(char *src, int pLen, int ch)
 	if(sLen >= pLen)
 		return src;
 
-	(dir == 'l') ? MEMMOVE(src + pLen - sLen, src, sLen) : (p+=sLen);
+	if (dir == 'l')
+		MEMMOVE(src + pLen - sLen, src, sLen);
+	else
+		(p+=sLen);
 
 	MEMSET(p, ch, pLen - sLen);
 
@@ -562,7 +540,7 @@ void *MEMCPY(void *dest, const void *src, int len)
 
 void *MEMSET(void *src, int value, int len)
 {
-	register char *p = (char *)src;
+	char *p = (char *)src;
 
 	while(len--)
 		*p++ = value;
@@ -607,7 +585,7 @@ int ATOI(const char *s)
 
 
 	while ( *s >= '0' && *s <='9')
-		n = 10 * n + (*s++ - '0');
+		n = (10 * n)  + (*s++ - '0');
 
 	return n * sign;
 }
@@ -649,22 +627,13 @@ void funcPtrTest()
 {
 	char buffer[101] = {'\0'};
 	char *(*funcP)(char *, const char *);
-	funcP = _STRCPY;
+	funcP = STRCPY;
 
 	printf("\n%s", (*funcP)(buffer, "hello world"));
 	printf("\n%s", buffer);
 	
 
 }
-
-/*
- * realloc(NULL, 10*sizeof(int)) == malloc(10*sizeof(int))
- *
- * realloc(ptr, 0)               == free(ptr)
- *
- * near far and hugepointers
- *
- */
 
 void pointerConversion()
 {

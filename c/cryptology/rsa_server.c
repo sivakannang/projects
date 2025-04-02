@@ -1,3 +1,5 @@
+// gcc rsa_server.c rsa.c -o rsa_server -lcrypto
+
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>

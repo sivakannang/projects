@@ -128,7 +128,7 @@
 /***************************** Neccessity of piping ****************************
  *
  * You are writing into the pipe and reading from it. That one can do even from a file.
- * Now let’s see another scenario. If we add more writes before read anything and then start reading, first read call will fetch the first written message and so on
+ * Now lets see another scenario. If we add more writes before read anything and then start reading, first read call will fetch the first written message and so on
  * pipe() is helpful in Implementing a QUEUE strategy(First in First out)
  * FIFO: the message which was written first will be available for the first read, then the message which came second, for the second read
  *

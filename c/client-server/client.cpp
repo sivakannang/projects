@@ -314,7 +314,7 @@ SSL_CTX *initialize_ctx (char *certfile, char *keyfile, char *CA, char *password
 	}
 
 	/* Create our context*/
-	meth = (SSL_METHOD *)SSLv3_method ();
+	meth = (SSL_METHOD *)SSLv23_method ();
 	ctx = SSL_CTX_new (meth);
 	
 	
@@ -467,7 +467,7 @@ int Time_Get(char *outField)
 
 	time_t t = time(0);
 	struct tm* lt = localtime(&t);
- 	char time_str[40] = {0};
+ 	char time_str[128] = {0};
 
     sprintf(time_str, "\n%02d%02d%02d: %02d/%02d/%02d: => ", lt->tm_hour, lt->tm_min, lt->tm_sec, lt->tm_mon + 1, lt->tm_mday, lt->tm_year - 100);
 
@@ -692,7 +692,7 @@ short client_server_polling()
 int main()
 {
 
-        short choice = 0;
+        int choice = 0;
 
         printf("\n\n\n---------------- Choose the client you want to run-------------------------\n");
         printf("\n 1. Client-Server");
