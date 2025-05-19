@@ -659,6 +659,7 @@ void pointerConversion()
 size_t stack_size()
 {
   int x=0;
+  int y = 0;
 
   return top_of_stack - (size_t) &x;
 }
