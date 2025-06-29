@@ -152,6 +152,10 @@
  * $ thread [thread_no]    - command to switch among threads
  * $ thread apply [thread-id-list | all [-ascending]] command   - a command to apply a command to a list of threads
  *
+ * $info threads
+ * $thread apply all bt   // apply bt cmd in all threads
+ * $thread apply 2   bt   // apply bt cmd on thread 2
+ *
  *
  *
  *

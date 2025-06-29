@@ -21,7 +21,6 @@ void arrange_2(int arr[], int len, int key) {
 
 		if (arr[pos] == key) {
 			++pos;
-			continue;
 		}
 		else if (arr[pos] != key && arr[len] == key) {
 			std::swap(arr[pos++], arr[len--]);
@@ -42,7 +41,6 @@ void arrange_3(int arr[], int length, int key1 = 0, int key2 = 1) {
 
 		if (arr[pos] == key) {
 			++pos;
-			continue;
 		}
 		else if (arr[pos] != key && arr[len] == key) {
 			std::swap(arr[pos++], arr[len--]);

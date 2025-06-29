@@ -1,23 +1,22 @@
 
 /*********************************************************************************************************************
- * std::thread is the thread class that represents a single thread in C++.
- * To start a thread we simply need to create a new thread object and pass the executing code to be called (i.e, a callable object) into the constructor of the object.
- * Once the object is created a new thread is launched which will execute the code specified in callable
+ * std::thread is a class that represents a single thread of execution.
+ *
+ * To start a thread we simply need to create a new thread object and pass the executing code to be called (i.e, a callable object)
  *
  * A callable can be either of the three
- * 	- A function pointer
- * 	- A function object
- * 	- A lambda expression
+ * 	- function
+ * 	- lambda
+ * 	- functor
  *
  *
- * https://thispointer.com/c11-tutorial/
- *
+ * std::thread is not copyable but moveable
  *
  * std::thread t()
  * t.joinable()
  * t.join()
  * t.detach()
- * t.swap()
+ * t.native_handle();
  * t.get_id()
  *
  * std::this_thread::sleep_for(time)
@@ -33,7 +32,7 @@
  * Either a thread should call join() or detach() before thread's destructor invokes, else threads destructor will crash
  * calling join() or detach() twice, will lead to crash
  *
- *
+ * std::thread doesn't return the return value of callable object, so we need to std::promise and std::future to get/set return values or exceptions
  * std::promise<int> promise
  * get -> promise.get_future()
  * set -> promise.set_value(), promise.set_exception(), promise.set_value_at_thread_exit(), promise.set_exception_at_thread_exit()
@@ -44,19 +43,27 @@
  *
  *
  *
- * std::async vs std::thread vs std::packaged_task
+ * std::async vs std::thread [ std::async runs std::thread internally, it returns return value or exceptions. it supports lazy start ]
  *
  * std::async launch policies 
  *   1. std::launch::async     ( immediate start )
  *   2. std::launch::deferred  ( lazy call )
  *   3. std::launch::async | std::launch::deferred     << this is the default one, if we don't specify launch explicitly
  *
+ *   std::future<int> fut = std::async(std::launch::async, count());
+ *   int ret = fut.get();
+ *
+ * std::jthread
+ *    - no need manual invoke of join/detach, which is automatically invoked in jthread's destrutor
+ *    - provieds thread cancellation future
+ *
  * std::packaged_task<int(int, int)> task
  * get   -> task.get_future()
  * fn()  -> task.valid() , task.swap()
  *
- * exceptions in std::thread
- * exceptions in std::async , std::packaged_task
+ * std::once_flag flag
+ * std::call_once(flag, function, args...) || std::call_once(flag, lambda)
+ *
  * 	*/
 
 
@@ -182,6 +189,9 @@ void test_packaged_task() {
 
 	std::cout << future1.get() + future2.get() << std::endl;
 }
+
+void test_thread_join();
+void test_thread_detach();
 
 int main() {
 

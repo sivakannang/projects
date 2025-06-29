@@ -1,5 +1,82 @@
+Compiler steps
+Why C++ ?
+OOPS
+ Encapsulation
+ Abstraction
+ Inheritance
+ polymorphism
 
-memory:
+
+IPC
+ pipe
+ shared memory
+ msg queue
+ semaphores
+ sockets
+ signals
+
+Threads
+ POSIX
+ C++
+ Java
+ Python
+
+FILES
+ C
+ C++
+ Java
+ Python
+
+Memory
+ C
+ C++
+ Java
+ Python
+
+Data Structure
+ Tree
+ Dynamic Array
+ Hash Table
+ List
+ Stack
+ Queue
+ DeQueue
+ Trie
+ Priority Queue
+ Graph
+
+Rest & Database
+ C
+ C++
+ Java
+ Python
+
+Design Pattern
+ Singleton
+ Observer
+ Factory
+ Visitor
+ Decorator
+ 
+System Design
+ Social media
+ OTT
+
+
+const
+mutable
+this
+static
+virtual
+override
+reference
+pointer   ( 2d, 3d allocation, new, delete, placement new, unique_ptr, shared_ptr )
+casting
+lvalue and rvalue
+noexcept
+std::once_flag std::call_once(&once_flag, std::function)
+
+threads ( std::thread, std::promise, std::future, std::async(std::launch::async || std::launch::defereed, func, args), std::mutex, std::recursive_mutex, std::lock_guard<std::mutex>, std::unique_lock<std::mutex> lock(m, std::defer_lock);
 
 How delete knows how many bytes need to be deleted?
 Placement new in C++ ?

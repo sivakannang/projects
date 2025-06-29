@@ -158,3 +158,10 @@ void test_auto_var() {
 		std::cout << key << " -> " << val << std::endl;
 }
 
+template<typename... Args>
+void print(Args... args)
+{
+	(std::cout << ... << args) << std::endl;  // Fold expression C++17
+	int sum = args + ...;
+}
+
