@@ -8,6 +8,7 @@
 #include <list>
 #include <algorithm>
 #include <utility>
+#include <cstring>
 
 class Employee
 {
@@ -58,26 +59,33 @@ namespace std {
 
 namespace dsa
 {
-	template<typename T, size_t _size>
+	template<typename T, size_t N>
 	class Array
 	{
 		private:
-			size_t size_;
-			T *ptr_;
+			T data[N];
 		public:
-			Array() : size_(_size) { ptr_ = new T[size_]{}; }
-			~Array() { delete [] ptr_; ptr_ = nullptr; }
-			size_t size() const { return size_; }
-			bool is_valid_idx(int idx) const { return idx >= 0 && idx < size_; }
+			size_t size() const { return N; }
+			bool is_valid_idx(int idx) const { return idx >= 0 && idx < N; }
 
-			T& operator[](int idx) const {
+			const T& at(int idx) const {
 				if ( is_valid_idx(idx))
-					return ptr_[idx];
+					return data[idx];
 				throw std::out_of_range("out_of_range excepion");
 			}
 
-			T* begin() const { return &ptr_[0]; }
-			T* end() const { return &ptr_[size_]; }
+			T& at(int idx) {
+				if ( is_valid_idx(idx))
+					return data[idx];
+				throw std::out_of_range("out_of_range excepion");
+			}
+
+			const T& operator[] ( int idx ) const { return data[idx]; }
+			T& operator[] ( int idx ) { return data[idx]; }
+
+			T* begin() { return data; }
+			T* end()   { return data + N; }
+			
 	};
 
 
@@ -91,10 +99,11 @@ namespace dsa
 			
 			bool is_valid_idx(int idx) const { return idx >= 0 && idx < size_; }
 		public:
-			Vector() : size_(0), capacity_(1) { ptr_ = new T[capacity_] {}; }
+			Vector() : size_(0), capacity_(0) { }
 			~Vector() { delete [] ptr_; ptr_ = nullptr; }
 			size_t size() const { return size_; }
 			size_t capacity() const { return capacity_; }
+			bool empty() const { return size_ == 0; }
 			
 			T& operator[](int idx) const {
 				if ( is_valid_idx(idx))
@@ -102,26 +111,26 @@ namespace dsa
 				throw std::out_of_range("out_of_range excepion");
 			}
 
-			void push_back(T t)
+			void push_back(const T& t)
 			{
 				if ( size_ == capacity_ )
 				{
-					capacity_ = capacity_ * 2;
+					capacity_ = ( capacity_ == 0 ) ? 1 : (capacity_ * 2);
 					T *tmp = new T[ capacity_ ];
 					for ( int idx = 0; idx < size_; idx++ )
-						tmp[idx] = ptr_[idx];
+						tmp[idx] = std::move(ptr_[idx]);
 					delete [] ptr_;
 					ptr_ = tmp;
 				}
 
 				ptr_[size_++] = t;
-				std::cout << "ptr_[" << size_-1 << "] = " << ptr_[size_-1] << std::endl;
+				//std::cout << "ptr_[" << size_-1 << "] = " << ptr_[size_-1] << std::endl;
 			}
 
 			void pop_back() { if ( size_ == 0 ) throw std::underflow_error("underflow exception"); --size_; }
 			
-			T* begin() const { return &ptr_[0]; }
-			T* end() const { return &ptr_[size_]; }
+			T* begin() { return ptr_; }
+			T* end() const { return ptr_ + size_; }
 	};
 
 	
@@ -132,7 +141,7 @@ namespace dsa
 		public:
 			bool empty() const { return vec.size() == 0; }
 			size_t size() const { return vec.size(); }
-			void push(T t) { vec.push_back(t); }
+			void push(const T& t) { vec.push_back(t); }
 			void pop() {
 				if ( empty() )
 					throw std::underflow_error("underflow_error");
@@ -208,7 +217,7 @@ namespace dsa
 			bool empty() const { return size_ == 0; }
 			size_t size() const { return size_; }
 			
-			void push(T data)
+			void push(const T& data)
 			{
 				Node<T>* new_node = new Node<T>(data);
 				if ( front_node == nullptr )
@@ -225,12 +234,6 @@ namespace dsa
 				if ( empty() )
 					throw std::underflow_error("underflow_error");
 				return front_node->data;
-			}
-
-			T back() const {
-				if ( empty() )
-					throw std::underflow_error("underflow_error");
-				return rear_node->data;
 			}
 
 			void pop() {
@@ -477,116 +480,107 @@ namespace dsa
 	class String {
 		
 		private:
-			int m_size;
-			char *m_ptr;
-
-			int strlen(const char* str)
-			{
-				size_t size = 0;
-				char *p = (char *)str;
-				while ( *p++ )
-					++size;
-				return size;
-			}
-
-			char *strcpy(char *dst, const char *src)
-			{
-				char *p = dst;
-				char *s = (char *)src;
-				char *d = dst;
-				while( *d++ = *s++) ;
-				return p;
-			}
-
-			char *strcat(char *dst, const char *src)
-			{
-				char *p = dst;
-				char *s = (char *)src;
-				char *d = dst;
-				while ( *d++ ) ;
-				--d;
-				while ( *d++ = *s++) ;
-				return p;
-			}
+			size_t size_;
+			char *data_;
 
 		public:
-			size_t size() const { return m_size; }
-			const char* c_str() const { return m_ptr; }
+			size_t size() const { return size_; }
+			const char* c_str() const { return data_; }
 
-			String() : m_size(1), m_ptr(new char[m_size]) { *m_ptr = '\0'; }
-			~String() { delete [] m_ptr; m_ptr = nullptr; }
+			String() : size_(0) ,  data_(nullptr) {}
+			~String() { delete [] data_; data_ = nullptr; }
 
-			String(const char *str)
+			const char& operator[](size_t idx) const { return data_[idx]; }
+
+			char& operator[] (size_t idx) { return data_[idx]; };
+
+			String(const char *str) 
 			{
-				m_size = strlen(str) + 1; // +1 for NULL
-				m_ptr = new char[m_size];
-				strcpy(m_ptr, str);
+				if ( str )
+				{
+					size_ = std::strlen(str);
+					data_ = new char[size_ + 1];
+					std::strcpy(data_, str);
+				}
+				else
+				{
+					size_ = 0;
+					data_ = nullptr;
+				}
 			}
 
 			String(const String& str)
 			{
-				m_size = str.size();
-				m_ptr = new char[m_size];
-				strcpy(m_ptr, str.c_str());
+				size_ = str.size_;
+				data_ = new char[size_ + 1];
+				std::strcpy(data_, str.data_);
 			}
 
 			String& operator = (const String& str)
 			{
-				if ( this != &str )
+				if ( this == &str )
 				{
-					delete [] m_ptr;
-					m_size = str.size();
-					m_ptr = new char[m_size];
-					strcpy(m_ptr, str.c_str());
+					return *this;
 				}
+
+				delete[] data_;
+				size_ = str.size_;
+				data_ = new char[size_+1];
+				std::strcpy(data_, str.data_);
 				return *this;
 			}
 
 			String(String&& str)
 			{
-				m_size = str.size();
-				m_ptr = str.m_ptr;
-				str.m_size = 0, str.m_ptr = nullptr;
+				std::cout << "move constructor invoked" << std::endl;
+				size_ = str.size_;
+				data_ = str.data_;
+				str.size_ = 0, str.data_ = nullptr;
 			}
 
 			String& operator = (String&& str)
 			{
 				if ( this != &str )
 				{
-					delete [] m_ptr;
-					m_size = str.size();
-					m_ptr = str.m_ptr;
-					str.m_size = 0, str.m_ptr = nullptr;
+					std::cout << "move assignment invoked" << std::endl;
+					delete [] data_;
+					size_ = str.size_;
+					data_ = str.data_;
+					str.size_ = 0, str.data_ = nullptr;
 				}
 				return *this;
 			}
 
 			String operator + ( const String& str)
 			{
-				String tmp;
-				delete [] tmp.m_ptr;
-
-				tmp.m_size = size() + str.size() -1; // -1 for eliminate 1 null char from two strings
-				tmp.m_ptr = new char[tmp.size()];
-				strcpy(tmp.m_ptr, c_str());
-				strcat(tmp.m_ptr, str.c_str());
+				char *ptr = new char [ size_ + str.size_ + 1];
+				std::strcpy(ptr, data_);
+				std::strcat(ptr, str.data_);
+				String tmp(ptr);
+				delete [] ptr;
 				return tmp;
+			}
+
+			bool operator == ( const String& str ) const
+			{
+				if ( this == &str )
+					return true;
+
+				return (std::strcmp(data_, str.data_) == 0) ;
 			}
 
 			friend std::ostream& operator << (std::ostream& os, const String& str)
 			{
-				os << str.c_str();
+				if ( str.c_str() )
+					os << str.c_str();
 				return os;
 			}
 
 			friend std::istream& operator >> (std::istream& is, String& str)
 			{
-				delete [] str.m_ptr;
 				char buffer[1024]{};
 				is >> buffer;
-				str.m_size = str.strlen((const char *)buffer) + 1; // +1 for NULL
-				str.m_ptr = new char[str.size()];
-				str.strcpy(str.m_ptr, (const char *)buffer);
+				str = String(buffer);
 				return is;
 			}
 	};

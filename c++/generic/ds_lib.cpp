@@ -78,15 +78,12 @@ void queue_test()
 	queue.push("two");
 
 	std::cout << queue.front() << std::endl;
-	std::cout << queue.back() << std::endl;
 	
 	queue.pop();
 	std::cout << queue.front() << std::endl;
-	std::cout << queue.back() << std::endl;
 
 	queue.push("three");
 	std::cout << queue.front() << std::endl;
-	std::cout << queue.back() << std::endl;
 }
 
 void list_test()
@@ -188,32 +185,51 @@ void map_test() {
 void string_test()
 {
 	std::cout << "<<---------- " << __func__ << "---------->>" << std::endl;
+
+	dsa::String s1;                     // default constructor
+	dsa::String s2("siva");             // argument constructor
+	dsa::String s3("kannan");           // argument constructor
+	dsa::String s4(s2);                 // copy constructor
+	dsa::String s5 = s3;                // copy constructor
+	dsa::String s6 = s2 + s3;           // operator + and copy constructor
 	
-	dsa::String s1 = "Test string";
-	dsa::String s2 = "Sample String";
-	std::cout << s1 << std::endl;
-	std::cout << s2 << std::endl;
+
+	std::cout << "s1 : " << s1 << std::endl;
+	std::cout << "s2 : " << s2 << std::endl;
+	std::cout << "s3 : " << s3 << std::endl;
+	std::cout << "s4 : " << s4 << std::endl;
+	std::cout << "s5 : " << s5 << std::endl;
+	std::cout << "s6 : " << s6 << std::endl;
 	
-	dsa::String s3 = s2;
+	s6 = s2 + s3 + s6;                  // operator + and copy assignment
+	std::cout << "s6 : " << s6 << std::endl;
+	s3 = s2 + s3 + s2 + s3;
+	std::cout << "s3 : " << s3 << std::endl;
+
+	if ( s3 == s6 )
+	{
+		std::cout << "s3 and s6 are same " << std::endl;
+	}
+	
+	if ( !(s3 == s2) )
+	{
+		std::cout << "s3 and s2 are not same " << std::endl;
+	}
+	
+	if ( s3 == s3 )
+	{
+		std::cout << "s3 and s3 are same " << std::endl;
+	}
+
+	std::cout << s3[0] << std::endl;  // const char& operator[] (size_t idx) const
+	s3[0] = 'I';                      //       char& operator[] (size_t idx)
 	std::cout << s3 << std::endl;
+
+	dsa::String s7 = std::move(dsa::String("test"));  // std::move will create rvalue reference, move construtor will invoke
+	std::cout << "s7 " << s7 << std::endl;
+	s7 = std::move(dsa::String("done with the test"));              // std::move will create rvalue reference, move assginment will invoke
+	std::cout << "s7 " << s7 << std::endl;
 	
-	dsa::String s4 = s1 + s2;
-	std::cout << s4 << std::endl;
-	
-	s1 = s2;
-	
-	dsa::String s5 = std::move( dsa::String("sivakannan"));
-	std::cout << s5 << std::endl;
-	
-	s5 = std::move(dsa::String("Kavikuyil"));
-	dsa::String s6 = dsa::String("...........Siva"); // compiler optimize it only argument constructor called, non other construct calls here
-	
-	std::cout << s1 << std::endl;
-	std::cout << s2 << std::endl;
-	std::cout << s3 << std::endl;
-	std::cout << s4 << std::endl;
-	std::cout << s5 << std::endl;
-	std::cout << s6 << std::endl;
 }
 
 void graph_test() {
@@ -243,15 +259,15 @@ void graph_test() {
 
 int main()
 {
-	array_test();
-	vector_test();
-	stack_test();
-	queue_test();
-	list_test();
-	hash_table_test();
-	map_test();
+	//array_test();
+	//vector_test();
+	//stack_test();
+	//queue_test();
+	//list_test();
+	//hash_table_test();
+	//map_test();
 	string_test();
-	unordered_map_test();
-	graph_test();
+	//unordered_map_test();
+	//graph_test();
 
 }

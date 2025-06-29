@@ -39,26 +39,26 @@
  *
  * ------------------------------------------------- why c++ ---------------------------------------------------------------------------
  *  OOPS
- *   * Encapsulation    -> binding properties and actions in to a class
- *   * Abstraction      -> Hide complex things , expose only the required things 
- *   * Inheritence      -> Code reuse
+ *   * Encapsulation    -> binding data and methods into a class and restricting access ( private, protected, public )
+ *   			-> Use private data members and public getters/setters
+ *                      -> improve security
+ *
+ *   * Abstraction      -> Hiding complex implementations and showing only necessary features
+ *   			-> use abstract data classes or interfaces, focus on what an object does not how ( virtual )
+
+ *   * Inheritence      -> Code reuse, Reusing a code from base class
+ *   			-> C++ supports single, multiple, multi level, hierarchical, and hybrid inheritance
+ *
  *   * Polymorphism     -> Different behaviours ( virtual , override), which allows us to redefine the way something works
+ *   			-> One interface, many implementations
+ *   			-> Compile time ( Function and Operator overloading )
+ *   			-> Run Time ( virtual functions and methos overriding )
  *
  *  Overloading
  *  Generic program using templates
  *  Strong TypeCheck or TypeSafety ( short smallNumber = 1234567890;   // ERROR: this value is outside the range of short )
  *  Exception handling and inline functions
  *  STL
- *
- *
- *  http://www.ntu.edu.sg/home/ehchua/programming/#Cpp
- *
- *  ------------------------------------------------ printf vs cout --------------------------------------------------------------------
- *  1. Speed       -> printf is faster than cout ( number of instruction in assembly code)
- *  2. type safety -> cout is type safety, compiler takes care
- *  3. call type   -> operator << can be overloaded easily in our classes in cout
- *  4. Format      -> Format is easier in printf than cout
- *  5. Return      -> printf returns the actual character count while cout does not have a return value. operator << overloads for stream insertion has a return value, it returns a reference to cout i.e they return the stream that was provided as an operand. This is what allows chaining of insertion operations (and for input streams, extraction operations using >>).
  *
  *  ------------------------------------------------ cout cerr clog diff ---------------------------------------------------------------
  *  cout -> stdout stream - buffered
@@ -79,7 +79,6 @@
 	cout << "hello" << flush;      // using manipulators
 	cout << endl;
 
-	
 	cout << "Enter a number: ";
 	int number;
 	cin >> number;                 // output buffer is flushed when input is pending
@@ -274,7 +273,7 @@ std::vector<T> split(const std::string& str)
 	//std::istream_iterator<std::string> beg(iss), end;
 	//std::vector<T> vec(beg, end);
 	//return vec;
-	return std::vector<T>( (std::istream_iterator<T>(iss)), std::istream_iterator<T>() );
+	return std::vector<T>( std::istream_iterator<T>(iss), std::istream_iterator<T>() );
 }
 
 void test_split() {
