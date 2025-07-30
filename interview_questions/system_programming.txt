@@ -1,0 +1,115 @@
+🧠 System Programming Interview Questions
+
+------------------------------------------------------------
+
+🔧 Process Management
+1. What happens internally when you call fork()?
+2. Difference between fork(), vfork(), and clone()?
+3. How does exec() work? Can you explain the various exec* functions?
+4. What are zombie and orphan processes? How do you handle them?
+5. How does wait() work? Can you reap multiple child processes?
+6. How do you daemonize a process in Linux?
+
+🧵 Threads and Synchronization
+7. Difference between a process and a thread?
+8. How does pthread_mutex work internally?
+9. What is a condition variable and when do you use it?
+10. How is std::mutex different from pthread_mutex?
+11. What is a race condition? Give an example.
+12. What are deadlocks? How do you avoid or detect them?
+13. Explain spinlocks vs mutex vs reader-writer locks.
+
+🧠 Memory Management
+14. What’s the difference between stack, heap, data, and text segments?
+15. How does malloc() work internally? Where does the memory come from?
+16. Difference between malloc() and mmap()?
+17. What is memory fragmentation and how do you deal with it?
+18. How would you implement a custom memory allocator?
+19. Explain sbrk() and brk() and why they are rarely used today.
+
+📡 Inter-Process Communication (IPC)
+20. Compare pipes, message queues, shared memory, and sockets.
+21. How does mmap() with MAP_SHARED enable IPC?
+22. What’s the advantage of using epoll over select?
+23. How do named pipes (FIFO) work?
+24. How does UNIX domain socket differ from TCP socket?
+25. How do System V and POSIX semaphores differ?
+
+📁 File and I/O
+26. What are file descriptors? How are they reused?
+27. How does dup() and dup2() work?
+28. Explain blocking vs non-blocking I/O.
+29. How would you implement a file copy using read() and write()?
+30. How does inotify work? Can it monitor subdirectories?
+
+⏱️ Scheduling and Timing
+31. What is the difference between sleep() and nanosleep()?
+32. How can you measure CPU time consumed by a process?
+33. What is real-time scheduling in Linux (SCHED_FIFO, SCHED_RR)?
+34. How do you set CPU affinity for a process?
+
+🛑 Signals and Event Handling
+35. How do signals work in Linux? What are the limitations?
+36. Difference between signal() and sigaction()?
+37. How do you write a signal-safe handler?
+38. How can you block or ignore signals for a thread?
+
+🛠️ Performance and Debugging
+39. How do you find memory leaks in your program?
+40. How do you profile a C/C++ application? Tools you’ve used?
+41. Explain how valgrind, perf, or gdb help in system programming.
+42. What is false sharing? How does it affect performance?
+
+📦 Build, Linking & Runtime
+43. Difference between static and dynamic linking?
+44. How does dlopen() and dlsym() work?
+45. What is position-independent code (PIC)?
+46. What is an ELF file? Can you explain its structure?
+
+⚙️ Advanced Linux Topics
+47. What is io_uring and how is it better than epoll?
+48. Explain how taskset, numactl, or sched_setaffinity work.
+49. How would you bind a process to a specific core and memory node?
+50. What are dirty pages and how does the kernel handle them?
+
+------------------------------------------------------------
+
+🧠 Additional Advanced System Programming Questions
+
+🔍 Linux Internals & System Calls
+51. How do system calls transition from user space to kernel space?
+52. What are vDSO and syscall fast paths?
+53. What’s the difference between a trap, interrupt, and system call?
+
+💬 IPC Deep Dive
+54. How would you implement zero-copy IPC between processes?
+55. What is shared memory synchronization? Do you need locks?
+56. How do you ensure ordering in message queues?
+
+🔀 Threading & NUMA Awareness
+57. How does thread pinning (CPU affinity) improve cache locality?
+58. Explain cache coherence issues in multithreaded programming.
+59. What are memory barriers? When are they needed in C/C++?
+
+💻 Memory Management Tuning
+60. What is madvise()? When would you use it?
+61. How do mlock() and mlockall() impact system performance?
+62. Explain Transparent Huge Pages (THP) and when they help/hurt.
+
+📈 High Performance I/O
+63. What is sendfile()? How is it more efficient than read() + write()?
+64. How does splice(), tee() achieve zero-copy data movement?
+65. Explain difference between AIO, epoll, and io_uring.
+
+🔐 Security & Isolation
+66. What is seccomp? How can you restrict syscalls in Linux?
+67. What is namespace isolation (PID, NET, MNT) in containers?
+68. What are cgroups and how are they used to isolate resource usage?
+
+🧰 Tools and Debugging
+69. How do you debug a multi-process or daemonized service?
+70. Explain how perf record and perf report work internally.
+
+📜 ELF and Linker Internals
+71. What happens during dynamic linking at runtime?
+72. Explain GOT, PLT, and relocation in ELF binaries.

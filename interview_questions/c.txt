@@ -1,0 +1,75 @@
+🧠 C Programming Interview Questions (Section-wise)
+
+------------------------------------------------------------
+
+📘 Basics & Fundamentals
+1. What is the difference between declaration and definition in C?
+2. What are storage classes in C? (auto, static, extern, register)
+3. What are the different types of operators in C?
+4. What is the difference between ++i and i++?
+5. What is a typedef? Why would you use it?
+
+🧮 Data Types & Memory
+6. What is the size of an empty struct in C?
+7. What is padding and alignment in C structures?
+8. How do unions differ from structures?
+9. What is an incomplete type in C?
+10. What is the difference between `sizeof()` and `strlen()`?
+
+🧵 Pointers & Arrays
+11. What is a null pointer? How is it different from an uninitialized pointer?
+12. How are arrays and pointers related in C?
+13. What are function pointers? Provide an example use case.
+14. What is pointer arithmetic?
+15. What is the difference between `char *str` and `char str[]`?
+
+📂 Memory Management
+16. How does malloc() differ from calloc(), realloc(), and free()?
+17. What are memory leaks and how do you detect them?
+18. What happens if you free the same pointer twice?
+19. How does stack memory differ from heap memory?
+20. How do you implement a custom allocator?
+
+📡 Functions & Storage
+21. What is the difference between call by value and call by reference in C?
+22. Can you return a local variable from a function? Why or why not?
+23. What are static functions? When are they useful?
+24. What is inline function in C99?
+25. What is recursion and when should it be avoided?
+
+🚀 Compilation & Linking
+26. What are the stages of C program compilation?
+27. What is the role of preprocessor directives (#define, #include)?
+28. What is the difference between static and dynamic linking?
+29. What are header guards? Why are they important?
+30. How does a linker resolve multiple definitions?
+
+🛠️ Bitwise & Low-Level Programming
+31. What is endianness? How do you detect it?
+32. What are bit fields? When are they useful?
+33. What is the difference between signed and unsigned overflow?
+34. How do you swap two numbers without using a temp variable?
+35. How do you count the number of 1s in an integer?
+
+🧵 Multithreading (POSIX)
+36. How do you create and join threads in C using pthreads?
+37. How do you protect shared memory between threads?
+38. What are mutexes and condition variables?
+39. What is a race condition? How do you prevent it?
+40. Difference between mutex, spinlock, semaphore.
+
+🔍 Debugging & Tools
+41. What tools do you use to debug C programs?
+42. How do you use gdb to debug segmentation faults?
+43. How can you check for memory leaks?
+44. What are core dumps and how do you analyze them?
+45. How do you profile performance in C applications?
+
+📦 Advanced & Edge Cases
+46. What is undefined behavior in C? Give examples.
+47. Can you write a C program without `main()`?
+48. What are volatile and const keywords? Can they be used together?
+49. What are restrict-qualified pointers?
+50. How would you implement your own `printf()`?
+
+------------------------------------------------------------

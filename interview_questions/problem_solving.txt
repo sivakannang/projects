@@ -1,0 +1,75 @@
+🔥 Top 50 Most-Asked Problem Solving Interview Questions (Coding + Logic)
+
+------------------------------------------------------------
+
+🧮 Arrays & Strings
+1. Two Sum
+2. Best Time to Buy and Sell Stock
+3. Maximum Subarray (Kadane's Algorithm)
+4. Merge Intervals
+5. Product of Array Except Self
+6. Longest Substring Without Repeating Characters
+7. Group Anagrams
+8. Set Matrix Zeroes
+9. Rotate Image (In-place matrix rotation)
+10. Longest Palindromic Substring
+
+📊 Hashing & Counting
+11. Valid Anagram
+12. Top K Frequent Elements
+13. Subarray Sum Equals K
+14. Find All Duplicates in an Array
+15. Longest Consecutive Sequence
+
+🔁 Sliding Window & Two Pointers
+16. Minimum Window Substring
+17. Longest Repeating Character Replacement
+18. Trapping Rain Water
+19. Container With Most Water
+20. 3Sum / 4Sum Problem
+
+🔢 Binary Search & Greedy
+21. Binary Search (classic)
+22. Search in Rotated Sorted Array
+23. Kth Largest Element in an Array
+24. Jump Game
+25. Gas Station (circular travel problem)
+
+🌳 Trees & Binary Trees
+26. Invert Binary Tree
+27. Validate Binary Search Tree
+28. Serialize and Deserialize Binary Tree
+29. Lowest Common Ancestor
+30. Diameter of Binary Tree
+
+🔗 Linked List & Pointer Logic
+31. Reverse a Linked List
+32. Merge K Sorted Lists
+33. Detect Cycle in Linked List
+34. Add Two Numbers (LL)
+35. Remove Nth Node From End
+
+🧵 Stack, Queue & Monotonic Structures
+36. Valid Parentheses
+37. Min Stack
+38. Daily Temperatures
+39. Largest Rectangle in Histogram
+40. Next Greater Element
+
+🧠 Recursion, Backtracking & Logic
+41. Subsets
+42. Permutations
+43. Word Search
+44. Sudoku Solver
+45. N-Queens
+
+📐 Graphs, BFS/DFS, Topological Sort
+46. Number of Islands
+47. Clone Graph
+48. Course Schedule (Cycle detection)
+49. Word Ladder
+50. Pacific Atlantic Water Flow
+
+------------------------------------------------------------
+These problems assess: algorithmic thinking, edge-case handling,
+memory optimization, real-world modeling, recursion, and debugging.

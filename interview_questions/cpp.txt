@@ -1,0 +1,139 @@
+🧠 C++ Interview Questions (Section-wise)
+
+------------------------------------------------------------
+
+📘 Basics & Language Features
+1. What is the difference between C and C++?
+2. What are the major features introduced in C++11?
+3. What is the purpose of `namespace` in C++?
+4. Explain the difference between `class` and `struct`.
+5. What is the Rule of Three/Five/Zero in C++?
+
+🧱 Object-Oriented Programming
+6. What are the four pillars of OOP?
+7. Difference between inheritance and composition?
+8. What is function overloading and operator overloading?
+9. Explain virtual functions and their use.
+10. What is the difference between override and overload?
+11. What is a pure virtual function?
+12. How does polymorphism work in C++?
+13. What is the difference between public, private, and protected inheritance?
+
+🧵 Memory Management
+14. What is RAII? How does it help?
+15. Difference between `new/delete` and `malloc/free`?
+16. What are smart pointers? (unique_ptr, shared_ptr, weak_ptr)
+17. What is memory leak and how do you prevent it?
+18. What is a dangling pointer?
+19. What is placement new in C++?
+
+📂 Constructors & Destructors
+20. What is constructor overloading?
+21. What is a copy constructor? When is it invoked?
+22. What is a move constructor? How is it different from copy?
+23. What is an initializer list?
+24. What is the difference between shallow copy and deep copy?
+25. When is destructor called? Can it be virtual?
+
+🧮 STL (Standard Template Library)
+26. What is the difference between vector and list?
+27. What is the time complexity of map vs unordered_map?
+28. When would you use a deque instead of a vector?
+29. How does std::set ensure uniqueness?
+30. What is the internal structure of std::map?
+31. What are iterators and how do they work?
+32. What is the difference between emplace and insert?
+33. How does std::priority_queue work internally?
+34. How to remove elements safely from a vector while iterating?
+
+🧠 Templates & Generics
+35. What is a template in C++?
+36. Explain function templates vs class templates.
+37. What is SFINAE?
+38. What is template specialization?
+39. What is a variadic template?
+40. What is CRTP (Curiously Recurring Template Pattern)?
+
+🚀 C++11/14/17/20 Features
+41. What is auto keyword? How does type deduction work?
+42. What is nullptr and how is it better than NULL?
+43. What are lambda functions?
+44. What is `decltype`?
+45. What is move semantics and rvalue references?
+46. What is std::any, std::variant, std::optional?
+47. What is structured binding (C++17)?
+48. What are concepts in C++20?
+
+🧵 Multithreading & Concurrency
+49. What is a race condition?
+50. Difference between mutex, lock_guard, unique_lock?
+51. What are condition variables?
+52. How does std::thread differ from pthreads?
+53. What is the purpose of std::atomic?
+54. What is a deadlock? How do you prevent it?
+55. What is false sharing in multithreaded programming?
+
+🔍 Exception Handling
+56. What is the purpose of try-catch blocks?
+57. Can destructors throw exceptions?
+58. What is noexcept?
+59. What is stack unwinding?
+60. How do you write your own exception class?
+
+🛠️ Code Optimization & Design
+61. How do you reduce object slicing?
+62. How would you design a memory pool in C++?
+63. What is the difference between inline and constexpr?
+64. What is copy elision and Return Value Optimization (RVO)?
+65. What is the pImpl idiom?
+
+📦 Compilation & Linking
+66. What is the difference between compilation and linking?
+67. What is a translation unit?
+68. How do templates impact compilation?
+69. What is the One Definition Rule (ODR)?
+70. What is the difference between static and dynamic libraries?
+
+🔧 Design Patterns in C++
+71. What is a Singleton and how to implement it in C++11?
+72. What is the Factory pattern?
+73. What is the Observer pattern?
+74. What is the Strategy pattern?
+75. What is the Visitor pattern?
+
+🧪 Testing & Debugging
+76. What tools do you use for unit testing C++?
+77. How do you detect memory leaks in C++?
+78. How do you debug segmentation faults?
+79. What is ASAN, UBSAN, and MSAN?
+80. How do you profile a C++ application?
+
+⚙️ Advanced Concepts
+81. What is type erasure in C++?
+82. What are traits classes?
+83. What is alignment and how do you control it?
+84. What is metaprogramming? What is template metaprogramming?
+85. Explain the use of std::enable_if and SFINAE.
+
+📊 Real-World C++ Topics
+86. How do you handle logging in a multithreaded app?
+87. How do you implement a thread-safe singleton?
+88. How do you design a fixed-size allocator?
+89. What is the best way to serialize a C++ object?
+90. How do you implement a producer-consumer queue?
+
+🧰 Coding & Problem Solving
+91. Implement a custom smart pointer.
+92. Implement a thread-safe queue.
+93. Implement a clone of std::map.
+94. Detect loop in a linked list (C++).
+95. Find the longest substring without repeating characters.
+
+🧾 Behavioral & Design Thinking
+96. Describe a time you debugged a production issue.
+97. How do you review someone else's C++ code?
+98. How do you balance performance vs readability?
+99. How do you stay up to date with modern C++?
+100. What are your favorite C++ features and why?
+
+------------------------------------------------------------
