@@ -1,0 +1,46 @@
+🧠 IBM - High Performance C++ Backend Developer Interview Questions (Printable)
+
+------------------------------------------------------------
+
+📘 C++ Language Internals
+1. Difference between lvalues and rvalues? How do std::move() and std::forward() help?
+2. Explain internals of unique_ptr and shared_ptr. How is thread-safety handled?
+3. What is placement new? How do you handle exception safety with it?
+4. Explain the Rule of Five. How does it help with resource ownership?
+5. What is copy elision and RVO? How did C++17 change the rule?
+
+🔧 Memory Management & Optimization
+6. What is false sharing and how do you eliminate it?
+7. How to align data structures for better cache usage?
+8. How does mmap() and mlock() help with memory performance?
+9. How does sendfile() or splice() support zero-copy I/O?
+10. How would you profile a C++ service for latency bottlenecks using perf or cachegrind?
+
+🧵 Concurrency & Multithreading
+11. How to implement a lock-free producer-consumer queue using std::atomic?
+12. When to use lock_guard vs unique_lock? When are condition variables better than atomics?
+13. How do you use CPU affinity and NUMA binding for thread optimization?
+14. Describe a deadlock scenario you’ve resolved in production.
+15. What’s the difference between memory_order_seq_cst and acquire-release?
+
+📦 STL & Data Structures
+16. Compare std::vector, std::list, std::deque. When is each preferable?
+17. How does std::unordered_map handle collisions? How to write a custom hash?
+18. Difference between insert() and emplace() in high-throughput loops?
+19. Internals of std::priority_queue. Where have you used it in backends?
+20. How do container iteration invalidations cause runtime bugs?
+
+⚙️ Linux & System Programming
+21. How would you implement zero-copy IPC between two high-throughput processes?
+22. What tools do you use for debugging and profiling (strace, lsof, gdb, perf)?
+23. How do you daemonize a process with fork(), exec(), and signal handling?
+24. What is heap fragmentation and how do you detect/fix it?
+25. How would you tune a C++ backend on IBM Z / s390x for SIMD and memory alignment?
+
+------------------------------------------------------------
+Tailored for:
+- High-throughput systems
+- Low-latency performance
+- Multithreaded C++ services on Linux
+- Enterprise hardware tuning (e.g., IBM Z, NUMA)
+

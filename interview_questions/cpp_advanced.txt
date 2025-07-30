@@ -1,0 +1,42 @@
+🧠 Advanced C++ Interview Questions for Senior/Principal Engineers (25 Questions)
+
+------------------------------------------------------------
+
+🔧 Language Design & Semantics
+1. Explain the Rule of Five in C++. How would you design a resource-managing class adhering to it?
+2. What are the key differences between C++98, C++11, C++14, C++17, and C++20? Which features do you use most and why?
+3. What is copy elision and Return Value Optimization (RVO)? How did it change in C++17?
+4. What is the One Definition Rule (ODR) and how do violations manifest?
+5. How does C++ handle object slicing and how do you avoid it?
+
+🧱 Memory Management & Ownership
+6. Compare raw pointers, `unique_ptr`, `shared_ptr`, and `weak_ptr`. When is each appropriate?
+7. How do smart pointers handle custom deleters and reference counting?
+8. What is a memory leak? How do you detect and resolve leaks in production code?
+9. What is placement new and where have you used it?
+
+🧵 Multithreading & Concurrency
+10. Describe a thread-safe producer-consumer implementation using `std::queue`, `std::mutex`, and `std::condition_variable`.
+11. When would you use `lock_guard` vs `unique_lock`?
+12. What are atomics in C++? How do memory orderings like `memory_order_acquire` and `memory_order_release` work?
+13. Have you ever written lock-free or wait-free code? What challenges did you face?
+14. What tools do you use to debug or detect concurrency issues?
+
+⚙️ Performance Optimization & Low Latency
+15. How do you profile and optimize a high-frequency C++ application?
+16. What are false sharing and cache line alignment? How do they affect multithreaded performance?
+17. What is the impact of virtual functions on performance and how do you profile them?
+18. Describe a situation where moving from heap to stack allocation improved performance.
+
+📦 STL & Containers
+19. Difference between `std::vector`, `std::deque`, and `std::list`. When would you use each?
+20. How does `std::unordered_map` handle collisions? How would you implement a custom hash function?
+21. What’s the difference between `emplace()` and `insert()` in STL containers?
+
+🔨 Templates & Modern Features
+22. Explain CRTP (Curiously Recurring Template Pattern) and its benefits over virtual polymorphism.
+23. What is SFINAE and how is it used in function overloading or metaprogramming?
+24. What are concepts in C++20? How do they improve template safety?
+25. What is type erasure? Where is it used in STL?
+
+------------------------------------------------------------

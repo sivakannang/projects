@@ -1,0 +1,50 @@
+🧠 AI Compiler Engineer Interview Questions – IBM Z / LinuxONE (Printable)
+
+------------------------------------------------------------
+
+🧩 MLIR, XLA, LLVM & AI Compilers
+1. Explain what MLIR is and why it's used in AI compilers.
+2. How does an MLIR dialect differ from LLVM IR?
+3. Describe a compiler pass to fuse convolution + batch-norm.
+4. How would TVM/XLA lower a PyTorch model to LLVM IR?
+5. What are the steps in quantizing a model from float32 to int8?
+
+⚙️ System Programming (C++ / IBM Z / LinuxONE)
+6. How would you implement backend code for an AI op on s390x?
+7. What are considerations for SIMD and memory alignment on Z?
+8. How would you profile and optimize a hot path in C++ on LinuxONE?
+9. How would you multithread AI inference efficiently on Z?
+10. What system-level optimizations (cache, NUMA, page size) would you apply?
+
+🤖 AI Frameworks & Deployment
+11. How do you convert a PyTorch model to ONNX and run it via TVM?
+12. What is Triton Inference Server? How would you integrate it?
+13. Describe how to deploy a large language model using vLLM.
+14. How would you build a scalable data pipeline for real-time inference?
+
+🧠 Compiler Optimization & IR Design
+15. Explain loop tiling and vectorization in codegen.
+16. What is a Control Flow Graph and how is it optimized?
+17. How do you deal with load/store bottlenecks in AI code?
+18. What compiler techniques reduce branch mispredictions?
+
+🔋 Hardware-Aware Design
+19. Compare GPU, TPU, Gaudi, Habana, and IBM Z accelerators.
+20. How do you leverage SIMD or matrix acceleration on s390x?
+21. How would you insert hardware-specific instructions in IR lowering?
+
+🧭 Leadership, Collaboration & Communication
+22. How would you lead a compiler team interfacing with AI/ML and hardware groups?
+23. Describe how you’d explain MLIR fusion to a non-technical PM.
+24. Tell me about a performance bottleneck you solved in production.
+25. How do you ensure code quality, security, and reliability in compiler pipelines?
+
+------------------------------------------------------------
+
+🎯 Based on IBM Z / LinuxONE AI Compiler JD
+- C++, LLVM, MLIR, TVM, XLA
+- s390x backend development
+- AI/ML frameworks: ONNX, PyTorch, vLLM, Triton
+- Multithreading, SIMD, system tuning
+- Enterprise-grade deployment with secure execution
+

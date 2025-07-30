@@ -1,0 +1,91 @@
+🏗️ Top 25 System Design Interview Questions
+
+============================================================
+📂 Section 1: Grouped by Real-World Domain
+============================================================
+
+🌐 Social & Content Platforms
+1. Design a scalable system like Twitter (with timeline, followers)
+2. Design a system like YouTube (video uploads and streaming)
+3. Design a real-time collaborative document editor like Google Docs
+
+💬 Messaging & Communication
+4. Design a global chat system like WhatsApp or Signal
+5. Design a publish-subscribe messaging system like Kafka
+6. Design an email service like Gmail
+7. Design a push notification system for mobile and web clients
+
+🛍️ Commerce & Delivery
+8. Design an e-commerce checkout flow with inventory locking
+9. Design a Grocery Delivery System like BigBasket
+10. Design a food delivery system like Swiggy or Uber Eats
+
+🚕 Transportation & Booking
+11. Design a Real-Time Transportation System like Uber or Redbus
+12. Design an online ticket booking system (e.g., IRCTC or BookMyShow)
+
+💳 Finance & Payments
+13. Design a UPI Payment System (real-time money transfer, authentication)
+14. How would you protect sensitive user information (e.g., credit card data)
+
+🔐 Authentication & Security
+15. Design a secure authentication and authorization system (OAuth2, JWT)
+
+📊 Analytics & Monitoring
+16. How would you design an event logging/metrics collection system
+
+🔗 Utility & Infra Systems
+17. How would you design a URL shortening service like bit.ly
+18. How would you design an API rate limiter
+
+📁 Storage & Databases
+19. Design a key-value store like Redis
+20. Design a scalable file storage system like Dropbox or Google Drive
+
+============================================================
+🧩 Section 2: Grouped by Architectural Pattern
+============================================================
+
+🗂️ Caching & CDN
+1. Design a caching system for frequently accessed data
+2. Design a key-value store like Redis
+3. Design an e-commerce checkout flow with inventory caching
+
+📩 Messaging & Queues
+4. Design a publish-subscribe system like Kafka
+5. Push notification system (queue + mobile/web delivery)
+6. Event logging / analytics pipeline
+
+🌊 Streaming & Real-time Processing
+7. Design YouTube (video streaming)
+8. Food delivery (live status updates, real-time ETAs)
+9. Ride-sharing (live location, pricing, match engine)
+
+🔁 Load Balancing & Rate Limiting
+10. API rate limiter
+11. Twitter / WhatsApp (fan-out messaging)
+12. UPI payment system (rate control and retry)
+
+🧵 Asynchronous & Background Jobs
+13. Chat system (store-and-forward)
+14. Push notifications
+15. Email system (queued delivery)
+
+🧱 Authentication & Authorization
+16. OAuth2, JWT token service
+17. UPI auth layer (device/token validation)
+
+🛡️ Security & Privacy
+18. Credit card/token storage protection
+19. Secure file upload/download (e.g., Dropbox)
+
+🔄 High Availability & Fault Tolerance
+20. Eventual consistency in booking and ride systems
+21. Real-time collaborative editor (conflict resolution)
+22. Chat app (retry and offline delivery)
+
+📦 Storage & Replication
+23. Scalable file storage system (e.g., Dropbox)
+24. Key-value store (write replication)
+25. Document collaboration (versioning & CRDTs)
+
