@@ -308,7 +308,6 @@ EMPLOYEE *concat(EMPLOYEE *first, EMPLOYEE *second)
 // https://www.geeksforgeeks.org/reverse-a-linked-list/
 NODE *reverse(NODE *head)
 {
-	
 	NODE *cur = head, *prev = NULL, *nxt = NULL;
 
 	if ( head == NULL || head->next == NULL )
@@ -316,14 +315,13 @@ NODE *reverse(NODE *head)
 
 	while ( cur->next != NULL )
 	{
-		nxt = cur->next;     // Obtain the address of the second node of list to be reversed
-		cur->next = prev;    // Attach first node of the list to be reversed, at the beginning of the partially reversed list
-		prev = cur;          // Point cur to point to newly partially reversed list
-		cur = nxt;           // Point first to point to the list to be reversed
+		nxt = cur->next;     // save next node
+		cur->next = prev;    // reverse pointer
+		prev = cur;          // move prev forward
+		cur = nxt;           // move cur forward
 	}
 
-	cur->next = prev;
-	return cur;                    // Contains address of the reversed list 
+	return prev;                 // return new head
 	
 }
 

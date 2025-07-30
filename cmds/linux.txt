@@ -1,0 +1,159 @@
+
+╔═════════════════════════════════════════════════════════════════════════════╗
+║                  LINUX COMMAND CHEAT SHEET (FULL & VERIFIED)              ║
+╚═════════════════════════════════════════════════════════════════════════════╝
+
+📂 FILE & DIRECTORY OPERATIONS
+───────────────────────────────────────────────────────────────────────────────
+    ls -l                       List files with details
+    cd /path                   Change directory
+    mkdir dir                  Create directory
+    rm -rf dir                 Remove directory recursively
+    cp src dest                Copy file or directory
+    mv old new                 Rename or move file
+    pwd                        Show current working directory
+    stat file                  Show detailed file metadata
+    touch file                 Create empty file or update timestamp
+    file file.txt              Identify file type
+    ln file link               Create hard link
+    ln -s target link          Create symbolic (soft) link
+
+🛠️ FILE VIEWING & EDITING
+───────────────────────────────────────────────────────────────────────────────
+    cat file                      Print file contents
+    less file                     View file with navigation
+    head -n 10 file               First 10 lines
+    tail -n 10 file               Last 10 lines
+    vim file / nano file          Edit file with editor
+
+🔍 TEXT PROCESSING (Enhanced)
+───────────────────────────────────────────────────────────────────────────────
+    grep "pattern" file                Search for text in file
+    grep -r "pattern" dir              Recursive grep
+    grep -E 'a|b' file                 Extended regex OR logic
+    grep -e 'a' -e 'b' file            Match multiple patterns
+    egrep 'a|b' file                   Legacy extended grep
+    grep 'a' file | grep 'b'           AND logic with pipes
+    zgrep "text" file.gz               Grep in compressed files
+    zcat file.gz                       View compressed content
+
+    sed 's/old/new/g' file             Replace in file (stream edit)
+    awk '{print $1}' file              Print first column
+    cut -d',' -f1 file                 Cut field from text
+    sort file                          Sort lines
+    uniq file                          Remove duplicates
+    diff file1 file2                   Compare files line-by-line
+    tee file                           Output to terminal and file
+
+📦 ARCHIVING & COMPRESSION
+───────────────────────────────────────────────────────────────────────────────
+    tar -czf out.tar.gz dir           Create tar.gz archive
+    tar -xzf file.tar.gz              Extract tar.gz
+    zip -r file.zip dir               Create zip file
+    unzip file.zip                    Extract zip file
+
+📦 PACKAGE MANAGEMENT (Ubuntu & RedHat)
+───────────────────────────────────────────────────────────────────────────────
+    # 🐧 Ubuntu / Debian (APT based)
+    sudo apt update                         Update package list
+    sudo apt upgrade                        Upgrade installed packages
+    sudo apt install pkg                   Install package
+    sudo apt remove pkg                    Remove package
+    sudo apt purge pkg                     Remove package with config
+    apt show pkg                           Show package details
+    apt list --installed                   List all installed packages
+    dpkg -l                                List installed packages (dpkg)
+    dpkg -s pkg                            Query package status
+    dpkg -L pkg                            List files installed by pkg
+    dpkg -S /path/to/file                  Find package owning a file
+
+    # 🎩 RedHat / CentOS / Rocky / Fedora (YUM or DNF)
+    sudo yum check-update                  Check available updates
+    sudo yum install pkg                   Install package (YUM)
+    sudo yum remove pkg                    Remove package
+    yum info pkg                           Show package details
+    rpm -qa                                List installed packages
+    rpm -q pkg                             Query installed package
+    rpm -ql pkg                            List files installed by package
+    rpm -qf /path/to/file                  Find package owning a file
+    sudo dnf install pkg                   Install using DNF (newer systems)
+    sudo dnf remove pkg                    Remove using DNF
+
+🧠 SYSTEM INFORMATION & MONITORING
+───────────────────────────────────────────────────────────────────────────────
+    uname -a                         Kernel and system info
+    hostname                         Show host name
+    uptime                           Show system uptime
+    date                             Show system date/time
+    cal                              Monthly calendar
+    df -h                            Disk space by mount
+    du -sh dir                       Directory size summary
+    top                              Live CPU/memory usage
+    htop                             Enhanced top view (if installed)
+    ps aux                           Show all processes
+    time command                     Measure time to execute a command
+    watch 'cmd'                      Run cmd repeatedly every 2s
+    locate filename                  Find file path (updatedb required)
+
+🧩 PROCESS & CPU AFFINITY / PERFORMANCE
+───────────────────────────────────────────────────────────────────────────────
+    nice -n 10 ./cmd                 Run with adjusted priority
+    renice -n 5 -p PID               Change priority of running process
+    taskset -c 2,3 ./app             Bind process to specific CPU cores
+    taskset -cp 1-3 PID              Show/change core affinity of PID
+    numactl --hardware               Show NUMA topology
+    numactl --cpunodebind=0 ./app   Run app on NUMA node 0
+    pidstat -p ALL                   Per-process performance stats
+    iostat -xz 1                     Disk I/O stats (needs sysstat)
+    mpstat -P ALL 1                  CPU usage per core
+    vmstat 1                         Memory, I/O, CPU stats
+
+🔗 NETWORKING & TRANSFER
+───────────────────────────────────────────────────────────────────────────────
+    ip a                             Show IP info
+    ping host                        Test connectivity
+    ss -t                            Show TCP connections
+    ss -ltp                          Listening TCP ports with PID
+    rsync -av src/ dest/             Sync directories
+    scp file user@host:/path         Secure copy file to remote
+    sftp user@host                   Start secure FTP session
+    sftp> put localfile              Upload file during SFTP session
+    sftp> get remotefile             Download file during SFTP session
+    curl http://url                  Fetch data from URL
+    wget http://url                  Download file
+    telnet host port                 Test TCP connectivity
+    traceroute host                  Show packet path
+    ip a                             Show IP info
+    ping host                        Test connectivity
+    ss -t                            Show TCP connections
+    ss -ltp                          Listening TCP ports with PID
+    rsync -av src/ dest/             Sync directories
+    scp file user@host:/path         Secure copy file to remote
+    curl http://url                  Fetch data from URL
+    wget http://url                  Download file
+    telnet host port                 Test TCP connectivity
+    traceroute host                  Show packet path
+
+👤 USER & PERMISSIONS MANAGEMENT
+───────────────────────────────────────────────────────────────────────────────
+    whoami                          Show current user
+    id                              Show UID/GID
+    groups                          Show groups
+    adduser user                    Add new user
+    deluser user                    Remove user
+    usermod -aG group user          Add user to group
+    passwd                          Change user password
+    chmod +x file                   Make file executable
+    chown user:group file           Change file owner
+    sudo command                    Run command as root
+
+🖥️ SERVICES & SYSTEMD
+───────────────────────────────────────────────────────────────────────────────
+    systemctl status service         Check status
+    systemctl start service          Start service
+    systemctl stop service           Stop service
+    systemctl restart service        Restart service
+    systemctl enable service         Enable on boot
+    systemctl disable service        Disable on boot
+
+===============================================================================

@@ -1,0 +1,171 @@
+=========================================================
+GoogleTest (gtest) Cheat Sheet
+=========================================================
+
+✅ What is GoogleTest?
+
+- GoogleTest (gtest) is the most widely used C++ unit test framework.
+- Helps test:
+    - functions
+    - classes
+    - exceptions
+- Provides macros for writing readable test cases.
+
+---------------------------------------------------------
+✅ Basic Test Structure
+
+#include <gtest/gtest.h>
+
+TEST(TestSuiteName, TestName) {
+    EXPECT_EQ(2 + 2, 4);
+}
+
+Run tests:
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
+
+---------------------------------------------------------
+✅ Key Macros
+
+| Macro                  | What it Checks                      |
+|------------------------|--------------------------------------|
+| EXPECT_EQ(a, b)        | a == b                               |
+| EXPECT_NE(a, b)        | a != b                               |
+| EXPECT_TRUE(x)         | x is true                            |
+| EXPECT_FALSE(x)        | x is false                           |
+| EXPECT_LT(a, b)        | a < b                                |
+| EXPECT_LE(a, b)        | a ≤ b                                |
+| EXPECT_GT(a, b)        | a > b                                |
+| EXPECT_GE(a, b)        | a ≥ b                                |
+| EXPECT_FLOAT_EQ(a,b)   | floats are equal                     |
+| EXPECT_NEAR(a,b,eps)   | floats within epsilon tolerance      |
+| ASSERT_EQ(a, b)        | like EXPECT, but aborts test on fail |
+| ASSERT_THROW(...)      | checks that code throws an exception |
+| ASSERT_NO_THROW(...)   | checks that code does not throw      |
+| ASSERT_ANY_THROW(...)  | checks that some exception is thrown |
+| FAIL()                 | forces test failure                  |
+| SUCCEED()              | forces test success                  |
+
+---------------------------------------------------------
+✅ EXPECT vs ASSERT
+
+- EXPECT lets the test keep running even if it fails.
+- ASSERT stops the test immediately on failure.
+
+---------------------------------------------------------
+✅ Test Fixtures
+
+Use fixtures for reusable setup/teardown:
+
+class MyFixture : public ::testing::Test {
+protected:
+    void SetUp() override {
+        // runs before each test
+    }
+
+    void TearDown() override {
+        // runs after each test
+    }
+};
+
+TEST_F(MyFixture, TestName) {
+    // uses fixture
+}
+
+---------------------------------------------------------
+✅ Parameterized Tests
+
+Run the same test for many values.
+
+- Use TEST_P and INSTANTIATE_TEST_SUITE_P.
+
+Example:
+
+class MyTest : public ::testing::TestWithParam<int> {};
+
+TEST_P(MyTest, TestWithParams) {
+    int value = GetParam();
+    EXPECT_GT(value, 0);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    MyGroup,
+    MyTest,
+    ::testing::Values(1, 2, 3));
+
+---------------------------------------------------------
+✅ Exception Checks
+
+ASSERT_THROW(myFunction(), std::runtime_error);
+ASSERT_NO_THROW(myFunction());
+ASSERT_ANY_THROW(myFunction());
+
+---------------------------------------------------------
+✅ Running Tests
+
+Compile:
+
+g++ test.cpp -lgtest -lpthread -o test_app
+
+Run:
+
+./test_app
+
+---------------------------------------------------------
+✅ Helpful Macros
+
+- SCOPED_TRACE("message") → adds debug info
+- SUCCEED() → explicitly marks part of test as success
+- FAIL() → forces failure
+
+---------------------------------------------------------
+✅ Example Complete Test
+
+#include <gtest/gtest.h>
+
+int add(int a, int b) {
+    return a + b;
+}
+
+TEST(MathTest, AddsNumbers) {
+    EXPECT_EQ(add(2, 3), 5);
+    EXPECT_NE(add(2, 2), 5);
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
+
+Run it:
+
+[ RUN      ] MathTest.AddsNumbers
+[       OK ] MathTest.AddsNumbers
+[==========] 1 test ran.
+
+---------------------------------------------------------
+✅ Best Practices
+
+✅ Use clear names for tests.  
+✅ Test edge cases.  
+✅ Separate tests from production code.  
+✅ Integrate into CI/CD pipelines.
+
+---------------------------------------------------------
+✅ Difference from Other Frameworks
+
+| Framework | Notes                    |
+|-----------|--------------------------|
+| GoogleTest| Most common, powerful    |
+| Catch2    | Single header, easy      |
+| Doctest   | Extremely lightweight    |
+| Boost.Test| Part of Boost library    |
+
+---------------------------------------------------------
+
+GoogleTest = the go-to unit testing framework for modern C++ development!
+
+=========================================================

@@ -1,0 +1,161 @@
+=========================================================
+Multi-Cloud Gateway (NooBaa) - Cheat Sheet
+=========================================================
+
+✅ What is NooBaa?
+
+- NooBaa is a multi-cloud data gateway and object storage abstraction layer.
+- Originally a startup, acquired by Red Hat (now IBM).
+- Part of Red Hat OpenShift Data Foundation.
+- Provides a single S3-compatible endpoint for apps, abstracting storage location.
+
+---
+
+✅ Why NooBaa Exists
+
+- Enterprises use multiple clouds + on-prem.
+- Need flexibility to move data without changing apps.
+- NooBaa:
+    - Provides single S3 endpoint.
+    - Allows seamless data movement across backends.
+    - Helps avoid cloud vendor lock-in.
+
+---
+
+✅ Core Features
+
+Single Namespace
+-----------------
+- One virtual bucket, even if data resides across:
+    - AWS S3
+    - Azure Blob
+    - Google Cloud Storage
+    - On-prem storage
+
+Policy-Based Data Placement
+----------------------------
+- Define rules like:
+    - New data → Cloud A
+    - Older data → migrate to Cloud B
+- Data migration is transparent to applications.
+
+S3 Compatibility
+----------------
+- Full S3 API:
+    - PUT
+    - GET
+    - HEAD
+    - DELETE
+    - multipart uploads
+- No app code changes required.
+
+Virtual Storage Pools
+----------------------
+- Logical groups of storage resources.
+- NooBaa decides data placement.
+
+Data Resiliency
+---------------
+- Erasure coding for protection.
+- Data spread across nodes/backends.
+
+Object Encryption
+-----------------
+- Supports encryption for compliance.
+- Can integrate with external KMS.
+
+Data Migration
+--------------
+- Seamless object migration across clouds.
+- Example:
+    - Start in AWS S3.
+    - Migrate older objects to Azure.
+    - App still uses same endpoint.
+
+Multi-Tenancy
+-------------
+- Different tenants have isolated buckets and policies.
+
+---
+
+✅ How NooBaa Works
+
+- Deployed (often on Kubernetes).
+- Applications talk to NooBaa via S3 APIs.
+- NooBaa:
+    - Handles S3 requests.
+    - Routes data to storage backend.
+- Metadata stored in NooBaa’s internal DB.
+- Data stored:
+    - in cloud object storage
+    - or locally on NooBaa nodes.
+
+---
+
+✅ NooBaa Architecture
+
+- Core Service:
+    - Handles metadata.
+    - Exposes S3 API.
+
+- NooBaa Agents/Data Nodes:
+    - Store object data.
+    - Connect to backend storage.
+
+---
+
+✅ Example Use Case
+
+Scenario:
+---------
+- Company wants:
+    - Recent data → AWS S3.
+    - Older data → Azure for cost savings.
+- Apps must remain unchanged.
+
+Solution:
+---------
+- Deploy NooBaa gateway.
+- Apps talk to NooBaa S3 endpoint.
+- Policy:
+    - age > 90 days → migrate to Azure.
+
+Outcome:
+--------
+- No code changes.
+- Seamless cloud mobility.
+
+---
+
+✅ NooBaa vs Traditional Gateways
+
+| Feature            | NooBaa                      | Traditional Gateway      |
+|--------------------|-----------------------------|--------------------------|
+| Multi-cloud        | Yes                         | Usually single cloud     |
+| Dynamic migration  | Yes                         | Often static mappings    |
+| S3 compatibility   | Yes                         | Varies                   |
+| Kubernetes-native  | Yes                         | Often hardware appliance |
+| Policy engine      | Yes                         | Limited                  |
+
+---
+
+✅ Interview Quick Answer
+
+> “NooBaa is a multi-cloud gateway that lets applications access object storage through a single S3-compatible endpoint, while data can reside across multiple clouds or on-prem storage. It supports policy-driven data placement, seamless migration, and helps avoid vendor lock-in.”
+
+---
+
+✅ IBM Context
+
+- IBM focuses on:
+    - Hybrid cloud.
+    - Multi-cloud data management.
+- OpenShift Data Foundation integrates NooBaa.
+- Knowing NooBaa is a plus for IBM Storage roles.
+
+---
+
+✅ Short Summary
+
+> “NooBaa allows seamless multi-cloud object storage by acting as an S3 gatew
+

@@ -1,0 +1,300 @@
+=========================================================
+IBM Storage Software Engineering Cheat Sheet
+=========================================================
+
+✅ C / C++ Programming
+
+---------------------------------------------------------
+Memory Layout & Management
+
+Q: Explain memory layout of a C/C++ program.
+A:
+- Text segment → compiled code
+- Data segment → initialized globals/static
+- BSS segment → uninitialized globals/static
+- Heap → dynamic memory (malloc/new)
+- Stack → function calls, locals
+
+Q: Difference between stack and heap allocations?
+A:
+- Stack: automatic, fast, size-limited
+- Heap: dynamic, flexible size, must free manually
+
+Q: How do you prevent memory leaks in C++?
+A:
+- Smart pointers (unique_ptr, shared_ptr)
+- RAII → wrap allocations in destructors
+- Tools: valgrind, AddressSanitizer
+
+Q: Write your own implementation of unique_ptr.
+A:
+template <typename T>
+class MyUniquePtr {
+    T* ptr;
+public:
+    explicit MyUniquePtr(T* p = nullptr) : ptr(p) {}
+    ~MyUniquePtr() { delete ptr; }
+    MyUniquePtr(const MyUniquePtr&) = delete;
+    MyUniquePtr& operator=(const MyUniquePtr&) = delete;
+    MyUniquePtr(MyUniquePtr&& other) noexcept : ptr(other.ptr) {
+        other.ptr = nullptr;
+    }
+    MyUniquePtr& operator=(MyUniquePtr&& other) noexcept {
+        if (this != &other) {
+            delete ptr;
+            ptr = other.ptr;
+            other.ptr = nullptr;
+        }
+        return *this;
+    }
+    T& operator*() { return *ptr; }
+    T* operator->() { return ptr; }
+};
+
+---------------------------------------------------------
+Pointers & References
+
+Q: Difference between pointer and reference in C++?
+A:
+- Pointer → can be null, can change where it points
+- Reference → must be bound, can’t be null
+
+Q: How do you handle dangling pointers?
+A:
+- Set pointers to nullptr after delete
+- Prefer smart pointers
+
+---------------------------------------------------------
+Multithreading
+
+Q: How does mutex differ from spinlock?
+A:
+- Mutex → sleeps if locked
+- Spinlock → loops (CPU busy), faster for short locks
+
+Q: How would you implement a producer-consumer queue?
+A:
+- mutex + condition_variable
+- producer notifies consumer
+- consumer waits for data
+
+Q: Explain deadlock. How would you avoid it?
+A:
+- Deadlock → threads wait on each other
+- Avoid:
+    - lock order
+    - try_lock
+    - lock hierarchy
+
+Q: Difference between std::unique_lock and std::lock_guard?
+A:
+- lock_guard → immediate lock, no control
+- unique_lock → flexible, supports defer, unlock/relock
+
+---------------------------------------------------------
+Performance & Optimization
+
+Q: How do you profile a C++ program in Linux?
+A:
+- gprof
+- perf
+- valgrind (callgrind)
+
+Q: What tools would you use to detect memory leaks?
+A:
+- valgrind
+- AddressSanitizer
+- LeakSanitizer
+
+=========================================================
+Storage Systems & Filesystems
+
+---------------------------------------------------------
+Filesystem Internals
+
+Q: How does a filesystem keep track of free space?
+A:
+- Bitmap → bits = free/used blocks
+- Free lists → linked lists of extents
+
+Q: What is journaling in filesystems?
+A:
+- Logs changes before applying
+- Recovers cleanly from crashes
+
+Q: Explain inode structure in Linux.
+A:
+- metadata (size, timestamps, permissions)
+- pointers to data blocks
+
+---------------------------------------------------------
+Block vs File vs Object Storage
+
+Q: Difference between block storage and file storage?
+A:
+- Block → raw devices, OS manages filesystem
+- File → protocol-based, NFS/SMB
+
+Q: What is object storage? Why use it?
+A:
+- Stores objects + metadata + ID
+- Scales well, perfect for cloud
+
+---------------------------------------------------------
+RAID Concepts
+
+Q: Explain RAID levels 0, 1, 5, 6, 10.
+A:
+- RAID 0 → striping, fast, no redundancy
+- RAID 1 → mirroring
+- RAID 5 → striping + single parity
+- RAID 6 → striping + double parity
+- RAID 10 → mirroring + striping
+
+Q: Why does RAID-5 need parity?
+A:
+- To reconstruct data if a disk fails
+
+---------------------------------------------------------
+Distributed Storage
+
+Q: What challenges exist in distributed storage systems?
+A:
+- Consistency
+- Network partitions
+- Bottlenecks
+- Cluster management
+
+Q: Explain CAP theorem in storage context.
+A:
+- Consistency, Availability, Partition tolerance → pick 2
+
+=========================================================
+Linux System Programming
+
+Q: How do you trace system calls made by a process?
+A:
+- strace
+
+Q: What happens during a context switch?
+A:
+- Saves CPU registers
+- Loads next process state
+- Switches memory mappings
+
+Q: What is mmap, and when use it?
+A:
+- Maps files into memory
+- Faster access, shared memory
+
+Q: How does Linux handle large files (>2GB)?
+A:
+- O_LARGEFILE
+- off_t becomes 64-bit on 64-bit OS
+
+=========================================================
+Debugging
+
+Q: How would you analyze a core dump?
+A:
+- gdb <binary> core
+- bt for backtrace
+- inspect variables
+
+Q: How does GDB help in analyzing memory corruption?
+A:
+- breakpoints on malloc/free
+- watchpoints
+- trace call stack
+
+Q: How would you debug a crash only under heavy load?
+A:
+- run load tests
+- strace, perf, logs
+- check locks, resource limits
+
+=========================================================
+Problem Solving / Coding
+
+Q: Write C++ code to reverse a linked list.
+A:
+Node* reverse(Node* head) {
+    Node* prev = nullptr;
+    Node* curr = head;
+    while (curr) {
+        Node* next = curr->next;
+        curr->next = prev;
+        prev = curr;
+        curr = next;
+    }
+    return prev;
+}
+
+Q: Implement a memory pool allocator.
+A:
+- Allocate large block
+- serve allocations from block
+- track free list
+
+Q: Design class for file in a filesystem.
+A:
+class File {
+    std::string name;
+    size_t size;
+    std::vector<char> data;
+};
+
+Q: Parse JSON object in C++.
+A:
+#include <nlohmann/json.hpp>
+nlohmann::json j = nlohmann::json::parse(jsonStr);
+std::string val = j["key"];
+
+=========================================================
+Design Questions
+
+Q: Design a storage layer with snapshots.
+A:
+- Copy-on-Write
+- keep unchanged data blocks
+- new writes allocate new blocks
+
+Q: How ensure data consistency in distributed storage?
+A:
+- Consensus protocols (Paxos, Raft)
+- journaling
+- version vectors
+
+Q: How handle partial writes in storage?
+A:
+- atomic writes
+- write-ahead logging
+- checksums
+
+=========================================================
+Behavioral
+
+Q: Tell me about a time you solved a difficult bug.
+A:
+- Context → Problem → Action → Result
+
+Q: How do you handle conflicting priorities?
+A:
+- Assess impact
+- talk to stakeholders
+- prioritize business value
+
+Q: Why IBM?
+A:
+- industry leader
+- innovation
+- cutting-edge storage systems
+
+Q: Why storage domain?
+A:
+- love systems-level work
+- performance tuning
+- hardware-software challenges
+
+=========================================================
+

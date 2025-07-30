@@ -1,0 +1,102 @@
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                   MICROSOFT SQL SERVER (WINDOWS SQL) CHEAT SHEET         ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+📌 WHAT IS SQL SERVER?
+──────────────────────────────────────────────────────────────────────────────
+- Microsoft SQL Server is a relational database management system (RDBMS).
+- Supports T-SQL (Transact-SQL), Microsoft's proprietary SQL extension.
+- Widely used for enterprise, BI, analytics, and reporting solutions.
+
+🚀 WHY USE SQL SERVER?
+──────────────────────────────────────────────────────────────────────────────
+- Mature and enterprise-ready RDBMS with rich feature set
+- Integration with Windows authentication, .NET, Active Directory
+- Powerful tools: SSMS, SQL Profiler, Agent, Reporting Services
+- In-memory OLTP, Columnstore indexes, Temporal Tables
+- High availability (AlwaysOn AG, Clustering), backup & recovery tools
+
+🏛️ SQL SERVER ARCHITECTURE
+──────────────────────────────────────────────────────────────────────────────
+- Components:
+  - Database Engine (storage + query processing)
+  - SQL Server Agent (job scheduling)
+  - SSIS (Integration Services), SSRS (Reporting), SSAS (Analytics)
+- Storage:
+  - MDF (primary DB file), NDF (secondary), LDF (log file)
+- Services run under SQL Server instance (can have multiple instances)
+
+📐 DATABASE DESIGN PRINCIPLES
+──────────────────────────────────────────────────────────────────────────────
+✔️ Use schemas to group related tables
+✔️ Normalize tables for OLTP, denormalize for reports
+✔️ Use IDENTITY or SEQUENCE for keys
+✔️ Use proper indexes, including covering/indexed views
+✔️ Partition tables for large volumes
+✔️ Store procedures/functions in T-SQL for logic
+✔️ Use FILEGROUPS for data distribution
+
+🧾 BASIC T-SQL QUERIES
+──────────────────────────────────────────────────────────────────────────────
+SELECT * FROM table;  
+SELECT col1, col2 FROM table WHERE condition;  
+INSERT INTO table (col1, col2) VALUES (...);  
+UPDATE table SET col = val WHERE ...;  
+DELETE FROM table WHERE ...;  
+BEGIN TRAN; COMMIT; ROLLBACK;  
+
+🧰 ADMIN COMMANDS
+──────────────────────────────────────────────────────────────────────────────
+SELECT @@VERSION;                         Show SQL Server version  
+SELECT SYSTEM_USER;                       Current user  
+CREATE LOGIN myuser WITH PASSWORD = 'pass';  
+CREATE USER myuser FOR LOGIN myuser;  
+ALTER ROLE db_owner ADD MEMBER myuser;  
+EXEC sp_helpdb;                           Show all databases  
+USE mydb;                                 Switch DB  
+sp_who / sp_who2                          Show user sessions  
+sp_lock / sys.dm_tran_locks               Lock info  
+DBCC CHECKDB('mydb');                     Integrity check  
+
+🔐 SECURITY
+──────────────────────────────────────────────────────────────────────────────
+CREATE ROLE readonly;  
+GRANT SELECT ON schema.table TO readonly;  
+REVOKE SELECT ON schema.table FROM readonly;  
+DENY DELETE ON schema.table TO user;  
+
+💾 BACKUP & RESTORE
+──────────────────────────────────────────────────────────────────────────────
+BACKUP DATABASE db TO DISK='C:\backup.bak';  
+RESTORE DATABASE db FROM DISK='C:\backup.bak' WITH REPLACE;  
+BACKUP LOG db TO DISK='log.trn';  
+RESTORE LOG db FROM DISK='log.trn' WITH NORECOVERY;  
+
+🧠 MONITORING & PERFORMANCE
+──────────────────────────────────────────────────────────────────────────────
+SELECT * FROM sys.dm_exec_requests;  
+SELECT * FROM sys.dm_exec_query_stats;  
+SELECT * FROM sys.dm_os_performance_counters;  
+SET STATISTICS IO ON; SET STATISTICS TIME ON;  
+SQL Profiler, Extended Events for deep tracing  
+Activity Monitor (in SSMS)
+
+📦 TOOLS & UTILITIES
+──────────────────────────────────────────────────────────────────────────────
+SQL Server Management Studio (SSMS)      Main GUI tool  
+SQL Server Agent                         Job scheduling  
+SQL Server Profiler                      Query tracing  
+bcp utility                              Bulk copy tool  
+sqlcmd                                  Command-line SQL access  
+SSIS / SSRS / SSAS                       ETL, reporting, analytics  
+
+🌐 CONNECTIVITY & NETWORKING
+──────────────────────────────────────────────────────────────────────────────
+sqlcmd -S server\instance -U user -P pwd  
+TCP/IP, Named Pipes, Shared Memory protocols  
+Use SQL Server Configuration Manager to enable ports  
+Enable mixed-mode auth for SQL + Windows login  
+Firewall: open TCP 1433 (default port)
+
+===============================================================================

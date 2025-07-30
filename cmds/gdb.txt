@@ -1,0 +1,162 @@
+
+╔═════════════════════════════════════════════════════════════════════════════╗
+║                    GDB COMMAND CHEAT SHEET (ENHANCED FINAL)               ║
+╚═════════════════════════════════════════════════════════════════════════════╝
+
+🛠️ COMPILE WITH DEBUG INFO
+───────────────────────────────────────────────────────────────────────────────
+    gcc -g program.c -o program
+    g++ -g program.cpp -o program
+    # Optional: -O0 disables optimizations
+
+
+🚀 START GDB
+───────────────────────────────────────────────────────────────────────────────
+    gdb ./program                   ← Start normally
+    gdb -p <PID>                    ← Attach to a running process
+
+
+🔁 EXECUTION CONTROL
+───────────────────────────────────────────────────────────────────────────────
+    run (r)                         Start the program
+    start                           Run to main()
+    continue (c)                    Resume execution
+    step (s)                        Step into function
+    next (n)                        Step over function
+    finish                          Run until function returns
+    until                           Run until specific line
+    quit (q)                        Exit GDB
+
+
+🎯 BREAKPOINTS & WATCHPOINTS
+───────────────────────────────────────────────────────────────────────────────
+    break <line/function>           Set breakpoint
+    break <file>:<line>             File and line specific breakpoint
+    delete [N]                      Delete breakpoints
+    disable/enable <N>              Temporarily toggle breakpoint
+    watch <expr>                    Watch for write access
+    rwatch <expr>                   Watch for read access
+    awatch <expr>                   Watch for read/write access
+    info breakpoints                List breakpoints
+
+
+🔍 VARIABLE & MEMORY INSPECTION
+───────────────────────────────────────────────────────────────────────────────
+    print <var>                     Show variable value
+    display <var>                   Auto-print on step
+    set var <x>=val                 Modify variable
+    x/<fmt> <addr>                  Inspect memory
+    info locals / info args         Show local vars / arguments
+
+    Examples:
+        x/4xw addr    → 4 words in hex
+        x/8xb addr    → 8 bytes in hex
+        x/s addr      → Display string at addr
+
+
+🧠 STACK AND BACKTRACE
+───────────────────────────────────────────────────────────────────────────────
+    backtrace (bt)                 Show call stack
+    frame N                        Switch to stack frame
+    info frame                     Show frame details
+    info registers                 Show CPU registers
+
+
+📚 SOURCE NAVIGATION
+───────────────────────────────────────────────────────────────────────────────
+    list (l)                       Show source
+    list <function>                List around function
+    list <file>:<line>             List from file:line
+    edit                           Open in editor
+
+
+🧵 MULTITHREADING DEBUGGING
+───────────────────────────────────────────────────────────────────────────────
+    info threads                   List threads
+    thread <N>                     Switch to thread N
+    thread apply all bt           Backtrace all threads
+    thread apply <N> <cmd>        Run command in thread N
+    break <func> thread <N>       Breakpoint for a specific thread
+
+
+💾 CORE DUMP CONFIGURATION
+───────────────────────────────────────────────────────────────────────────────
+    ulimit -c unlimited            Enable core dumps (session)
+    ulimit -c 0                    Disable core dumps
+
+    # Permanent (in ~/.bashrc or limits.conf):
+        ulimit -c unlimited
+
+    Core dump file settings:
+        cat /proc/sys/kernel/core_pattern
+        sudo sysctl -w kernel.core_pattern=core
+        sudo sysctl -w kernel.core_pattern=core.%e.%p
+
+    To persist:
+        echo 'kernel.core_pattern=core.%e.%p' | sudo tee -a /etc/sysctl.conf
+        sudo sysctl -p
+
+
+💥 GENERATE CORE DUMP IN CURRENT DIRECTORY
+───────────────────────────────────────────────────────────────────────────────
+    ulimit -c unlimited
+    sudo sysctl -w kernel.core_pattern=core
+    sudo sysctl -w kernel.core_pattern=core.%e.%p.%t
+
+    gcc -g crash.c -o crash
+    ./crash                      # Triggers a crash and creates core
+    gdb ./crash core
+
+
+🧪 CORE DUMP DEBUGGING
+───────────────────────────────────────────────────────────────────────────────
+    gdb ./program core
+
+    Commands:
+        bt
+        info locals
+        info args
+
+
+🌐 REMOTE DEBUGGING WITH GDB
+───────────────────────────────────────────────────────────────────────────────
+    On Target:
+        gdbserver :1234 ./my_program
+        gdbserver :1234 --attach <pid>
+
+    On Host:
+        gdb ./my_program
+        target remote <IP>:1234
+        break main
+        continue
+
+    Optional:
+        symbol-file ./my_program
+        set sysroot /target/rootfs
+        set solib-absolute-prefix /target/libs
+
+    Serial Debugging:
+        gdbserver /dev/ttyS0 ./my_program
+        gdb ./my_program
+        target remote /dev/ttyS0
+
+
+🧩 MISCELLANEOUS
+───────────────────────────────────────────────────────────────────────────────
+    set pagination off            Disable "--More--"
+    set args ...                  Set CLI arguments
+    info files                    Show binary and symbol info
+    info functions                List all functions
+    info variables                List globals and statics
+
+
+🧠 TIPS & BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+    • Compile with: -g -O0
+    • Use display to auto-show variable values
+    • Create ~/.gdbinit with aliases and settings
+    • Use directory <path> to map missing sources
+    • Disable ASLR for reproducibility:
+        echo 0 | sudo tee /proc/sys/kernel/randomize_va_space
+
+===============================================================================

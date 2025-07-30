@@ -1,0 +1,107 @@
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                         ORACLE DATABASE CHEAT SHEET                       ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+📌 WHAT IS ORACLE DB?
+──────────────────────────────────────────────────────────────────────────────
+- Oracle DB is a multi-model relational database developed by Oracle Corp.
+- Designed for enterprise-grade OLTP, OLAP, data warehousing, and cloud-native apps.
+- Supports SQL, PL/SQL, JSON, XML, spatial, and graph data.
+
+🚀 WHY USE ORACLE DB?
+──────────────────────────────────────────────────────────────────────────────
+- High performance, scalability, and security
+- Advanced analytics and partitioning
+- Robust transaction management (ACID compliant)
+- RAC (Real Application Clusters) for HA and scalability
+- Enterprise tools (Data Guard, ASM, Flashback, RMAN)
+
+🏛️ ORACLE ARCHITECTURE OVERVIEW
+──────────────────────────────────────────────────────────────────────────────
+- Components:
+  - Instance (SGA + background processes)
+  - Database (data files, control file, redo logs)
+- Instance = Memory + Processes
+- Key Processes: DBWn, LGWR, CKPT, PMON, SMON, ARCn
+- Multi-tenant architecture (CDB/PDB in Oracle 12c+)
+- Uses redo logs and undo segments for consistency and recovery
+
+📐 DESIGNING AN ORACLE DATABASE
+──────────────────────────────────────────────────────────────────────────────
+✔️ Use schema-based logical grouping  
+✔️ Normalize tables for OLTP, denormalize for OLAP  
+✔️ Use sequences for primary keys  
+✔️ Use partitions for large datasets  
+✔️ Store procedures/functions in PL/SQL for business logic  
+✔️ Define tablespaces for data separation  
+✔️ Monitor stats with AWR, ADDM
+
+📊 SQL BASICS
+──────────────────────────────────────────────────────────────────────────────
+SELECT * FROM table;                     Fetch all rows  
+SELECT col1, col2 FROM table WHERE ...; Conditional select  
+INSERT INTO table (col1, col2) VALUES (...); Insert data  
+UPDATE table SET col = val WHERE ...;   Update rows  
+DELETE FROM table WHERE ...;            Delete rows  
+COMMIT;                                 Save changes  
+ROLLBACK;                               Undo uncommitted changes  
+
+🔧 ADMINISTRATIVE COMMANDS
+──────────────────────────────────────────────────────────────────────────────
+SHOW USER;                               Current DB user  
+SELECT * FROM v$version;                 Oracle version  
+SELECT username FROM dba_users;          List all users  
+CREATE USER u IDENTIFIED BY pwd;         Create new user  
+GRANT CONNECT, RESOURCE TO u;            Grant roles  
+ALTER USER u ACCOUNT UNLOCK;             Unlock user  
+DROP USER u CASCADE;                     Drop user  
+
+🔐 SECURITY
+──────────────────────────────────────────────────────────────────────────────
+CREATE ROLE app_read;  
+GRANT SELECT ON schema.table TO app_read;  
+GRANT app_read TO user;
+
+🔄 BACKUP & RECOVERY
+──────────────────────────────────────────────────────────────────────────────
+RMAN BACKUP DATABASE;                    Full DB backup  
+RECOVER DATABASE;                        Recovery operation  
+FLASHBACK TABLE TO TIMESTAMP;            Undo changes  
+EXPORT / IMPORT                          Data pump tools: expdp, impdp
+
+💾 STORAGE & FILES
+──────────────────────────────────────────────────────────────────────────────
+SHOW PARAMETER db_create_file_dest;      Check default file path  
+SELECT name FROM v$datafile;             List datafiles  
+ALTER DATABASE DATAFILE ... RESIZE ...;  Resize datafile  
+SELECT * FROM dba_tablespaces;           Tablespace info  
+CREATE TABLESPACE ...                    Create new tablespace
+
+🛠️ PERFORMANCE & MONITORING
+──────────────────────────────────────────────────────────────────────────────
+SELECT * FROM v$session;                 Current sessions  
+SELECT * FROM v$sqlarea WHERE ...;       SQL cache  
+SELECT * FROM dba_hist_active_sess_history; Active session history  
+EXEC DBMS_STATS.GATHER_SCHEMA_STATS(...); Collect stats  
+SELECT * FROM v$locked_object;           Show locked objects  
+ADDM, AWR, ASH                           Diagnostic tools  
+
+🧠 PL/SQL EXAMPLE
+──────────────────────────────────────────────────────────────────────────────
+BEGIN
+  FOR r IN (SELECT id FROM users) LOOP
+    DBMS_OUTPUT.PUT_LINE(r.id);
+  END LOOP;
+END;
+/
+
+📡 NETWORK & CONNECTIVITY
+──────────────────────────────────────────────────────────────────────────────
+sqlplus user/pwd@//host:port/service      Connect to DB  
+tnsnames.ora, sqlnet.ora                  Network config files  
+LISTENER.ORA                              Listener config  
+lsnrctl status                            Listener status  
+ALTER SYSTEM REGISTER;                    Force service registration
+
+===============================================================================

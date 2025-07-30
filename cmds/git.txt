@@ -1,0 +1,91 @@
+
+╔═════════════════════════════════════════════════════════════════════════════╗
+║                   GIT REPOSITORY MANAGEMENT CHEAT SHEET                   ║
+╚═════════════════════════════════════════════════════════════════════════════╝
+
+🚀 BASIC CONFIGURATION
+───────────────────────────────────────────────────────────────────────────────
+    git config --global user.name "Your Name"
+    git config --global user.email "your@email.com"
+    git config --global core.editor "vim"
+
+📦 INIT & CLONE
+───────────────────────────────────────────────────────────────────────────────
+    git init                             Initialize a new repo
+    git clone <url>                      Clone from remote
+    git clone <url> <dir>                Clone into directory
+
+🌿 BRANCH MANAGEMENT
+───────────────────────────────────────────────────────────────────────────────
+    git branch                           List local branches
+    git branch <name>                    Create new branch
+    git checkout <branch>                Switch branch
+    git checkout -b <name>               Create and switch
+    git branch -d <name>                 Delete local branch
+    git push origin --delete <name>      Delete remote branch
+
+🔄 FETCH, PULL, PUSH
+───────────────────────────────────────────────────────────────────────────────
+    git fetch                            Fetch changes (no merge)
+    git pull                             Fetch + merge into current branch
+    git push                             Push to tracked remote
+    git push origin <branch>             Push specific branch
+
+📂 STAGE & COMMIT
+───────────────────────────────────────────────────────────────────────────────
+    git status                           Show working directory status
+    git add <file>                       Stage file
+    git add .                            Stage all changes
+    git commit -m "message"              Commit staged changes
+    git commit -am "msg"                 Add + commit tracked changes
+
+🔍 VIEW HISTORY
+───────────────────────────────────────────────────────────────────────────────
+    git log                              Full commit log
+    git log --oneline                    One-line summary
+    git log --graph --all                Branch graph view
+    git show <commit>                    Commit details
+
+🌐 REMOTE MANAGEMENT
+───────────────────────────────────────────────────────────────────────────────
+    git remote -v                        Show remotes
+    git remote add origin <url>          Add a remote
+    git remote remove origin             Remove a remote
+    git remote rename old new            Rename remote
+
+🔁 MERGE & REBASE
+───────────────────────────────────────────────────────────────────────────────
+    git merge <branch>                   Merge branch into current
+    git rebase <branch>                  Reapply commits on top of branch
+    git rebase -i HEAD~3                 Interactive rebase last 3 commits
+
+🧪 STASH CHANGES
+───────────────────────────────────────────────────────────────────────────────
+    git stash                            Save current changes
+    git stash list                       View stashes
+    git stash pop                        Apply and remove latest
+    git stash apply stash@{n}            Apply specific stash
+    git stash drop stash@{n}             Delete specific stash
+
+🧹 RESET & REVERT
+───────────────────────────────────────────────────────────────────────────────
+    git reset --hard HEAD                Discard all local changes
+    git reset --soft HEAD~1              Undo last commit (keep staged)
+    git revert <commit>                  Reverse commit safely
+
+📁 .GITIGNORE
+───────────────────────────────────────────────────────────────────────────────
+    # Example .gitignore content:
+    *.log
+    *.tmp
+    build/
+    node_modules/
+
+🧠 USEFUL TIPS
+───────────────────────────────────────────────────────────────────────────────
+    git diff                             Show unstaged changes
+    git diff --staged                    Show staged changes
+    git clean -fd                        Remove untracked files/dirs
+    git tag v1.0                         Create a tag
+
+===============================================================================
