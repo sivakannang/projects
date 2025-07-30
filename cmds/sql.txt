@@ -1,0 +1,126 @@
+
+------------------------------- DATABASE OPERATIONS -----------------------
+
+CREATE DATABASE mydb;
+
+SHOW DATABASES;
+
+USE mydb;
+
+DROP DATABASE mydb;
+
+------------------------------ TABLE OPERATIONS ---------------------------
+
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50),
+    email VARCHAR(100)
+);
+
+SHOW TABLES;
+
+DESCRIBE users;
+
+DROP TABLE users;
+
+RENAME TABLE users TO customers;
+
+------------------------------ INSERT DATA --------------------------------
+
+INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com');
+
+INSERT INTO users (name, email) VALUES ('Bob', 'bob@example.com'), ('Carol', 'carol@example.com');
+
+------------------------------- SELECT DATA --------------------------------
+
+SELECT * FROM users;
+
+SELECT name, email FROM users;
+
+SELECT * FROM users WHERE name = 'Alice';
+
+SELECT * FROM users WHERE email LIKE '%@example.com';
+
+SELECT * FROM users ORDER BY name ASC;
+
+SELECT * FROM users LIMIT 5;
+
+------------------------------ UPDATE DATA --------------------------
+
+UPDATE users SET email = 'newalice@example.com' WHERE name = 'Alice';
+
+------------------------------- DELETE DATA -------------------------
+
+DELETE FROM users WHERE name = 'Bob';
+
+------------------------------- JOINS -------------------------------
+
+SELECT users.name, orders.amount FROM users INNER JOIN orders ON users.id = orders.user_id;
+
+SELECT users.name, orders.amount FROM users LEFT JOIN orders ON users.id = orders.user_id;
+
+----------------------------- AGGREGATE FUNCTIONS ---------------------------------------
+
+SELECT COUNT(*) FROM users;
+
+SELECT SUM(amount) FROM orders;
+
+SELECT AVG(amount) FROM orders;
+
+SELECT name, COUNT(*) as order_count FROM users JOIN orders ON users.id = orders.user_id GROUP BY users.name;
+
+SELECT name, COUNT(*) as order_count FROM users JOIN orders ON users.id = orders.user_id GROUP BY users.name HAVING order_count > 2;
+
+----------------------------- INDEXES ----------------------------------------------
+
+CREATE INDEX idx_name ON users(name);
+
+DROP INDEX idx_name ON users;
+
+----------------------------- CONSTRAINTS ----------------------------
+
+ALTER TABLE users MODIFY email VARCHAR(100) NOT NULL;
+
+ALTER TABLE users ADD UNIQUE (email);
+
+---------------------------- ALTER TABLE ---------------------------
+
+ALTER TABLE users ADD age INT;
+
+ALTER TABLE users MODIFY age INT NOT NULL;
+
+ALTER TABLE users DROP COLUMN age;
+
+--------------------------- TRANSACTIONS ---------------------------
+
+START TRANSACTION;
+
+UPDATE users SET name = 'Alice Updated' WHERE id = 1;
+
+DELETE FROM orders WHERE user_id = 1;
+
+COMMIT;
+
+ROLLBACK;
+
+--------------------------- USER MANAGEMENT -------------------------
+
+CREATE USER 'myuser'@'localhost' IDENTIFIED BY 'mypassword';
+
+GRANT ALL PRIVILEGES ON mydb.* TO 'myuser'@'localhost';
+
+SHOW GRANTS FOR 'myuser'@'localhost';
+
+------------------------ USEFUL SHOW COMMANDS -----------------------
+
+SHOW PROCESSLIST;
+
+SHOW VARIABLES;
+
+SHOW STATUS;
+
+SHOW TABLE STATUS;
+
+SHOW INDEXES FROM users;
+
+----------------------------------------------------------------------

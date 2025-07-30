@@ -1,0 +1,100 @@
+
+╔═════════════════════════════════════════════════════════════════════════════╗
+║                  APACHE CASSANDRA CHEAT SHEET & KEY NOTES                  ║
+╚═════════════════════════════════════════════════════════════════════════════╝
+
+📘 OVERVIEW
+───────────────────────────────────────────────────────────────────────────────
+    - Apache Cassandra is a distributed NoSQL database for high availability and scalability.
+    - Best suited for write-heavy workloads and large-scale, decentralized systems.
+
+⚙️ CORE FEATURES
+───────────────────────────────────────────────────────────────────────────────
+    • Peer-to-peer distributed architecture (no master node)
+    • High Availability with no single point of failure
+    • Linear horizontal scalability
+    • Tunable consistency (per read/write)
+    • Column-family data model (wide rows)
+    • Supports TTL (Time-to-Live) per column or row
+    • Built-in replication and partitioning
+    • Write-optimized, append-only storage
+
+📁 DATA MODEL CONCEPTS
+───────────────────────────────────────────────────────────────────────────────
+    - Keyspace       → Similar to schema or database
+    - Table          → Holds rows and columns
+    - Partition Key  → Determines node that stores the row
+    - Clustering Key → Defines sort order within a partition
+    - CQL            → Cassandra Query Language
+
+🧪 BASIC CQL COMMANDS
+───────────────────────────────────────────────────────────────────────────────
+    CREATE KEYSPACE myks WITH REPLICATION = 
+      {'class': 'SimpleStrategy', 'replication_factor': 3};
+
+    USE myks;
+
+    CREATE TABLE users (
+      id UUID PRIMARY KEY,
+      name TEXT,
+      email TEXT,
+      created_at TIMESTAMP
+    );
+
+    INSERT INTO users (id, name, email, created_at)
+    VALUES (uuid(), 'Siva', 'siva@mail.com', toTimestamp(now()));
+
+    SELECT * FROM users;
+
+    UPDATE users SET email = 'new@mail.com' WHERE id = <uuid>;
+
+    DELETE FROM users WHERE id = <uuid>;
+
+🔧 IMPORTANT CONFIGURATION FILES
+───────────────────────────────────────────────────────────────────────────────
+    • cassandra.yaml     → Main config file
+    • cassandra-env.sh   → JVM and memory settings
+    • logback.xml        → Logging configuration
+
+🗃️ cassandra.yaml - KEY SETTINGS
+───────────────────────────────────────────────────────────────────────────────
+    cluster_name: 'MyCluster'
+    num_tokens: 256                          # Virtual nodes per instance
+    listen_address: <host_ip>               # Node IP
+    rpc_address: 0.0.0.0                    # CQL port
+    data_file_directories: [/var/lib/cassandra/data]
+    commitlog_directory: /var/lib/cassandra/commitlog
+    saved_caches_directory: /var/lib/cassandra/saved_caches
+    seed_provider:
+      - class_name: org.apache.cassandra.locator.SimpleSeedProvider
+        parameters:
+          - seeds: "node1_ip,node2_ip"
+    endpoint_snitch: GossipingPropertyFileSnitch
+
+🧩 TOOLS & MANAGEMENT
+───────────────────────────────────────────────────────────────────────────────
+    nodetool status              → View cluster status
+    nodetool cleanup             → Clear tombstoned data
+    nodetool repair              → Fix inconsistencies across replicas
+    nodetool flush               → Force flush to disk
+    cqlsh                        → Cassandra CLI shell
+
+🔐 CONSISTENCY LEVELS (TUNABLE)
+───────────────────────────────────────────────────────────────────────────────
+    ANY        → Fastest, allows hinted handoff
+    ONE        → At least one replica must respond
+    QUORUM     → Majority of replicas must respond
+    LOCAL_QUORUM → Majority in local DC
+    EACH_QUORUM → Quorum in each DC
+    ALL        → Strongest, all replicas must respond
+
+⚠️ IMPORTANT NOTES
+───────────────────────────────────────────────────────────────────────────────
+    • Writes are always accepted → Eventually consistent
+    • Anti-entropy repair is manual (run regularly!)
+    • Data modeling is **query-driven**, denormalization is common
+    • Avoid ALLOW FILTERING unless absolutely necessary
+    • Use appropriate consistency levels for balance of latency & durability
+    • Monitor tombstone count and GC grace period for delete-heavy tables
+
+===============================================================================

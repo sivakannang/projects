@@ -1,0 +1,139 @@
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                            REDIS CHEAT SHEET                              ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+📌 WHAT IS REDIS?
+──────────────────────────────────────────────────────────────────────────────
+- Redis = REmote DIctionary Server.
+- In-memory key-value store, supports strings, lists, sets, hashes, bitmaps, streams.
+- Data persisted via RDB snapshots or AOF logs.
+
+🚀 WHY USE REDIS?
+──────────────────────────────────────────────────────────────────────────────
+- Extremely fast (microsecond latency) — ideal for caching.
+- Simple key-based access model.
+- Built-in data structures (list, set, hash) support atomic operations.
+- Pub/Sub, geospatial, TTL support.
+- Persistence and replication options.
+
+📦 COMMON USE CASES
+──────────────────────────────────────────────────────────────────────────────
+- Caching (e.g. database query results, sessions, API responses).
+- Message queues (with lists, streams, pub/sub).
+- Leaderboards (sorted sets).
+- Rate limiting (using counters or Lua scripts).
+- Real-time analytics and event tracking.
+- Distributed locks (SET NX with TTL).
+
+🏛️ REDIS ARCHITECTURE
+──────────────────────────────────────────────────────────────────────────────
+- Single-threaded event loop model (commands processed one at a time).
+- Supports:
+  - Replication (master/slave)
+  - Persistence (RDB snapshot, AOF logs)
+  - Clustering for horizontal scaling (sharding)
+  - Pub/Sub messaging model
+
+📐 HOW TO DESIGN REDIS DATABASE
+──────────────────────────────────────────────────────────────────────────────
+✔️ Key Naming Conventions:
+    user:1001:name, session:abc123, product:1001:price
+
+✔️ Use Hashes to group related fields:
+    HSET user:1001 name "Siva" age 35 city "Chennai"
+
+✔️ Expire keys where necessary (TTL):
+    SET session:abc123 "data" EX 3600
+
+✔️ Leverage native structures:
+    - LIST for task queues
+    - SET for tags, uniqueness
+    - SORTED SET for rankings
+    - STREAMS for real-time logs/events
+
+✔️ Use namespaces for separation:
+    app1:user:1001 vs app2:user:1001
+
+✔️ Avoid storing huge blobs (prefer pointers/IDs to file stores)
+
+🛠️ REDIS CLI COMMANDS
+──────────────────────────────────────────────────────────────────────────────
+    redis-cli                        Launch Redis CLI
+    PING                             Check connection (returns PONG)
+    SET key value                    Set a key
+    GET key                          Get a key
+    DEL key                          Delete a key
+    EXISTS key                       Check if key exists
+    EXPIRE key seconds               Set TTL for a key
+    TTL key                          Time to live for a key
+
+📊 STRINGS
+──────────────────────────────────────────────────────────────────────────────
+    SET mykey "Hello"
+    GET mykey
+    INCR counter
+    DECR counter
+    APPEND mykey "World"
+
+📋 LISTS
+──────────────────────────────────────────────────────────────────────────────
+    LPUSH mylist "A"
+    RPUSH mylist "B"
+    LPOP mylist
+    RPOP mylist
+    LRANGE mylist 0 -1
+
+📚 HASHES
+──────────────────────────────────────────────────────────────────────────────
+    HSET user:1 name "John" age "30"
+    HGET user:1 name
+    HGETALL user:1
+
+🧮 SETS
+──────────────────────────────────────────────────────────────────────────────
+    SADD tags "redis"
+    SREM tags "redis"
+    SMEMBERS tags
+    SISMEMBER tags "redis"
+
+📈 SORTED SETS
+──────────────────────────────────────────────────────────────────────────────
+    ZADD ranks 100 "Alice"
+    ZADD ranks 200 "Bob"
+    ZRANGE ranks 0 -1 WITHSCORES
+
+📥 STREAMS (LOG EVENTS)
+──────────────────────────────────────────────────────────────────────────────
+    XADD mystream * user Siva action login
+    XRANGE mystream - +
+    XREAD COUNT 2 STREAMS mystream 0
+
+🔧 SERVER COMMANDS
+──────────────────────────────────────────────────────────────────────────────
+    INFO                             Server info
+    MONITOR                          View real-time commands
+    FLUSHALL                         Delete all keys in all DBs
+    DBSIZE                           Total keys in current DB
+    CONFIG GET maxmemory             Show memory config
+
+🧪 DEBUGGING & PERF
+──────────────────────────────────────────────────────────────────────────────
+    SLOWLOG GET                      View slow commands
+    MEMORY USAGE key                Show key memory size
+    LATENCY LATEST                   Recent latency spikes
+    CLIENT LIST                      Connected clients
+    MONITOR                          See live commands
+
+📦 PERSISTENCE
+──────────────────────────────────────────────────────────────────────────────
+    SAVE                             Synchronous RDB snapshot
+    BGSAVE                           Background RDB snapshot
+    CONFIG SET appendonly yes        Enable AOF
+    CONFIG REWRITE                   Rewrite config after changes
+
+🎯 REDIS CLUSTER (BASIC)
+──────────────────────────────────────────────────────────────────────────────
+    redis-cli --cluster create IP:port IP:port ... --cluster-replicas 1
+
+===============================================================================

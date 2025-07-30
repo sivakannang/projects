@@ -1,0 +1,202 @@
+=========================================================
+C++ Memory Layout Cheat Sheet
+=========================================================
+
+✅ What is Memory Layout?
+
+When you run a C++ program, the operating system divides its memory into regions:
+
++---------------------+
+|   Stack             |
++---------------------+
+|   Heap              |
++---------------------+
+|   BSS Segment       |
++---------------------+
+|   Data Segment      |
++---------------------+
+|   Text Segment      |
++---------------------+
+
+---------------------------------------------------------
+✅ 1. Text Segment
+
+- Also called the **code segment**
+- Contains compiled machine instructions
+- Usually read-only
+
+Example:
+
+    int add(int a, int b) {
+        return a + b;
+    }
+
+---------------------------------------------------------
+✅ 2. Data Segment
+
+- Holds global and static variables that are **initialized**
+
+Example:
+
+    int global_var = 10;
+    static int static_var = 5;
+
+Both live in the data segment.
+
+---------------------------------------------------------
+✅ 3. BSS Segment
+
+- Holds uninitialized global or static variables
+- Zero-filled at runtime
+
+Example:
+
+    int global_uninit;
+    static int static_uninit;
+
+---------------------------------------------------------
+✅ 4. Heap
+
+- Dynamic memory allocated at runtime
+- Grows upwards
+- Allocated via malloc, new, etc.
+
+Example:
+
+    int* p = new int;
+
+---------------------------------------------------------
+✅ 5. Stack
+
+- Holds:
+    - Local variables
+    - Function parameters
+    - Return addresses
+- Grows downward
+- Each function call creates a new stack frame
+
+Example:
+
+    void func() {
+        int x = 10; // lives on the stack
+    }
+
+---------------------------------------------------------
+✅ Visual Example
+
+Example Program:
+
+    #include <iostream>
+
+    int global_var = 100;
+    static int static_var = 200;
+
+    int main() {
+        int local_var = 300;
+        int* heap_var = new int(400);
+        std::cout << local_var << std::endl;
+        return 0;
+    }
+
+Memory Layout:
+
+- global_var → Data segment
+- static_var → Data segment
+- local_var → Stack
+- heap_var → pointer on stack, points to heap
+- Code → Text segment
+
+---------------------------------------------------------
+✅ Typical Address Order
+
+On most systems:
+
+- Text → lowest addresses
+- Data / BSS → above text
+- Heap → grows upward
+- Stack → grows downward
+
+Heap and stack grow toward each other.
+
+---------------------------------------------------------
+✅ sizeof and Alignment
+
+Data alignment affects structure size.
+
+Example:
+
+    struct MyStruct {
+        char a;
+        int b;
+    };
+
+May occupy 8 bytes:
+- 1 byte for char
+- 3 bytes padding
+- 4 bytes for int
+
+Check size:
+
+    std::cout << sizeof(MyStruct) << std::endl;
+
+---------------------------------------------------------
+✅ Static vs Dynamic Memory
+
+| Static             | Dynamic           |
+|--------------------|-------------------|
+| Lifetime = entire program | Lifetime = manual |
+| Data/BSS segments | Heap             |
+| global, static vars | malloc, new    |
+
+---------------------------------------------------------
+✅ Stack Overflow vs Heap Overflow
+
+- Stack overflow:
+    - infinite recursion
+- Heap overflow:
+    - writing past allocated memory
+    - can cause corruption
+
+---------------------------------------------------------
+✅ Practical Debugging
+
+- GDB → examine stack frames
+- Valgrind → detect memory leaks
+
+---------------------------------------------------------
+✅ Quick Interview Answers
+
+✅ Where are local variables stored?
+→ Stack
+
+✅ Where are global variables stored?
+→ Data or BSS segment
+
+✅ Heap grows…?
+→ Upward
+
+✅ Stack grows…?
+→ Downward (usually)
+
+✅ What happens if heap and stack collide?
+→ Crash (segfault)
+
+---------------------------------------------------------
+✅ Fun Fact: String Literals
+
+Example:
+
+    const char* str = "Hello";
+
+Often stored in read-only areas of the text segment.
+
+---------------------------------------------------------
+
+C++ memory layout is crucial for:
+
+- Debugging crashes
+- Avoiding memory leaks
+- Understanding performance issues
+
+=========================================================
+
