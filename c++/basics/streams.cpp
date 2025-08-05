@@ -1,166 +1,23 @@
 
-/***************************************************************************************************************************************
- *
- *                                           Editor or IDE
- *                                                 |
- *                                                 |     <------- Source codes ( *.cpp, *.c ) , headers ( *.h )
- *                                                 |
- *                                           Preprocessor
- *                                                 |
- *                                                 |     <------- ( *.i , *.ii ) Included files, comments stripped, macro substitution
- *                                                 |
- *                                             Assembler     
- *                                                 |
- *                                                 |     <------- *.s
- *                                                 |
- *                                              Compiler
- *                                                 |
- *                                                 |     <------- Object codes ( *.obj, *.o )
- *                                                 |
- *           Static libraries ( .lib, .a ) ----> Linker
- *                                                 |
- *                                                 |     <------- Executable code ( *.exe )
- *                                                 |
- *        Shared libraries ( *.dll, *.so ) ----> Loader
- *                                                 |
- *                                                 |
- *                                                 |
- *                               Input ----->     CPU   -------> Output
- *
- * 
- *
- *  Build  -> Proprocessor, Assembler, Compiler, Linker
- *  Run    -> Loader, CPU
- *
- *
- *  g++ -save-temps streams.cpp           [ Save the files which will be create during compilation )
- *  readelf -a streams.o                  [ read elf objects ]
- *
- *
- * ------------------------------------------------- why c++ ---------------------------------------------------------------------------
- *  OOPS
- *   * Encapsulation    -> binding data and methods into a class and restricting access ( private, protected, public )
- *   			-> Use private data members and public getters/setters
- *                      -> improve security
- *
- *   * Abstraction      -> Hiding complex implementations and showing only necessary features
- *   			-> use abstract data classes or interfaces, focus on what an object does not how ( virtual )
 
- *   * Inheritence      -> Code reuse, Reusing a code from base class
- *   			-> C++ supports single, multiple, multi level, hierarchical, and hybrid inheritance
- *
- *   * Polymorphism     -> Different behaviours ( virtual , override), which allows us to redefine the way something works
- *   			-> One interface, many implementations
- *   			-> Compile time ( Function and Operator overloading )
- *   			-> Run Time ( virtual functions and methos overriding )
- *
- *  Overloading
- *  Generic program using templates
- *  Strong TypeCheck or TypeSafety ( short smallNumber = 1234567890;   // ERROR: this value is outside the range of short )
- *  Exception handling and inline functions
- *  STL
- *
- *  ------------------------------------------------ cout cerr clog diff ---------------------------------------------------------------
- *  cout -> stdout stream - buffered
- *  clog -> stderr stream - buffered
- *  cerr -> stderr stream - unbuffered
- *
- *  ------------------------------------------------ Flushing the Output Buffer --------------------------------------------------------
- *  
- *  endl & '\n'    -> both works as 'enter key' but endl flushes the output buffer as well
- *
- *
- *  You can flush the output buffer via:
-
-	flush member function or manipulator:
-	
-	cout.flush();                  // using member function
- 
-	cout << "hello" << flush;      // using manipulators
-	cout << endl;
-
-	cout << "Enter a number: ";
-	int number;
-	cin >> number;                 // output buffer is flushed when input is pending
- *
- * 
- * ------------------------------------------------- Flushing input buffer -------------------------------------------------------------
- *
- *  istream & ignore (int n = 1, int delim = EOF)
- *
- *  cin.ignore(numeric_limits<streamsize>::max());        // Ignore to the end-of-file
- *  cin.ignore(numeric_limits<streamsize>::max(), '\n');  // Ignore to the end-of-line
- *
- * When an input error is made, the stream "breaks," cin returns false, and the program stops.
- * But what if we want to recover from the error, rather than have the program stop? There are two steps to recovering from an error:
- * 1. Clear the error with cin.clear().
- * 2. Remove the incorrect characters from the stream. One way to do this is with cin.ignore().
- *
- * * ----------------------------------------------- Unformatted Input/Output Functions ( istream and ostream ) ------------------------
- *
- * put(), get() and getline()
- *
- * // Examples
- * cout.put('A');
- * cout.put('A').put('p').put('p').put('\n');
- * cout.put(65);
- *
- * int get ();
- * istream & get (char & c);
- * istream & get     (char * cstr, streamsize n, char delim = '\n');  //  It will keep    the delim char in the input stream, append null in the end
- * istream & getline (char * cstr, streamsize n, char delim = '\n');  //  It will discard the delim char in the input stream, append null in the end
- *
- * istream & read (char * buf, streamsize n)                          //  used for binary input, doesn't append null in the end
- * ostream & write (const char * buf, streamsize n)                   //  read() and write() for binary file, which read/write raw bytes without interpreting the bytes
- * streamsize gcount() const -> Return the number of character extracted by the last unformatted input operation by get(), getline(), ignore() or read(), ...
- *
- *
- * char peek ();                 // Returns the next character in the input buffer without extracting it
- * istream & putback (char c);   // Insert the character back to the input buffer
- *
- * ------------------------------------------------- States of Streams -----------------------------------------------------------------
- *
- *  The stream superclass ios_base maintains a data member to describe the states of the stream, which is a bitmask of the type iostate. The flags are:
- *
- *	eofbit    : set when an input operation reaches end-of-file.
- *	failbit   : The last input operation failed to read the expected characters or output operation failed to write the expected characters.
- *		    e.g., getline() reads n characters without reaching delimiter character.
- *	badbit    : serious error due to failure of an IO operation (e.g. file read/write error) or stream buffer.
- *      goodbit   : Absence of above error with value of 0.
- *
- *  These flags are defined as public static members in ios_base.
- *  They can be accessed directly via ios_base::failbit or via subclasses such as cin::failbit, ios::failbit.
- *  However, it is more convenience to use these public member functions of ios class:
- *
- *	good()    : returns true if goodbit is set (i.e., no error).
- *	eof()     : returns true if eofbit is set.
- *	fail()    : returns true if failbit or badbit is set.
- *	bad()     : returns true if badbit is set.
- *	clear()   : clear eofbit, failbit and badbit.
- * 
- * 
- *--------------------------------- Formatting Input/Output via Manipulators in <iomanip> and <iostream> -----------------------------------
- *
- * C++ provides a set of manipulators to perform input and output formatting:
- *
- *    <iomanip> header : setw(), setprecision(), setbas(), setfill().
- *    <iostream> header: left|right|internal, boolalpha|noboolalpha, showpos|noshowpos, uppercase|nouppercase, skipws|noskipws etc.
- *    <iostream> header: Floating-point Format fixed|scientific, setprecision, showpoint|noshowpoint
- *    <iostream> header: Integral Number Base  dec|oct|hex, setbase|showbase|noshowbase
- *    <iostream> header: Flush output after each insertion operation.  unitbuf|nounibuf
- *
- *-------------------------------------------------------------- File Streams -------------------------------------------------------------------
+/******************************* C++ Streams **************************************************************
 *
-* iostream     -> istream, ostream             -> cin cout cerr clog
-* fstream      -> ifstream, ofstream
-* stringstream -> istringstream, ostringstream
+*  - std::cin, std::cout, std::cerr, std::clog: console I/O  ( cerr, clog are unbuffered )
 *
-* open(), close() and is_open(), clear()
+*  - File streams:
+*    * std::ifstream - for file input
+*    * std::ofstream - for file output
+*    * std::fstream  - for file input + output
 *
-* File modes are defined as static public member in ios_base superclass
+*  - String streams:
+*    * std::istringstream - input from string
+*    * std::ostringstream - output to string
+*    * std::stringstream  - both input/output to string
 *
-* void open(const char *filename, ios::openmode mode)
-* clear() ->  clearing any fail bits first (such as the end-of-file bit)
+*  - Stream manipulators:
+*    * std::setw(n), std::setfill(c), std::setprecision(n)
+*    * std::fixed, std::hex, std::dec, std::oct, std::showpoint
+*
 *
 * ios::in    - open file for input operation
 * ios::out   - open file for output operation
@@ -168,13 +25,6 @@
 * ios::trunc - truncate the file and discard old contents.
 * ios::binary- for binary (raw byte) IO operation, instead of character-based.
 * ios::ate   - position the file pointer "at the end" for input/output.
-*
-*
-* Binary file, read() and write()
-* We need to use read() and write() member functions for binary file (file mode of ios::binary), which read/write raw bytes without interpreting the bytes.
-*
-* istream & read (char * buf, streamsize n)                          //  used for binary input, doesn't append null in the end
-* ostream & write (const char * buf, streamsize n)                   //  read() and write() for binary file, which read/write raw bytes without interpreting the bytes
 *
 * seekg() -> get the input  file pointer address -> get()
 * seekp() -> get the output file pointer address -> put()
@@ -186,55 +36,109 @@
 * ostream & seekp (streampos pos)                         -> absolute position relative to beginning
 * ostream & seekp (streamoff offset, ios::seekdir dir)    -> with offset (positive or negative) relative to seekdir
 * streampos tellp ()                                      -> Returns current position of output pointer
-*
-* dir values
 * 
-* ios_base::beg (offset from the beginning of the stream's buffer).
-* ios_base::cur (offset from the current position in the stream's buffer).
-* ios_base::end (offset from the end of the stream's buffer).
+* std::ios::beg (offset from the beginning of the stream's buffer).
+* std::ios::cur (offset from the current position in the stream's buffer).
+* std::ios::end (offset from the end of the stream's buffer).
 *
-*------------------------------------------------------------------------------------------------------------------------------------------
-
-*------------------------------------------------------------ String Streams --------------------------------------------------------------
 *
-* explicit ostringstream (ios::openmode mode = ios::out);                      // default with empty string
-* explicit ostringstream (const string & buf, ios::openmode mode = ios::out);  // with initial str
+* - :: → Scope resolution operator, used to access a hidden global variable.
+* - (...) → Ellipsis, allows functions to accept variable number of arguments (type checking disabled).
 *
-* explicit istringstream (ios::openmode mode = ios::in);                       // default with empty string
-* explicit istringstream (const string & buf, ios::openmode mode = ios::in);   // with initial string
+************************************** Interview Questions and Answers ****************************
 *
-* string str () const;           // Get contents
-* void str (const string & str); // Set contents
+*  1. What is the difference between std::cin and std::ifstream?
+*     - std::cin is for console input; ifstream is for reading from files.
 *
-* ----------------------------------------------------------------------------------------------------------------------------------------
-
-****************************************************************************************************************************************
- *
- * :: -> is known as scope resolution operator. If a global variable is hidden by a local variable of same name, you could use this to retrieve the hidden global var
- * (...) -> Ellipses, can be used as the last parameter of a function to denote zero or more args of unknown type.Compiler suspends type checking for these parameters
- * *************************************************************************************************************************************/
-
-
+*  2. What are the uses of std::fstream?
+*     - It can read and write to the same file stream.
+*
+*  3. How to format numbers using manipulators?
+*     - Use fixed, setprecision, setw, setfill, etc.
+*
+*  4. What is a stringstream?
+*     - A stream that operates on strings instead of files or console.
+*
+*  5. When do you use istringstream and ostringstream?
+*     - istringstream is used to extract data from a string.
+*     - ostringstream is used to format data into a string.
+*
+*  6. How to check if a file opened successfully?
+*     - Use `.is_open()` or check stream validity with if/else.
+*
+*  7. What does flush do?
+*     - It forces buffer to be written immediately.
+*
+*  8. How do you open a file in binary mode?
+*     - Use `std::ios::binary` when opening the file.
+*
+*  9. What does std::getline do?
+*     - It reads a full line of text (including spaces).
+*
+*  10. How to write binary data to file?
+*     - Use `ostream.write(char*, size)` and `istream.read(char*, size)`.
+*
+*
+*-------------------------------------------------------------------------------------------------------------------------*/
 
 #include <iostream>
-#include <limits>
-#include <string>
-#include <cstring>
 #include <fstream>
 #include <sstream>
+#include <iomanip>
+#include <string>
 #include <vector>
-#include <iterator>
-#include <algorithm>
 
-using namespace std;
+void fileStreamDemo() {
+	// Write to file
+	std::ofstream fout("example.txt");
+	fout << "Value: " << std::setw(5) << std::setfill('0') << 42 << "\n";
+	fout.close();
 
-void base_io();
-void overload_cout_cin();
-void fileDispaly(string filename);
-void stringStream();
+	std::ifstream fin("example.txt");
+	std::string line;
+	while (std::getline(fin, line)) {
+		std::cout << "From file: " << line << std::endl;
+	}
+	fin.close();
 
-#define SIZEOF(val) ((char *)(&val+1) - (char *)&val)
-#define DECLARE_TYPE(type) __typeof__(type) newvar
+	// Read file char-by-char
+	std::ifstream charin("example.txt");
+	char ch;
+	std::cout << "Char-by-char: ";
+	while (charin.get(ch)) {
+		std::cout << ch;
+	}
+	charin.close();
+
+	// Binary write and read
+	const char* binData = "ABCD"; // ABCD in ASCII
+	std::ofstream bout("binary.dat", std::ios::binary);
+	bout.write(binData, 4);
+	bout.close();
+
+	std::ifstream binin("binary.dat", std::ios::binary);
+	char buffer[4];
+	binin.read(buffer, 4);
+	std::cout << "Binary read: ";
+	for (int i = 0; i < 4; ++i) {
+		std::cout << buffer[i] << ' ';
+	}
+	std::cout << std::endl;
+	binin.close();
+}
+
+void stringStreamDemo() {
+	std::string input = "123 45.6 Hello";
+	std::istringstream iss(input);
+	int i; double d; std::string s;
+	iss >> i >> d >> s;
+	std::cout << "Parsed: " << i << ", " << d << ", " << s << std::endl;
+
+	std::ostringstream oss;
+	oss << "Formatted output: [" << std::setw(8) << std::left << s << "]";
+	std::string result = oss.str();
+	std::cout << result << std::endl;
+}
 
 std::vector<std::string> split_str(const std::string& s, char delimeter ) {
 
@@ -265,210 +169,8 @@ std::vector<std::string> split(const std::string& str, char delimeter)
 			v.push_back(token);
 	return v;
 }
-
-template<typename T>
-std::vector<T> split(const std::string& str)
-{
-	std::istringstream iss(str);
-	//std::istream_iterator<std::string> beg(iss), end;
-	//std::vector<T> vec(beg, end);
-	//return vec;
-	return std::vector<T>( std::istream_iterator<T>(iss), std::istream_iterator<T>() );
-}
-
-void test_split() {
-
-	auto vec_str = split<std::string>("this is sample string");
-	std::for_each( vec_str.begin(), vec_str.end(), [](auto& val) { std::cout << val << std::endl; });
-
-	auto vec_int(split<int>("1 2 3   4 5"));
-	std::for_each( vec_int.begin(), vec_int.end(), [](auto& val) { std::cout << val << std::endl; });
-
-	vec_str = split("1,2,3,,,4,5", ',');
-	std::for_each( vec_int.begin(), vec_int.end(), [](auto& val) { std::cout << val << std::endl; });
-	
-	vec_str = split_str("1,2,3,,,4,5", ',');
-	std::for_each( vec_int.begin(), vec_int.end(), [](auto& val) { std::cout << val << std::endl; });
-}
-
-int main()
-{
-	//base_io();
-	//overload_cout_cin();
-	//fileDispaly("delete.cpp");
-	//stringStream();
-	char a;
-	short b;
-	int c;
-	double d;
-	int arr[10];
-	char s[50];
-
-	cout << SIZEOF(a) << " " << SIZEOF(b) << " " << SIZEOF(c) << " " << SIZEOF(d) << " " << SIZEOF(arr) << " " << SIZEOF(s) << endl;
-	cout << &arr << " " << &arr[1] << " " << &arr+1 << endl;
-	cout << &s << " " << &s[1] << " " << &s+1 << endl;
-	printf("\n %u %u %u", &s, &s[1], &s+1);
-	test_split();
+int main() {
+	fileStreamDemo();
+	stringStreamDemo();
 	return 0;
 }
-
-/********************************* Base I/O *****************************************************/
-void base_io()
-{
-	int a, b, c;
-	string s1, s2, s3;
-
-	cout << "Enter an integer : ";
-	cin >> a;
-	cout << endl;
-	cout << "The number u entered : " << a << endl;
-
-	cout << "Enter two integers : ";
-	cin >> b >> c;
-	cout << endl;
-	cout << "The number u entered : " << b << " , " << c << endl;
-
-	
-	cout << "Enter a string : ";
-	cin >> s1;
-	cout << endl;
-	cout << "The string u entered : " << s1 << endl;
-
-	cin.ignore(numeric_limits<streamsize>::max());        // Ignore to the end-of-file
-	cin.ignore(numeric_limits<streamsize>::max(), '\n');  // Ignore to the end-of-line
-
-
-	cout << "Enter a string : ";
-	getline(cin, s2);
-	cout << endl;
-	cout << "The string u entered : " << s2 << endl;
-}
-
-/********************************************************************************************************/
-
-
-/************************************* cout cin overload ************************************************/
-class Complex 
-{ 
-	private: 
-		int real, imag; 
-	public: 
-		Complex(int r = 0, int i =0) 
-		{  real = r;   imag = i; } 
-		friend ostream & operator << (ostream &out, const Complex &c); 
-		friend istream & operator >> (istream &in,  Complex &c); 
-};
-
-ostream & operator << (ostream &out, const Complex &c) 
-{ 
-	out << c.real; 
-	out << "+i" << c.imag << endl; 
-	return out; 
-} 
-
-istream & operator >> (istream &in,  Complex &c) 
-{ 
-	cout << "Enter Real Part "; 
-	in >> c.real; 
-	cout << "Enter Imagenory Part "; 
-	in >> c.imag; 
-	return in; 
-}
-
-void overload_cout_cin()
-{ 
-	Complex c1; 
-	cin >> c1; 
-	cout << "The complex object is "; 
-	cout << c1; 
-}
-
-/********************************************************************************************************/
-
-/************************************************ Streams ***********************************************/
-
-void fileDispaly(string filename)
-{
-	streampos size;
-	char *memblock ;
-
-	ifstream file;
-	file.open(filename.c_str(), ios::in|ios::ate);
-	if ( file.is_open()) {
-
-		size = file.tellg();
-		file.seekg (0, ios::beg);
-		memblock = new char[size];
-
-		file.read(memblock, size);
-		
-		file.close();
-
-		cout << memblock << endl;
-
-		delete[] memblock;
-	}else{
-		cout << "Unable to open the file : " << filename << endl;
-	}
-
-	file.open(filename.c_str(), ios::in);
-	if ( file.is_open()) {
-
-		char ch;
-		while ( file.get(ch) )
-			cout << ch;
-
-		file.close();
-
-		cout << endl;
-
-	}else{
-		cout << "Unable to open the file : " << filename << endl;
-	}
-
-}
-
-void stringStream()
-{
-	ostringstream sout;  
-
-	// Write into string buffer
-	sout << "apple" << endl;
-	sout << "orange" << endl;
-	sout << "banana" << endl;
-
-	// Get contents
-	cout << sout.str() << endl;
-
-
-	// construct input string stream (buffer) - need <sstream> header
-	istringstream sin("123 12.34 hello");
-
-	// Read from buffer
-	int i;
-	double d;
-	string s;
-	sin >> i >> d >> s;
-	cout << i << "," << d << "," << s << endl;
-}
-
-// C++11 varargs
-template<typename T>
-T adder(T v) {
-  return v;
-}
-
-template <typename T, typename... Args> 
-T adder(T first, Args... args) 
-{ 
-	return first + adder(args...) ; 
-} 
-
-// C++14 varargs
-template<typename ...Args>
-auto sum(Args ...args)
-{
-	return (... + args);
-}
-
-/********************************************************************************************************/
