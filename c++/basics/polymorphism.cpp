@@ -1,23 +1,32 @@
 /***************************************  Polymorphism   ******************************************************* 
+*  - One interface, many types. Two forms:
+*      * Compile-time (static): function/operator overloading, templates (no virtual dispatch)
+*      * Run-time (dynamic): virtual functions + calls via base pointers/references
 *
-*  - Polymorphism allows one interface to represent multiple underlying types and it has two types
-*    * Compile-time (static): achieved using function overloading or operator overloading
-*    * Run-time (dynamic): achieved using virtual functions and base class pointers/references
+*  - Use `virtual` in the base to enable dynamic dispatch. Prefer `override` in the derived.
+*    Must match signature (+ cv/ref/noexcept); return type can be covariant.
 *
-*  - Use `virtual` in base class to enable runtime polymorphism.
-*  - Derived class must override with same signature for correct dispatch.
-*  - Calls via base pointer use derived method if `virtual` is used.
+*  - Calls through base pointers/references pick derived overrides at run time (dynamic binding).
+*    Without `virtual`, similarly named functions in the derived hide base versions (static binding).
 *
-*  - `= 0` makes a function pure virtual → class becomes abstract.
-*  - Always make base class destructors `virtual` for safe cleanup.
-*  - Without `virtual`, overriding leads to compile-time (static) binding.
-*  - virtual function can not be static or friend function
-*  - Using virtual Keyword, we can access the private method of derived class. Compiler checks for access specifier only at compile time
+*  - `= 0` ⇒ pure virtual ⇒ class becomes abstract. (A pure virtual destructor still needs a definition.)
 *
-*  - The compiler uses a virtual pointer (`vptr`) and a virtual table (`vtable`) for runtime dispatch
-*      * vptr is a hidden pointer inside each polymorphic object and it points to the class's `vtable`
-*      * vtable is a table of function pointers for all virtual functions.
-*      * When a virtual function is called, vptr is used to locate the correct function at runtime
+*  - Always make base destructors `virtual` when deleting via base pointers.
+*
+*  - `virtual` member functions cannot be `static`. Non-member friend functions cannot be virtual.
+*    A member function can be both virtual and a friend of another class.
+*
+*  - Access control is checked at compile time on the base declaration used for the call.
+*    The derived class’s access level for the overrider does not restrict virtual calls.
+*
+*  - Virtual dispatch is suppressed inside constructors/destructors.
+*    Calls inside a base’s ctor/dtor use base implementations, not derived overrides.
+*
+*  - vptr/vtable are typical implementation details (not mandated by the standard).
+*      * vptr: hidden pointer inside each polymorphic object pointing to its vtable
+*      * vtable: table of function pointers for virtual functions
+*      * Virtual call → compiler uses vptr to find correct function at runtime
+*
 *
 * Ques : We have a base class with a virtual function and a derived class which inherited it, so if we create 5 objetcs, how many vptr and vtable will be created ?
 *

@@ -1,8 +1,7 @@
-// C++ Exception Handling Notes
 
 /* ---------------------------------------------------------
    Basics of Exception Handling in C++
---------------------------------------------------------- */
+---------------------------------------------------------
 
 // - C++ uses try, catch, and throw keywords for exception handling.
 // - Allows separating error handling code from regular code.
@@ -82,76 +81,67 @@ Questions:
 //    - std::terminate() is called.
 
 
-/* ---------------------------------------------------------
-   Sample Code
 --------------------------------------------------------- */
 
 #include <iostream>
-#include <stdexcept>
-
-void mayThrow(bool trigger) {
-    if (trigger) {
-        throw std::runtime_error("Something went wrong");
-    }
-}
-
-void exception_demo() {
-    try {
-        mayThrow(true);
-    } catch (const std::runtime_error& e) {
-        std::cout << "Caught exception: " << e.what() << "\n";
-    } catch (...) {
-        std::cout << "Caught unknown exception\n";
-    }
-}
-
-
-
-// Custom Exception Example
 #include <string>
-
-class MyCustomException : public std::exception {
-    std::string message;
-public:
-    MyCustomException(const std::string& msg) : message(msg) {}
-    const char* what() const noexcept override {
-        return message.c_str();
-    }
-};
-
-void throw_custom_exception() {
-    throw MyCustomException("Custom error occurred");
-}
-
-
-
-// Sample: Using std::current_exception and std::rethrow_exception
 #include <exception>
 #include <memory>
 
-void rethrow_demo() {
-    std::exception_ptr eptr;
-    try {
-        throw std::runtime_error("Captured via std::current_exception");
-    } catch (...) {
-        eptr = std::current_exception();
-    }
+void mayThrow(bool trigger) {
+	if (trigger) {
+		throw std::runtime_error("Something went wrong");
+	}
+}
 
-    try {
-        if (eptr) std::rethrow_exception(eptr);
-    } catch (const std::exception& e) {
-        std::cout << "Rethrown exception: " << e.what() << "
-";
-    }
+void exception_demo() {
+	try {
+		mayThrow(true);
+	} catch (const std::runtime_error& e) {
+		std::cout << "Caught exception: " << e.what() << "\n";
+	} catch (...) {
+		std::cout << "Caught unknown exception\n";
+	}
+}
+
+
+
+
+class MyCustomException : public std::exception {
+	std::string message;
+	public:
+	MyCustomException(const std::string& msg) : message(msg) {}
+	const char* what() const noexcept override {
+		return message.c_str();
+	}
+};
+
+void throw_custom_exception() {
+	throw MyCustomException("Custom error occurred");
+}
+
+
+
+void rethrow_demo() {
+	std::exception_ptr eptr;
+	try {
+		throw std::runtime_error("Captured via std::current_exception");
+	} catch (...) {
+		eptr = std::current_exception();
+	}
+
+	try {
+		if (eptr) std::rethrow_exception(eptr);
+	} catch (const std::exception& e) {
+		std::cout << "Rethrown exception: " << e.what() << std::endl;
+	}
 }
 int main() {
-    exception_demo();
-    try {
-        throw_custom_exception();
-    } catch (const MyCustomException& ex) {
-        std::cout << "Caught custom exception: " << ex.what() << "
-";
-    }
-        rethrow_demo();
-    $1
+	exception_demo();
+	try {
+		throw_custom_exception();
+	} catch (const MyCustomException& ex) {
+		std::cout << "Caught custom exception: " << ex.what() << std::endl;
+	}
+	rethrow_demo();
 }

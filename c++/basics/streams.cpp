@@ -1,8 +1,7 @@
 
-
 /******************************* C++ Streams **************************************************************
 *
-*  - std::cin, std::cout, std::cerr, std::clog: console I/O  ( cerr, clog are unbuffered )
+*  - std::cin, std::cout, std::cerr, std::clog: console I/O  ( cerr is unbuffered )
 *
 *  - File streams:
 *    * std::ifstream - for file input
