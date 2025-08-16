@@ -13,7 +13,12 @@
 * Forward Iterator       - Read/write, one direction (e.g., forward_list)
 * Bidirectional Iterator - ++ and -- supported (e.g., list, set, map)
 * Random Access Iterator - Full pointer support: +, -, [] (e.g., vector, array)
-
+*
+* ✅ Rule of thumb for access iterator value
+* 	*it → value
+* 	it->member → No need * for access a member of the value (if the value is a struct/class), eg std::map
+* 	No need * in range-based for loop (the compiler dereferences for you):
+*
 *************************   Interview Questions and Answers *******************************
 *
 * 1. What are the different types of iterators in C++? Explain their use cases.
@@ -44,7 +49,7 @@
 *    - It may lead to undefined behavior or iterator invalidation; it is safer to collect changes and apply after iteration.
 *
 * 10. How do standard algorithms use iterators?
-*     - Algorithms like sort, find, copy operate on iterator ranges [begin, end) to remain container-agnostic.
+*     - Algorithms like sort, find, copy operate on iterator ranges (begin, end) to remain container-agnostic.
 *
 *********************************************************************************************************************************/
 

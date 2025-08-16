@@ -41,13 +41,13 @@
 *    - It is a standard library module for file and path manipulation, introduced in C++17.
 *
 * 2. How do you check if a file or directory exists using std::filesystem?
-*    - Use `fs::exists(path)`.
+*    - Use `std::filesystem::exists(path)`.
 *
 * 3. What is the difference between absolute() and canonical() paths?
 *    - `absolute()` resolves to full path; `canonical()` also resolves symlinks.
 *
 * 4. How can you iterate over all files in a directory recursively?
-*    - Use `fs::recursive_directory_iterator(path)`.
+*    - Use `std::filesystem::recursive_directory_iterator(path)`.
 *
 * 5. What is the purpose of directory_iterator and recursive_directory_iterator?
 *    - To list files in a directory (non-recursive vs. recursive).
@@ -90,37 +90,36 @@
 #include <iostream>
 #include <filesystem>
 
-namespace fs = std::filesystem;
 
 void filesystemDemo() {
-	fs::path filePath = "example.txt";
+	std::filesystem::path filePath = "example.txt";
 
-	if (fs::exists(filePath)) {
+	if (std::filesystem::exists(filePath)) {
 		std::cout << "File exists: " << filePath << "\n";
-		std::cout << "Absolute path: " << fs::absolute(filePath) << "\n";
-		std::cout << "Canonical path: " << fs::canonical(filePath) << "\n";
-		std::cout << "File size: " << fs::file_size(filePath) << " bytes\n";
+		std::cout << "Absolute path: " << std::filesystem::absolute(filePath) << "\n";
+		std::cout << "Canonical path: " << std::filesystem::canonical(filePath) << "\n";
+		std::cout << "File size: " << std::filesystem::file_size(filePath) << " bytes\n";
 	}
 
-	std::cout << "Current Path: " << fs::current_path() << "\n";
-	fs::create_directory("example_dir");
-	fs::create_directories("example_dir/nested/structure");
+	std::cout << "Current Path: " << std::filesystem::current_path() << "\n";
+	std::filesystem::create_directory("example_dir");
+	std::filesystem::create_directories("example_dir/nested/structure");
 	std::cout << "Created directories: example_dir/nested/structure\n";
 
-	fs::copy_file(filePath, "example_dir/copied.txt", fs::copy_options::overwrite_existing);
+	std::filesystem::copy_file(filePath, "example_dir/copied.txt", std::filesystem::copy_options::overwrite_existing);
 	std::cout << "File copied to example_dir/copied.txt\n";
 
-	if (fs::is_directory("example_dir")) {
+	if (std::filesystem::is_directory("example_dir")) {
 		std::cout << "example_dir is a directory\n";
 	}
 
 	std::cout << "Contents of current directory:\n";
-	for (const auto& entry : fs::directory_iterator(".")) {
+	for (const auto& entry : std::filesystem::directory_iterator(".")) {
 		std::cout << " - " << entry.path() << "\n";
 	}
 
-	fs::remove("example_dir/copied.txt");
-	fs::remove_all("example_dir");
+	std::filesystem::remove("example_dir/copied.txt");
+	std::filesystem::remove_all("example_dir");
 	std::cout << "Cleaned up created files and directories\n";
 }
 
