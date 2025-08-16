@@ -1,5 +1,3 @@
-// build-ready.cpp
-// g++ -std=gnu++20 -O2 -Wall -Wextra build-ready.cpp -o demo && ./demo
 
 /*
 ==========================

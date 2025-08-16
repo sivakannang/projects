@@ -72,7 +72,7 @@
 *     - Use `std::ios::binary` when opening the file.
 *
 *  9. What does std::getline do?
-*     - It reads a full line of text (including spaces).
+*     - It reads a full line of text (including spaces, excluding new line char).
 *
 *  10. How to write binary data to file?
 *     - Use `ostream.write(char*, size)` and `istream.read(char*, size)`.
