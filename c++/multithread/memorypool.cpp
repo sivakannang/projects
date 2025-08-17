@@ -1,67 +1,49 @@
+
 #include <iostream>
-#include <vector>
 #include <cstddef>
-#include <cassert>
-#include <mutex>
+#include <new>
+#include <utility>
 
-template <typename T, size_t PoolSize>
+template <typename T, std::size_t N>
 class MemoryPool {
+    alignas(T) unsigned char buffer[N * sizeof(T)];
+    T* freeList[N];
+    std::size_t top;
 public:
-    MemoryPool() {
-        for (size_t i = 0; i < PoolSize; ++i)
-            free_list.push_back(&pool[i]);
+    MemoryPool() : top(N) {
+        for (std::size_t i = 0; i < N; ++i)
+            freeList[i] = reinterpret_cast<T*>(buffer + i * sizeof(T));
     }
-
     T* allocate() {
-        std::lock_guard<std::mutex> lock(mtx);
-        if (free_list.empty()) return nullptr;
-        T* obj = free_list.back();
-        free_list.pop_back();
-        return new (obj) T();  // placement new
+        if (top == 0) throw std::bad_alloc();
+        return freeList[--top];
     }
+    void deallocate(T* p) { freeList[top++] = p; }
 
-    void deallocate(T* obj) {
-        if (!obj) return;
-        obj->~T();  // manually call destructor
-        std::lock_guard<std::mutex> lock(mtx);
-        free_list.push_back(obj);
+    template <typename... Args>
+    T* create(Args&&... args) {
+        T* p = allocate();
+        try {
+            ::new (p) T{std::forward<Args>(args)...}; // **brace-init**
+            return p;
+        } catch (...) { deallocate(p); throw; }
     }
-
-private:
-    alignas(T) char raw_pool[sizeof(T) * PoolSize];
-    T* pool = reinterpret_cast<T*>(raw_pool);
-    std::vector<T*> free_list;
-    std::mutex mtx;
+    void destroy(T* p) { p->~T(); deallocate(p); }
 };
 
 
-#include <thread>
-
-struct MyObject {
-    int x;
-    MyObject() : x(0) { std::cout << "Constructed\n"; }
-    ~MyObject() { std::cout << "Destroyed\n"; }
-};
+struct Point { int x; int y; };
 
 int main() {
-    MemoryPool<MyObject, 10> pool;
+    MemoryPool<Point, 4> pool;
 
-    auto worker = [&pool](int id) {
-        MyObject* obj = pool.allocate();
-        if (obj) {
-            obj->x = id;
-            std::cout << "Thread " << id << " got obj->x = " << obj->x << "\n";
-            pool.deallocate(obj);
-        } else {
-            std::cout << "Thread " << id << " failed to allocate\n";
-        }
-    };
+    auto* p1 = pool.create(1,2);
+    auto* p2 = pool.create(3,4);
 
-    std::vector<std::thread> threads;
-    for (int i = 0; i < 6; ++i)
-        threads.emplace_back(worker, i);
+    std::cout << p1->x << "," << p1->y << "  " << p2->x << "," << p2->y << "\n";
 
-    for (auto& t : threads) t.join();
+    pool.destroy(p2);
+    pool.destroy(p1);
 
     return 0;
 }
