@@ -364,10 +364,6 @@ namespace dsa
 
 
 
-#include <cstddef>
-#include <utility>
-#include <iostream>
-
 	template<typename K, typename V>
 		class Map {
 			private:
@@ -463,6 +459,60 @@ namespace dsa
 					std::cout << '\n';
 				}
 		};
+
+
+	template <class T>
+		class RingBuffer {
+			public:
+				explicit RingBuffer(std::size_t capacity) : buf_(capacity), head_(0), size_(0) {
+					if (capacity == 0) throw std::invalid_argument("capacity must be > 0");
+				}
+
+				// Accepts lvalues/rvalues and any type convertible to T
+				template <class U>
+					bool push(U&& v) {
+						if (full()) return false;
+						buf_[tail_index()].emplace(std::forward<U>(v)); // constructs T from U
+						++size_;
+						return true;
+					}
+
+				// Pop; returns empty optional if buffer is empty
+				std::optional<T> pop() {
+					if (empty()) return std::nullopt;
+					std::optional<T> out = std::move(buf_[head_]);
+					buf_[head_].reset();
+					head_ = (head_ + 1) % buf_.size();
+					--size_;
+					return out;
+				}
+
+				T& front() const { ensure_not_empty(); return *buf_[head_]; }
+				T& back()  const { ensure_not_empty(); return *buf_[idx_back()]; }
+
+				// Queries
+				bool empty()    const noexcept { return size_ == 0; }
+				bool full()     const noexcept { return size_ == buf_.size(); }
+				std::size_t size()     const noexcept { return size_; }
+				std::size_t capacity() const noexcept { return buf_.size(); }
+
+				void clear() noexcept {
+					for (auto& cell : buf_) cell.reset();
+					head_ = 0; size_ = 0;
+				}
+
+			private:
+				std::size_t tail_index() const noexcept { return (head_ + size_) % buf_.size(); }
+				std::size_t idx_back()   const noexcept { return (head_ + size_ - 1) % buf_.size(); }
+				void ensure_not_empty()  const {
+					if (empty()) throw std::out_of_range("RingBuffer: empty");
+				}
+
+				std::vector<std::optional<T>> buf_;
+				std::size_t head_;
+				std::size_t size_;
+		};
+
 
 	class String {
 		private:
