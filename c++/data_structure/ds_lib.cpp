@@ -107,62 +107,22 @@ void hash_table_test()
 {
 	std::cout << "<<---------- " << __func__ << "---------->>" << std::endl;
 	
-	dsa::Hash<std::string, 10> hash_table;
+	dsa::HashTable<std::string, std::string> hash_table;
 	
-	hash_table.insert("zero");
-	hash_table.insert("one");
-	hash_table.insert("two");
-	hash_table.insert("three");
-	hash_table.insert("four");
-	hash_table.insert("five");
-	hash_table.insert("six");
-	hash_table.insert("seven");
-	hash_table.insert("eight");
-	hash_table.insert("nine");
-	hash_table.insert("ten");
-	hash_table.insert("eleven");
-	hash_table.insert("twelve");
-	hash_table.traverse();
+	hash_table.insert("BSE", "Bombay Stock Exchange");
+	hash_table.insert("NSE", "National Stock Exchange");
+	hash_table.insert("MCX", "Multi Commodity Exchange");
+	hash_table.print();
 
-	hash_table.erase("two");
-	hash_table.traverse();
+	hash_table.remove("MCX");
+	hash_table.print();
 
-	std::cout << hash_table.find("five") << std::endl;
-
-	// custom class as key required 2 additional functions
-	// 1. std::equal_to<T> collision manage -> required to implement 'operator ==' overload function
-	// 2. std::hash<T>     template specialization for std::hash struct for handle hash for custom class
-	
-	dsa::Hash<Employee, 10> emp_hash_table;
-	emp_hash_table.insert(Employee(1, "siva", 100.00));
-	emp_hash_table.insert(Employee(2, "kanna", 200.00));
-	emp_hash_table.insert(Employee(3, "kannan", 300.00));
-}
-
-void unordered_map_test() {
-	
-	std::cout << "<<---------- " << __func__ << "---------->>" << std::endl;
-	
-	dsa::Unordered_map<int, std::string> unordered_map;
-
-	unordered_map.insert(5, "five");
-	unordered_map.insert(1, "one");
-	unordered_map.insert(8, "eight");
-	unordered_map.insert(3, "three");
-	unordered_map.insert(4, "four");
-	unordered_map.insert(4, "four");
-	unordered_map.insert(11, "eleven");
-	unordered_map.insert(12, "tweleve");
-	unordered_map.insert(13, "thirteen");
-	unordered_map.insert(14, "fourteen");
-	unordered_map.insert(15, "fifteen");
-	unordered_map.insert(16, "sixteen");
-
-	unordered_map.traverse();
-	std::cout << unordered_map.find(16) << std::endl;
-	unordered_map.erase(16);
-	unordered_map.traverse();
-
+	auto optResult = hash_table.find("NSE");
+	if ( optResult ) {
+		std::cout << "find(NSE) = " << *optResult << std::endl;
+	} else {
+		std::cout << "find(NSE) = nullptr" << std::endl;
+	}
 }
 
 void map_test() {
@@ -259,15 +219,15 @@ void graph_test() {
 
 int main()
 {
-	//array_test();
-	//vector_test();
-	//stack_test();
-	//queue_test();
-	//list_test();
-	//hash_table_test();
-	//map_test();
+	array_test();
+	vector_test();
+	stack_test();
+	queue_test();
+	list_test();
+	hash_table_test();
+	map_test();
 	string_test();
-	//unordered_map_test();
-	//graph_test();
+	graph_test();
+	return 0;
 
 }
