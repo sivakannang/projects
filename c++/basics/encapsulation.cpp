@@ -8,6 +8,17 @@
 *     * `protected`: accessible in the class and derived classes
 *     * `public`: accessible from outside the class
 * - Encapsulation ensures data hiding and abstraction by restricting direct access to internal variables.
+*
+| Member             | Auto-generated when…                    | Common blockers / notes                                                     |
+| ------------------ | --------------------------------------- | --------------------------------------------------------------------------- |
+| Default ctor       | No constructors declared                | Any user ctor exists → write `= default` if needed                          |
+| Destructor         | No user destructor                      | Declaring one **suppresses auto-move**                                      |
+| Copy ctor / assign | No copy/move declared                   | Members/bases not copyable ⇒ **deleted**                                    |
+| Move ctor / assign | No copy/move **and** no user destructor | Members/bases not movable ⇒ **deleted**; user dtor/copy/move **suppresses** |
+
+Rule of Five / Zero :
+  If you define any of: copy/move/dtor ⇒ likely define all that matter.
+  If your type owns nothing special ⇒ define none (Rule of Zero)
 
 ***************************** Interview Questions *******************************
 *
