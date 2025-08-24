@@ -317,21 +317,6 @@ void smart_pointer_demo() {
 	}
 	wp.reset();
 
-	std::unique_ptr<int> uptr = std::make_unique<int>(100);
-	std::cout << "unique_ptr: " << *uptr << std::endl;
-
-	std::shared_ptr<int> sptr1 = std::make_shared<int>(200);
-	std::shared_ptr<int> sptr2 = sptr1;
-	std::cout << "shared_ptr use_count: " << sptr1.use_count() << std::endl;
-	std::cout << "shared_ptr: " << *sptr1 << std::endl;
-
-	std::weak_ptr<int> wptr = sptr1;
-	if (auto locked = wptr.lock()) {
-		std::cout << "weak_ptr locked value: " << *locked << std::endl;
-	} else {
-		std::cout << "weak_ptr expired" << std::endl;
-	}
-	wptr.reset();
 }
 
 // Note - this class doesn't handle array, for handle array need to add template specialization

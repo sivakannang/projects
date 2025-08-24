@@ -14,15 +14,13 @@ bool done = false;
 
 void producer(int items) {
 	for (int i = 1; i <= items; ++i) {
-		int produced = 0;
 		{
 			std::unique_lock<std::mutex> lock(mtx);
 			cv.wait(lock, [] { return buffer.size() < MAX_BUFFER_SIZE; });
 			buffer.push(i);
-			produced = i;
 		}
 		cv.notify_one(); // wake a consumer
-		std::cout << "Produced: " << produced << '\n';
+		std::cout << "Produced: " << i << '\n';
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
 	{

@@ -15,11 +15,11 @@ void print_non_tens() {
 		cv.wait(lock, [] {
 				return (counter > max_value) || (counter % 10 != 0);
 				});
-		if (counter > max_value) break;
+		if (counter > max_value) { cv.notify_one(); break; }
 
 		std::cout << "Thread A: " << counter << '\n';
 		++counter;
-		cv.notify_all();
+		cv.notify_one();
 	}
 }
 
@@ -29,11 +29,11 @@ void print_tens() {
 		cv.wait(lock, [] {
 				return (counter > max_value) || (counter % 10 == 0);
 				});
-		if (counter > max_value) break;
+		if (counter > max_value) { cv.notify_one(); break;}
 
 		std::cout << "Thread B: " << counter << '\n';
 		++counter;
-		cv.notify_all();
+		cv.notify_one();
 	}
 }
 

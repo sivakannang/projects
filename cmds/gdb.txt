@@ -15,6 +15,10 @@
     gdb ./program                   ← Start normally
     gdb -p <PID>                    ← Attach to a running process
 
+    gdbserver :1234 ./my_program    ← remote server ( This starts my_program, paused, and waits for GDB to connect on TCP port 1234 )
+    gdb ./program                   ← host server   ( launch gdb with binary on host )
+    (gdb) target remote <IP>:1234   ← host server   ( Connect to the target stub )
+
 
 🔁 EXECUTION CONTROL
 ───────────────────────────────────────────────────────────────────────────────
