@@ -22,7 +22,7 @@ class Bst {
 		Node* insert(Node* n, const T& x) {
 			if (!n) return new Node(x);
 			if (x < n->data)       n->left  = insert(n->left,  x);
-			else if (n->data < x)  n->right = insert(n->right, x);
+			else if ( x > n->data )  n->right = insert(n->right, x);
 			else std::cout << "duplicate . ignored " << x << std::endl;
 			return n;
 		}
@@ -40,15 +40,15 @@ class Bst {
 		}
 		Node* remove(Node* n, const T& x) {
 			if (!n) return nullptr;
-			if (x < n->data)       n->left  = remove(n->left,  x);
-			else if (n->data < x)  n->right = remove(n->right, x);
+			if (x < n->data)         n->left  = remove(n->left,  x);
+			else if ( x > n->data )  n->right = remove(n->right, x);
 			else {
-				if (!n->left && !n->right) { delete n; return nullptr; }
-				if (!n->left || !n->right) {
+				if (!n->left && !n->right) { delete n; return nullptr; }     // case 1 - no child
+				if (!n->left || !n->right) {                                 // case 2 - one child
 					Node* c = n->left ? n->left : n->right;
 					delete n; return c;
 				}
-				Node* s = findmin(n->right);
+				Node* s = findmin(n->right);                                 // case 3 - two child
 				n->data = s->data;
 				n->right = remove(n->right, s->data);
 			}
@@ -136,7 +136,7 @@ class Bst {
 		Node* lower_bound(Node* n, const T& x) const {
 			Node* ans = nullptr;
 			while (n) {
-				if (!(n->data < x)) { ans = n; n = n->left; }
+				if ( n->data >= x) { ans = n; n = n->left; }
 				else n = n->right;
 			}
 			return ans;
@@ -144,7 +144,7 @@ class Bst {
 		Node* upper_bound(Node* n, const T& x) const {
 			Node* ans = nullptr;
 			while (n) {
-				if (x < n->data) { ans = n; n = n->left; }
+				if ( n->data > x ) { ans = n; n = n->left; }
 				else n = n->right;
 			}
 			return ans;

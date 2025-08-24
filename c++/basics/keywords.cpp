@@ -326,7 +326,7 @@ alignof   → Gets alignment requirement of a type.
 alignas   → Specifies required alignment.
 
 
-1. malloc/free vs new/delete? → new/delete run constructors.
+1. malloc/free vs new/delete? → new/delete run constructors/destructors.
 2. sizeof on heap object? → Gives pointer size.
 3. alignof? → Alignment in bytes.
 4. alignas? → Set specific alignment.

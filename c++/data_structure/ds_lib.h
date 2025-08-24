@@ -11,6 +11,7 @@
 #include <cstring>
 #include <memory>
 #include <optional>
+#include <unordered_map>
 
 
 namespace dsa
@@ -712,67 +713,102 @@ namespace dsa
 	};
 
 
-
 	class Trie {
 		struct Node {
-			Node* child[256]{};   // one slot per ASCII byte
-			int   pass = 0;       // #words passing through this node
-			int   end  = 0;       // #words ending at this node
+			std::unordered_map<char, std::unique_ptr<Node>> next;
+			bool isEnd = false;
 		};
 
-		Node*        root_ = new Node();
-		std::size_t  size_ = 0;
-
-		static void destroy(Node* n) {
-			if (!n) return;
-			for (Node* c : n->child) if (c) destroy(c);
-			delete n;
-		}
+		std::unique_ptr<Node> root = std::make_unique<Node>();
 
 		public:
-		Trie() = default;
-		~Trie() { destroy(root_); }
 
-		Trie(const Trie&)            = delete;
-		Trie& operator=(const Trie&) = delete;
-
-		std::size_t size()  const noexcept { return size_; }
-		bool        empty() const noexcept { return size_ == 0; }
-
-		void insert(std::string_view s) {
-			Node* cur = root_;
-			for (unsigned char uc : s) {
-				if (!cur->child[uc]) cur->child[uc] = new Node();
-				cur = cur->child[uc];
-				++cur->pass;
+		// Insert a word
+		void insert(const std::string& word) {
+			Node* cur = root.get();
+			for (char c : word) {
+				if (!cur->next[c])                                   // if key not exists, may default-insert nullptr
+					cur->next[c] = std::make_unique<Node>();
+				cur = cur->next[c].get();
 			}
-			++cur->end;
-			++size_;
+			cur->isEnd = true;
 		}
 
-		bool contains(std::string_view s) const {
-			const Node* cur = root_;
-			for (unsigned char uc : s) {
-				cur = cur->child[uc];
-				if (!cur) return false;
+		// Search exact word
+		bool search(const std::string& word) const {
+			const Node* cur = root.get();
+			for (char c : word) {
+				auto it = cur->next.find(c);
+				if (it == cur->next.end()) return false;
+				cur = it->second.get();
 			}
-			return cur->end > 0;
+			return cur->isEnd;
 		}
 
-		bool starts_with(std::string_view prefix) const {
-			const Node* cur = root_;
-			for (unsigned char uc : prefix) {
-				cur = cur->child[uc];
-				if (!cur) return false;
+		// Check prefix
+		bool startsWith(const std::string& prefix) const {
+			const Node* cur = root.get();
+			for (char c : prefix) {
+				auto it = cur->next.find(c);
+				if (it == cur->next.end()) return false;
+				cur = it->second.get();
 			}
 			return true;
 		}
 
-		// Stub: would remove one occurrence of 's' and prune trailing nodes no longer used.
-		bool erase(std::string_view /*s*/) {
-			return false; // not implemented
+		// Return up to `k` suggestions for the given prefix.
+		// If k == 0 → return all suggestions.
+		std::vector<std::string> autoSuggest(const std::string& prefix, std::size_t k) const {
+			std::vector<std::string> out;
+			const Node* start = prefixNode(prefix);
+			if (!start) return out;
+
+			std::string path = prefix;   // build full words starting from the prefix
+			dfsCollect(start, path, out, k);
+			return out;
+		}
+
+		// ---- helpers ----
+
+		// Walk down the trie by 'prefix'; return the node reached (or nullptr if missing).
+		const Trie::Node* prefixNode(const std::string& prefix) const {
+			const Node* cur = root.get();
+			for (char c : prefix) {
+				auto it = cur->next.find(c);
+				if (it == cur->next.end()) return nullptr;
+				cur = it->second.get();
+			}
+			return cur;
+		}
+
+		// DFS from 'start', accumulating into 'path' and collecting words into 'out'.
+		// If k==0 → unlimited; otherwise stop after collecting k items.
+		void dfsCollect(const Node* start, std::string& path, std::vector<std::string>& out, std::size_t k) const {
+			if (!start) return;
+
+			if (start->isEnd) {
+				out.push_back(path);
+				if (k && out.size() >= k) return; // reached quota at this node
+			}
+
+			// Iterate children in lexicographic order for deterministic output
+			std::vector<char> keys;
+			keys.reserve(start->next.size());
+			for (const auto& kv : start->next) keys.push_back(kv.first);
+			std::sort(keys.begin(), keys.end());
+
+			for (char ch : keys) {
+				path.push_back(ch);
+				const Node* child = start->next.at(ch).get();
+				dfsCollect(child, path, out, k);
+				path.pop_back();
+
+				if (k && out.size() >= k) break; // stop exploring siblings if quota reached
+			}
 		}
 	};
+
+
 
 
 
