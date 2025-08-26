@@ -50,25 +50,24 @@ class SubArray {
 // ----------------------------------------------------------------------------
 class SubArrayB {
 	public:
-		static pair<int,int> longest_increasing_contiguous_subarray_indices(const int a[], int n) {
-			if (n <= 0) return {-1, -1};
-			int bestL = 0, bestR = 0;
-			int curL = 0;
+		static std::pair<int, int> longest_increasing_contiguous_subarray_indices(const std::vector<int>& v)
+		{
+			std::pair<int, int> indices {0, 0};
+			int size = v.size(), lIdx = 0, rIdx = 0;
 
-			for (int i = 0; i < n - 1; ++i) {
-				if (a[i] >= a[i + 1]) {
-					if (i - curL > bestR - bestL) {
-						bestL = curL;
-						bestR = i;
-					}
-					curL = i + 1;
+			if ( size <= 1) { return indices; }
+
+			for ( int i = 0; i < size-1; i++  ) {
+
+				if ( v[i] < v[i+1] ) {
+					rIdx = i + 1;
+					if ( (rIdx - lIdx) > (indices.second - indices.first) )
+						indices = {lIdx, rIdx};
+				} else {
+					lIdx = rIdx = i + 1;
 				}
 			}
-			if ((n - 1) - curL > bestR - bestL) {
-				bestL = curL;
-				bestR = n - 1;
-			}
-			return {bestL, bestR};
+			return indices;
 		}
 };
 
