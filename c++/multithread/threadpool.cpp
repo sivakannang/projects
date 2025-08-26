@@ -142,66 +142,66 @@ class PThreadPool {
 
 
 class RThreadPool {
-    std::vector<std::thread> workers_;
-    std::queue<std::function<void()>> tasks_;
+	std::vector<std::thread> workers_;
+	std::queue<std::function<void()>> tasks_;
 
-    std::mutex mtx_;
-    std::condition_variable cv_;
-    bool stop_ = false;  // guarded by mtx_
+	std::mutex mtx_;
+	std::condition_variable cv_;
+	bool stop_ = false;  // guarded by mtx_
 
-public:
-    explicit RThreadPool(std::size_t threads) {
-        workers_.reserve(threads);
-        for (std::size_t i = 0; i < threads; ++i) {
-            workers_.emplace_back([this] {
-                for (;;) {
-                    std::function<void()> job;
-                    {
-                        std::unique_lock<std::mutex> lk(mtx_);
-                        cv_.wait(lk, [this] { return stop_ || !tasks_.empty(); });
-                        if (stop_ && tasks_.empty()) return;  // drain then exit
-                        job = std::move(tasks_.front());
-                        tasks_.pop();
-                    }
-                    // Execute outside the lock
-                    job(); // exceptions are captured by packaged_task; won't escape here
-                }
-            });
-        }
-    }
+	public:
+	explicit RThreadPool(std::size_t threads) {
+		workers_.reserve(threads);
+		for (std::size_t i = 0; i < threads; ++i) {
+			workers_.emplace_back([this] {
+					for (;;) {
+					std::function<void()> job;
+					{
+					std::unique_lock<std::mutex> lk(mtx_);
+					cv_.wait(lk, [this] { return stop_ || !tasks_.empty(); });
+					if (stop_ && tasks_.empty()) return;  // drain then exit
+					job = std::move(tasks_.front());
+					tasks_.pop();
+					}
+					// Execute outside the lock
+					job(); // exceptions are captured by packaged_task; won't escape here
+					}
+					});
+		}
+	}
 
-    RThreadPool(const RThreadPool&) = delete;
-    RThreadPool& operator=(const RThreadPool&) = delete;
+	RThreadPool(const RThreadPool&) = delete;
+	RThreadPool& operator=(const RThreadPool&) = delete;
 
-    template <class F, class... Args>
-    auto enqueue(F&& f, Args&&... args)
-        -> std::future<typename std::invoke_result<F, Args...>::type>
-    {
-        using R = typename std::invoke_result<F, Args...>::type;
+	template <class F, class... Args>
+		auto enqueue(F&& f, Args&&... args)
+		-> std::future<typename std::invoke_result<F, Args...>::type>
+		{
+			using R = typename std::invoke_result<F, Args...>::type;
 
-        // Bind callable and args into a task<R()>
-        auto task_ptr = std::make_shared<std::packaged_task<R()>>(
-            std::bind(std::forward<F>(f), std::forward<Args>(args)...)
-        );
+			// Bind callable and args into a task<R()>
+			auto task_ptr = std::make_shared<std::packaged_task<R()>>(
+					std::bind(std::forward<F>(f), std::forward<Args>(args)...)
+					);
 
-        std::future<R> fut = task_ptr->get_future();
-        {
-            std::lock_guard<std::mutex> lk(mtx_);
-            if (stop_) throw std::runtime_error("enqueue on stopped RThreadPool");
-            tasks_.emplace([task_ptr]{ (*task_ptr)(); });
-        }
-        cv_.notify_one();
-        return fut;
-    }
+			std::future<R> fut = task_ptr->get_future();
+			{
+				std::lock_guard<std::mutex> lk(mtx_);
+				if (stop_) throw std::runtime_error("enqueue on stopped RThreadPool");
+				tasks_.emplace([task_ptr]{ (*task_ptr)(); });
+			}
+			cv_.notify_one();
+			return fut;
+		}
 
-    ~RThreadPool() {
-        {
-            std::lock_guard<std::mutex> lk(mtx_);
-            stop_ = true;
-        }
-        cv_.notify_all();
-        for (auto& t : workers_) if (t.joinable()) t.join();
-    }
+	~RThreadPool() {
+		{
+			std::lock_guard<std::mutex> lk(mtx_);
+			stop_ = true;
+		}
+		cv_.notify_all();
+		for (auto& t : workers_) if (t.joinable()) t.join();
+	}
 };
 
 

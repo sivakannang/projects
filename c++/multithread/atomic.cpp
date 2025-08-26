@@ -1,28 +1,45 @@
-// atomic_showcase.cpp
-// Build: g++ -std=gnu++20 -O2 -Wall -Wextra -pthread atomic_showcase.cpp -o atomic_demo
-
 /*
-==========================
-std::atomic — Notes
-==========================
-- What: Atomic ops on a single object to prevent data races without a mutex.
-- Default memory order: seq_cst (strongest). You can pass weaker orders per operation.
-- Lock-free? Check obj.is_lock_free() and atomic<T>::is_always_lock_free (platform + alignment dependent).
-- Types: atomic<T> works for trivially copyable T (lock-free not guaranteed). Not copy-assignable—use load/store/CAS.
-- volatile != atomic: volatile is for MMIO; it does not synchronize threads.
-- Memory orders (practical):
-  * relaxed: atomicity only (counters/metrics)
-  * acquire (loads): later ops can’t move before
-  * release (stores): earlier ops can’t move after
-  * acq_rel: for read-modify-write ops
-  * seq_cst: strongest, globally ordered
-  * consume: effectively unusable; treat as acquire
+ *
+ What problem does std::atomic solve?
+   - When two threads access the same variable and at least one writes, you get a data race → undefined behavior.
+   - std::atomic<T> lets you read/write/update a single object safely without a mutex, and (optionally) control visibility/ordering of memory effects between threads.
+   - Think of it as: “a variable with built-in thread-safety and memory fences.”
 
-- Common patterns:
-  * Publish data: write data → store flag (release); reader loads flag (acquire) → sees data.
-  * CAS loop: modify based on current value until compare-exchange succeeds.
-  * Atomic flag spinlock: only for tiny critical sections; otherwise prefer std::mutex.
-  * C++20 wait/notify: futex-like blocking waits on atomics (intra-process).
+   - Atomicity: operations happen as if indivisible (no torn reads/writes).
+   - Ordering: you choose how operations are sequenced across threads (from “just atomic” to “strict global order”).
+   - Lock-free (maybe): often lock-free on primitives; check with a.is_lock_free().
+
+ Types you will use:
+   - std::atomic<T> — for integral types, pointers, enums, some trivially copyable structs.
+   - std::atomic_flag — tiny always lock-free boolean.
+   - std::atomic_ref<T> (C++20) — atomic view on an existing object.
+   - (C++20) wait/notify on atomics: a.wait(old), a.notify_one/all()
+
+ Operations you will use most:
+   - a.load(order);            // read
+   - a.store(v, order);        // write
+   - a.exchange(v, order);     // swap value, return old
+
+   Read-Modify-Write (integral/pointer):
+   - a.fetch_add(x); a.fetch_sub(x);
+   - a.fetch_and(mask); a.fetch_or(mask); a.fetch_xor(mask);
+
+   Compare-and-swap (CAS):
+   - a.compare_exchange_weak(exp, desired, succ_order, fail_order);
+   - a.compare_exchange_strong(exp, desired, succ_order, fail_order);
+
+   C++20:
+   - a.wait(old);              // sleep until a.load()!=old
+   - a.notify_one/all();       // wake one/all waiter
+
+| Order                | What it guarantees                            | Use for                           |
+| -------------------- | --------------------------------------------- | --------------------------------- |
+| `relaxed`            | Atomicity only (no visibility ordering)       | counters/metrics                  |
+| `acquire` (on load)  | Later reads/writes can’t move **before** it   | reading a “ready” flag            |
+| `release` (on store) | Earlier reads/writes can’t move **after** it  | publishing data then setting flag |
+| `acq_rel`            | Both (for RMW ops)                            | `fetch_add`, successful CAS       |
+| `seq_cst`            | Strongest, one global order across SC atomics | default when unsure               |
+
 
 ==========================
 Interview Questions (crisp answers)
@@ -55,7 +72,7 @@ using namespace std::chrono_literals;
 void demo_atomic_counter() {
     PRINT("Atomic counter (relaxed)");
     std::atomic<unsigned> counter{0};
-    constexpr int threads = 8;
+    constexpr int threads = 8;std::thread t(producer);
     constexpr int iters   = 250'000;
 
     std::vector<std::thread> th;
