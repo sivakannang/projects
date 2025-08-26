@@ -41,8 +41,8 @@ Data Structure
  Stack
  Queue
  DeQueue
- Trie
  Priority Queue
+ Trie
  Graph
 
 Rest & Database
@@ -55,8 +55,7 @@ Design Pattern
  Singleton
  Observer
  Factory
- Visitor
- Decorator
+
  
 System Design
  Social media

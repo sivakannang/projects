@@ -106,6 +106,7 @@ Questions:
    std::optional<T> : (C++17)
 --------------------------------------------------------------------------------
    - optional is a value that may be engaged (holds a T) or disengaged (no value).
+   - std::optional<T> is type-safe, avoids sentinel hacks, avoids heap allocations, and makes APIs more expressive.
    - Core ops: has_value(), operator bool(), value(), value_or(default), emplace(...), reset(), *opt, opt->.
    - Construction: std::nullopt means “no value”. Prefer auto o = std::optional<T>{}; or std::optional<T> o = std::nullopt;.
    - No references: std::optional<T&> is not allowed; use std::optional<std::reference_wrapper<T>> if needed.
@@ -248,6 +249,8 @@ Questions:
 	[x] copy-captures x; [&x] ref-captures x; [x = expr] init-captures (can move: [p = std::move(ptr)], can std::forward).
 	Capturing this copies the pointer; [*this] (C++17) copies the object.
 	No-capture lambdas can decay to function pointers, captured lambdas cannot.
+
+  - global, static global, static local, thread_int(static storage) members are accessible by default without capture
 
   - operator() is const by default. Use mutable to allow modifying captured-by-copy members inside the lambda.
 
