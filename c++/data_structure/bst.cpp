@@ -160,16 +160,18 @@ class Bst {
 		Node* predecessor(Node *n, const T& x) const { // largest < x
 			Node* cur = n; Node* pred = nullptr;
 			while (cur) {
-				if (cur->data < x) { pred = cur; cur = cur->right; }
+				if (x > cur->data ) { pred = cur; cur = cur->right; }
 				else cur = cur->left;
 			}
 			return pred;
 		}
-		Node* lca(Node* n, T a, T b) const {
-			if (b < a) std::swap(a, b);
+		Node* lca(Node* n, const T& a, const T& b) const {
+			const T& lo = a > b ? b : a;
+			const T& hi = a > b ? a : b;
+
 			while (n) {
-				if (b < n->data) n = n->left;
-				else if (n->data < a) n = n->right;
+				if ( lo > n->data) n = n->right;
+				else if ( hi < n->data ) n = n->left;
 				else return n; // a <= n->data <= b
 			}
 			return nullptr;
@@ -179,6 +181,28 @@ class Bst {
 			if (Node* L = kth_smallest(n->left, k)) return L;
 			if (--k == 0) return n;
 			return kth_smallest(n->right, k);
+		}
+
+		static const Node* kth_smallest(const Node* n, std::size_t k) {
+			if (!n || k == 0) return nullptr;
+
+			std::stack<const Node*> st;
+			const Node* cur = n;
+
+			while (cur || !st.empty()) {
+				// go all the way left
+				while (cur) {
+					st.push(cur);
+					cur = cur->left_;
+				}
+				// visit node
+				cur = st.top(); st.pop();
+				if (--k == 0) return cur;   // k-th smallest
+
+				// then go right
+				cur = cur->right_;
+			}
+			return nullptr; // k > number of nodes
 		}
 		void print_range(Node* n, const T& L, const T& R) const {
 			if (!n) return;
