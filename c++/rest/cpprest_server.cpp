@@ -1,4 +1,4 @@
-// g++ server.cpp -o server -I /mnt/d/sdk/cpprestsdk/Release/include -L /mnt/d/sdk/cpprestsdk/build.debug.static/Release/Binaries -lcpprest -lssl -lcrypto -lpthread -lz
+// g++ cpprest_server.cpp -o server -I /mnt/d/sdk/cpprestsdk/Release/include -L /mnt/d/sdk/cpprestsdk/build.debug.static/Release/Binaries -lcpprest -lssl -lcrypto -lpthread -lz
 
 
 #include <iostream>
