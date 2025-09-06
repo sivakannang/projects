@@ -114,6 +114,7 @@ JSON → Object
 #include <vector>
 #include <memory>
 #include <thread>
+#include <optional>
 
 #include <crow.h>
 
@@ -126,17 +127,21 @@ JSON → Object
 
 using json = nlohmann::json;
 
-class MySQLHelper {
-	
-	public:
-		std::shared_ptr<sql::Connection> conn;
-		
-		MySQLHelper() {
-			sql::Driver* driver = get_driver_instance();
-			conn = std::shared_ptr<sql::Connection>(driver->connect("tcp://127.0.0.1:3306", "siva", "kannan"));
-			conn->setSchema("testdb");
-		}
-};
+
+inline sql::Driver* mysql_driver() { static auto* d = get_driver_instance(); return d; }
+
+inline std::unique_ptr<sql::Connection> make_conn() {
+    auto* c = mysql_driver()->connect("tcp://127.0.0.1:3306", "siva", "kannan");
+    c->setSchema("testdb");
+    return std::unique_ptr<sql::Connection>(c);
+}
+
+static thread_local std::unique_ptr<sql::Connection> tls_conn;
+
+inline sql::Connection& conn() {
+    if (!tls_conn) tls_conn = make_conn();
+    return *tls_conn;
+}
 
 class User {
 	public:
@@ -165,14 +170,12 @@ class UserRepository {
 };
 
 class UserRepositoryImpl : public UserRepository {
-	private:
-		MySQLHelper &db;
+	
 	public:
-		UserRepositoryImpl(MySQLHelper &database) : db(database) {}
 		
 		std::optional<User> findById(int id) override
 		{
-			std::unique_ptr<sql::PreparedStatement> stmt ( db.conn->prepareStatement("SELECT *FROM users WHERE id=?"));
+			std::unique_ptr<sql::PreparedStatement> stmt ( conn().prepareStatement("SELECT * FROM users WHERE id=?"));
 			stmt->setInt(1, id);
 
 			std::unique_ptr<sql::ResultSet> res(stmt->executeQuery());
@@ -189,8 +192,8 @@ class UserRepositoryImpl : public UserRepository {
 		std::vector<User> findAll() override
 		{
 			std::vector<User> users;
-			std::unique_ptr<sql::Statement> stmt ( db.conn->createStatement());
-			std::unique_ptr<sql::ResultSet> res (stmt->executeQuery("SELECT *FROM users"));
+			std::unique_ptr<sql::Statement> stmt ( conn().createStatement());
+			std::unique_ptr<sql::ResultSet> res (stmt->executeQuery("SELECT * FROM users"));
 			while ( res->next() ) {
 				users.emplace_back(
 						res->getInt("id"),
@@ -198,27 +201,12 @@ class UserRepositoryImpl : public UserRepository {
 						res->getString("email")
 						);
 			}
-
-#ifdef _EXECUTE_THEN_RS_ITR
-			
-			bool hasResultSet = stmt->execute("SELECT *FROM users");
-			while ( hasResultSet ) {
-				std::unique_ptr<sql::ResultSet> rs ( stmt->getResultSet() );
-				users.emplace_back(
-						res->getInt("id"),
-						res->getString("name"),
-						res->getString("email")
-						);
-				hasResultSet = stmt->getMoreResults();
-			}
-			
-#endif
 			return users;
 		}
 
 		bool deleteById(int id) override
 		{
-			std::unique_ptr<sql::PreparedStatement> stmt ( db.conn->prepareStatement("DELETE FROM users WHERE id=?") );
+			std::unique_ptr<sql::PreparedStatement> stmt ( conn().prepareStatement("DELETE FROM users WHERE id=?") );
 			stmt->setInt(1, id);
 			return stmt->executeUpdate() == 1 ;
 		}
@@ -227,14 +215,14 @@ class UserRepositoryImpl : public UserRepository {
 		{
 			if ( user.id == 0 )
 			{
-				std::unique_ptr<sql::PreparedStatement> stmt ( db.conn->prepareStatement("INSERT INTO users (name, email) VALUES (?, ?)"));
+				std::unique_ptr<sql::PreparedStatement> stmt ( conn().prepareStatement("INSERT INTO users (name, email) VALUES (?, ?)"));
 				stmt->setString(1, user.name);
 				stmt->setString(2, user.email);
 				return stmt->executeUpdate() == 1 ;
 			}
 			else
 			{
-				std::unique_ptr<sql::PreparedStatement> stmt ( db.conn->prepareStatement("UPDATE users SET name=?, email=? WHERE id=?"));
+				std::unique_ptr<sql::PreparedStatement> stmt ( conn().prepareStatement("UPDATE users SET name=?, email=? WHERE id=?"));
 				stmt->setString(1, user.name);
 				stmt->setString(2, user.email);
 				stmt->setInt(3, user.id);
@@ -246,8 +234,7 @@ class UserRepositoryImpl : public UserRepository {
 void crow_rest_api()
 {
 	crow::SimpleApp app;
-	MySQLHelper db;
-	UserRepositoryImpl userRepo(db);
+	UserRepositoryImpl userRepo;
 
 	CROW_ROUTE(app, "/api/users").methods(crow::HTTPMethod::GET)
 		( [&userRepo] () {
