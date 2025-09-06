@@ -150,20 +150,20 @@ class Bst {
 			return ans;
 		}
 		Node* successor(Node *n, const T& x) const { // smallest > x
-			Node* cur = n; Node* succ = nullptr;
-			while (cur) {
-				if (x < cur->data) { succ = cur; cur = cur->left; }
-				else cur = cur->right;
+			Node* ans = nullptr;
+			while (n) {
+				if ( n->data > x ) { ans = n; n = n->left; }
+				else n = n->right;
 			}
-			return succ;
+			return ans;
 		}
 		Node* predecessor(Node *n, const T& x) const { // largest < x
-			Node* cur = n; Node* pred = nullptr;
-			while (cur) {
-				if (x > cur->data ) { pred = cur; cur = cur->right; }
-				else cur = cur->left;
+			Node* ans = nullptr;
+			while (n) {
+				if ( n->data < x ) { ans = n; n = n->right; }
+				else n = n->left;
 			}
-			return pred;
+			return ans;
 		}
 		Node* lca(Node* n, const T& a, const T& b) const {
 			const T& lo = a > b ? b : a;

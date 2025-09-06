@@ -1,4 +1,4 @@
-//g++ client.cpp -o client -I /mnt/d/sdk/cpprestsdk/Release/include -L /mnt/d/sdk/cpprestsdk/build.debug.static/Release/Binaries -lcpprest -lssl -lcrypto -lz
+//g++ cpprest_client.cpp -o client -I /mnt/d/sdk/cpprestsdk/Release/include -L /mnt/d/sdk/cpprestsdk/build.debug.static/Release/Binaries -lcpprest -lssl -lcrypto -lz
 
 
 #include <cpprest/http_client.h>
