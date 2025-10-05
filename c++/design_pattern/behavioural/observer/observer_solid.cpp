@@ -66,13 +66,13 @@ struct WifiStatus {
 class BatterySubject : public Subject<BatteryLevel> {
 	public:
 		void set_level(int pct) {
-			BatteryLevel next{ std::max(0, std::min(100, pct)) };
-			if (next == level_) return;
-			level_ = next;
-			notify_all(level_);
+			BatteryLevel level{pct};
+			if (level == cur_) return;
+			cur_ = level;
+			notify_all(cur_);
 		}
 	private:
-		BatteryLevel level_{-1};
+		BatteryLevel cur_{};
 };
 
 class WifiSubject : public Subject<WifiStatus> {

@@ -1,0 +1,93 @@
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                                  C++ STL COMPLEXITY CHEAT SHEET (TXT)                               ┃
+┃                  Containers, algorithms, invalidation rules, and quick tips — interview-ready        ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+Legend:  O(1) constant  •  Amort. O(1) amortized constant  •  n = size  •  k = subset size
+Note: Width is ~100 chars; view in a monospace font.
+
+========================================================================================================
+ SEQUENCE CONTAINERS
+========================================================================================================
+ Container   | Access [] | Front/Back | Push Back     | Push Front | Insert/Erase middle | Find (scan) | Notes
+-------------+-----------+------------+---------------+------------+---------------------+-------------+-------------------------------
+ vector      | O(1)      | O(1)       | Amort. O(1)   | —          | O(n)                | O(n)        | Realloc invalidates ALL iters;
+             |           |            |               |            |                     |             | use reserve()
+ deque       | O(1)      | O(1)       | O(1)          | O(1)       | O(n)                | O(n)        | Segmented; fast ends; some ops
+             |           |            |               |            |                     |             | invalidate iterators
+ list        | —         | O(1)       | O(1)          | O(1)       | O(1) with iterator  | O(n)        | Node-based; stable iterators;
+             |           |            |               |            |                     |             | splice O(1)
+ forward_list| —         | —          | —             | —          | O(1) via *_after    | O(n)        | Singly-linked; forward only
+ array       | O(1)      | O(1)       | —             | —          | —                   | O(n)        | Fixed size
+ string      | O(1)      | O(1)       | Amort. O(1)   | —          | O(n)                | O(n)        | Like vector; modern libcs no COW
+
+========================================================================================================
+ ORDERED ASSOCIATIVE (RB-TREE)
+========================================================================================================
+ Container             | Lookup (find/lb/ub) | Insert | Erase | Iteration | Notes
+----------------------+----------------------+--------+-------+-----------+-------------------------------------------
+ map / set             | O(log n)            | O(log n) | O(log n) | Sorted   | Keys immutable (const Key); stable iters
+ multimap / multiset   | O(log n)            | O(log n) | O(log n) | Sorted   | Duplicates allowed; equal_range O(log n + k)
+
+========================================================================================================
+ UNORDERED ASSOCIATIVE (HASH TABLE)
+========================================================================================================
+ Container                           | Avg find/ins/erase | Worst | Rehash | Notes
+-------------------------------------+--------------------+-------+--------+-----------------------------------------------
+ unordered_map / unordered_set       | O(1)               | O(n)  | O(n)   | reserve(n); load_factor=size/buckets;
+                                     |                    |       |        | rehash invalidates ALL iterators
+ unordered_multimap / unordered_multiset | O(1)           | O(n)  | O(n)   | Duplicates allowed
+
+ Quick knobs:
+   • load_factor() = size() / bucket_count()
+   • max_load_factor(f): rehash keeps load ≤ f
+   • reserve(n): choose buckets for about n elements
+
+========================================================================================================
+ ADAPTORS
+========================================================================================================
+ Adaptor                      | push       | pop        | top/front/back | Notes
+-----------------------------+------------+------------+----------------+-----------------------------------
+ priority_queue (binary heap) | O(log n)   | O(log n)   | O(1) top       | Max-heap by default; min via greater<T>
+ stack (default deque)        | O(1)       | O(1)       | O(1)           | LIFO wrapper
+ queue (default deque)        | O(1)       | O(1)       | O(1)           | FIFO wrapper
+
+========================================================================================================
+ CORE ALGORITHMS (SELECTED)
+========================================================================================================
+ Algorithm                                | Complexity                      | Stable? | Notes
+------------------------------------------+----------------------------------+---------+-------------------------------------------
+ sort                                     | O(n log n)                      | No      | Introsort; ~O(log n) stack
+ stable_sort                              | O(n log n) time, O(n) space     | Yes     | Usually merge-sort variant
+ partial_sort                             | O(n log k)                      | No      | Smallest k sorted at front
+ nth_element                              | Average O(n)                    | No      | nth is as if sorted; partitions around it
+ partition                                | O(n)                            | No      | Predicate-true first; order not preserved
+ stable_partition                         | O(n log n) in-place / O(n) buf  | Yes     | Preserves group order
+ lower_bound / upper_bound / binary_search| O(log n)                        | n/a     | On sorted ranges
+ merge (two sorted ranges)                | O(n1 + n2)                      | Yes     | Output sorted
+ inplace_merge                            | O(n log n)                      | Yes     | Merge adjacent sorted ranges
+ reverse / rotate / unique / remove(_if)  | O(n)                            | n/a     | remove compacts; pair with erase for vectors
+
+========================================================================================================
+ ITERATOR INVALIDATION — MUST KNOW
+========================================================================================================
+ • vector/string: reallocation invalidates ALL iterators/refs; erase/insert at pos invalidates iterators at/after pos
+ • deque: inserts/erases at ends may invalidate; middle ops can invalidate more
+ • list/forward_list: only erased node’s iterators invalidated; others stay valid
+ • map/set (and multi-): erase invalidates only the erased iterators; others stable
+ • unordered_*: REHASH invalidates ALL iterators; erase invalidates only erased; refs/pointers remain valid across rehash
+
+========================================================================================================
+ QUICK TIPS
+========================================================================================================
+ • vector: reserve(n) before bulk push_back to reduce reallocations.
+ • unordered_map/set: reserve(n) and tune max_load_factor to avoid repeated O(n) rehashes.
+ • map/set: use lower_bound/upper_bound/equal_range for O(log n) range operations.
+ • Erasing many from vector: use erase–remove idiom (or C++20 std::erase/std::erase_if) for O(n) instead of O(n^2).
+ • remove/ remove_if: compact in one pass; then erase tail. Kept elements preserve relative order.
+ • try_emplace vs emplace (maps): try_emplace constructs mapped value only on insert; avoids building heavy temporaries.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Made for fast interview prep • Keep open in a terminal or editor with monospace font
+────────────────────────────────────────────────────────────────────────────────────────────────────────

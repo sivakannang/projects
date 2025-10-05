@@ -21,6 +21,7 @@ class Connection {
 protected:
 	std::string cls;
 public:
+	virtual ~Connection() = default;
 	virtual void connect() = 0;
 	virtual void write(std::string msg) = 0;
 	virtual void read() = 0;

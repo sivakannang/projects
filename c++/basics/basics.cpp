@@ -295,13 +295,58 @@ Why prefer fold expressions over recursion?
  	- Syntax: (... op args) or (args op ...)
 	- Example: template<typename... Args> auto sum(Args... args) { return (... + args); }
 
--------------------------------------------------
+---------------------------------------------------------
+    Value categories
+---------------------------------------------------------
 
+
+                Value Categories
+                   │
+            ┌──────┴────────┐
+          rvalue         glvalue  (has identity: “that exact object”)
+        ┌───┴───┐        ┌───┴───┐
+     prvalue   xvalue   lvalue   xvalue
+
+
+  lvalue                  → has a name/identity (addressable). x, *p, vec[i]
+  prvalue (“pure rvalue”) → a result value, no identity yet. 42, T(...), a+b
+  xvalue (“expiring”)     → a real object you’re giving up. std::move(x)
+  glvalue = has identity = lvalue ∪ xvalue
+  rvalue = movable-ish = prvalue ∪ xvalue
+
+
+Binding rules:
+
+  T& → only lvalues
+  const T& → anything (lvalue/xvalue/prvalue)
+  T&& → rvalues (prvalue/xvalue). Use std::move to treat a named lvalue as rvalue.
+
+
+Copy elision & NRVO
+
+Guaranteed (C++17) elision: prvalues construct in place → no copy/move called.
+
+T x = T(...);      // only T’s ctor
+T g() { return T(...); }  // caller’s object constructed directly
+
+
+NRVO: returning a named local:
+
+T f() { T local(...); return local; } // usually no copy/move
+
+
+Don’t write return std::move(local); (disables NRVO; forces a move).
+
+
+---------------------------------------------------------
  - how to execute something before invoke main() ?
 	global/static object's construtor will be invoked before main
 
-**********************************************/
+**********************************************
 
+
+
+***************************************************/
 #include <iostream>
 #include <functional>
 #include <utility>
