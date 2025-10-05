@@ -6,7 +6,7 @@
 *
 *  - Access specifiers affect inheritance:
 *    * public inheritance: public and protected members stay accessible.
-*    * protected inheritance: public becomes protected.
+*    * protected inheritance: public & protected become protected.
 *    * private inheritance: public and protected become private.
 *    - If no access specifier is provided:
 *      * struct defaults to public inheritance

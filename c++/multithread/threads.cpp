@@ -56,6 +56,7 @@
  * std::jthread
  *    - no need manual invoke of join/detach, which is automatically invoked in jthread's destrutor
  *    - provieds thread cancellation future
+ *    - std::jthread::request_stop(), std::jthread::stop_requested(), std::stop_stoken
  *
  * std::packaged_task<int(int, int)> task
  * get   -> task.get_future()

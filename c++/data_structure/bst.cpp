@@ -150,12 +150,9 @@ class Bst {
 			return ans;
 		}
 		Node* successor(Node *n, const T& x) const { // smallest > x
-			Node* ans = nullptr;
-			while (n) {
-				if ( n->data > x ) { ans = n; n = n->left; }
-				else n = n->right;
-			}
-			return ans;
+			// If the key exists in BST → upper_bound(key) and successor(key) give the same result.
+			// If the key doesn’t exist → only upper_bound(key) is valid, successor is undefined.
+			return upper_bound(n, x);
 		}
 		Node* predecessor(Node *n, const T& x) const { // largest < x
 			Node* ans = nullptr;
