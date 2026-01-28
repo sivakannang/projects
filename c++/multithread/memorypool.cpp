@@ -4,6 +4,8 @@
 #include <new>
 #include <utility>
 #include <mutex>
+#include <atomic>
+#include <cassert>
 
 template <typename T, std::size_t N>
 class MemoryPool {
@@ -94,6 +96,173 @@ class TSMemoryPool {
 };
 
 
+
+namespace siva {
+
+	/**
+	 * @brief HFT-Optimized Single-Threaded Memory Pool (C++26 Ready)
+	 * 
+	 * STRATEGY: 
+	 * - Returns nullptr on failure (No-Throw guarantee for latency).
+	 * - Branch hinting for the "Success" path.
+	 */
+	template <typename T, std::size_t N>
+		class MemoryPool {
+			private:
+				alignas(64) std::byte buffer_[N * sizeof(T)];
+				T* freeList_[N];
+				std::size_t top_;
+
+			public:
+				MemoryPool() : top_(N) {
+					for (std::size_t i = 0; i < N; ++i) {
+						freeList_[i] = reinterpret_cast<T*>(&buffer_[i * sizeof(T)]);
+					}
+				}
+
+				// Deleted copy/move to maintain pointer integrity
+				MemoryPool(const MemoryPool&) = delete;
+				MemoryPool& operator=(const MemoryPool&) = delete;
+
+				/**
+				 * @brief Allocs memory. Returns nullptr if full.
+				 * noexcept ensures the compiler optimizes for zero exceptions.
+				 */
+				[[nodiscard]] T* allocate() noexcept {
+					if (top_ == 0) [[unlikely]] { 
+						return nullptr; 
+					}
+					return freeList_[--top_];
+				}
+
+				void deallocate(T* p) noexcept {
+					assert(p != nullptr && top_ < N);
+					if (p != nullptr) [[likely]] {
+						freeList_[top_++] = p;
+					}
+				}
+
+				/**
+				 * @brief Constructs object. Returns nullptr if pool is full.
+				 */
+				template <typename... Args>
+					[[nodiscard]] T* create(Args&&... args) {
+						T* p = allocate();
+
+						if (p == nullptr) [[unlikely]] {
+							return nullptr;
+						}
+
+						// std::construct_at can throw if the Constructor of T throws.
+						// In HFT, we usually ensure T's constructor is also noexcept.
+						return std::construct_at(p, std::forward<Args>(args)...);
+					}
+
+				void destroy(T* p) noexcept {
+					if (p != nullptr) [[likely]] {
+						std::destroy_at(p); // Call destructor
+						deallocate(p);     // Return to pool
+					}
+				}
+
+				std::size_t available() const noexcept { return top_; }
+		};
+
+
+	template <typename T, std::size_t N>
+		class TSMemoryPool {
+			private:
+				// Separate buffer and metadata by 64 bytes to prevent False Sharing.
+				// This ensures threads updating 'top_' don't stall threads reading 'buffer_'.
+				alignas(64) std::byte buffer_[N * sizeof(T)];
+				alignas(64) T* freeList_[N];
+
+				// Aligned to its own cache line to prevent interference.
+				alignas(64) std::atomic<std::size_t> top_;
+
+			public:
+				TSMemoryPool() : top_(N) {
+					for (std::size_t i = 0; i < N; ++i) {
+						freeList_[i] = reinterpret_cast<T*>(&buffer_[i * sizeof(T)]);
+					}
+				}
+
+				// Prohibit Copy/Move
+				TSMemoryPool(const TSMemoryPool&) = delete;
+				TSMemoryPool& operator=(const TSMemoryPool&) = delete;
+
+				/**
+				 * @brief Lock-free allocation (No-Throw).
+				 */
+				[[nodiscard]] T* allocate() noexcept {
+					std::size_t current_top = top_.load(std::memory_order_relaxed);
+					while (true) {
+						if (current_top == 0) [[unlikely]] {
+							return nullptr; // No-Throw: Deterministic latency for HFT
+						}
+
+						// acquire ensures we see the pointer written by deallocate()
+						if (top_.compare_exchange_weak(current_top, current_top - 1,
+									std::memory_order_acquire, 
+									std::memory_order_relaxed)) [[likely]] {
+							return freeList_[current_top - 1];
+						}
+						// current_top is automatically updated on failure, loop continues
+					}
+				}
+
+				/**
+				 * @brief Lock-free deallocation.
+				 * Fix: Writes pointer to freeList BEFORE incrementing top_ visibility.
+				 */
+				void deallocate(T* p) noexcept {
+					if (p == nullptr) [[unlikely]] return;
+
+					std::size_t current_top = top_.load(std::memory_order_relaxed);
+					while (true) {
+						if (current_top >= N) [[unlikely]] {
+							// This would be a logic error (double deallocate or wrong pool)
+							assert(false && "Pool overflow");
+							return;
+						}
+
+						// 1. DATA-FIRST WRITE: We prepare the slot while it's still 'private'
+						freeList_[current_top] = p;
+
+						// 2. ATOMIC RELEASE: 
+						// release ensures the write to freeList_[current_top] is visible 
+						// to any thread that performs a successful 'acquire' in allocate().
+						if (top_.compare_exchange_weak(current_top, current_top + 1,
+									std::memory_order_release, 
+									std::memory_order_relaxed)) [[likely]] {
+							return;
+						}
+						// If another thread pushed/popped, current_top is updated and we try again
+					}
+				}
+
+				template <typename... Args>
+					[[nodiscard]] T* create(Args&&... args) {
+						T* p = allocate();
+						if (p == nullptr) [[unlikely]] return nullptr;
+
+						// noexcept constructors are preferred in HFT
+						return std::construct_at(p, std::forward<Args>(args)...);
+					}
+
+				void destroy(T* p) noexcept {
+					if (p != nullptr) [[likely]] {
+						std::destroy_at(p);
+						deallocate(p);
+					}
+				}
+
+				std::size_t available() const noexcept {
+					return top_.load(std::memory_order_relaxed);
+				}
+		};
+
+} // namespace siva
 
 struct Point { int x; int y; };
 

@@ -56,7 +56,7 @@
  * std::jthread
  *    - no need manual invoke of join/detach, which is automatically invoked in jthread's destrutor
  *    - provieds thread cancellation future
- *    - std::jthread::request_stop(), std::jthread::stop_requested(), std::stop_stoken
+ *    - std::jthread::request_stop(), std::jthread::stop_requested(), std::stop_token
  *
  * std::packaged_task<int(int, int)> task
  * get   -> task.get_future()
@@ -194,6 +194,22 @@ void test_packaged_task() {
 void test_thread_join();
 void test_thread_detach();
 
+
+void worker(std::stop_token st, int id) {
+	while ( !st.stop_requested() ) {
+		std::cout << "jthread running..." << std::endl;
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+	}
+	std::cout << "thread stop requested" << std::endl;
+}
+
+void jthread_test() {
+
+	std::jthread t(worker, 1);
+	std::this_thread::sleep_for(std::chrono::seconds(5));
+	t.request_stop();
+}
+
 int main() {
 
 	std::cout << "std::thread::hardware_concurrency() : " << std::thread::hardware_concurrency() << std::endl;
@@ -202,6 +218,7 @@ int main() {
 	//test_future_promise();
 	//test_async();
 	test_packaged_task();
+	jthread_test();
 
 	return 0;
 }
