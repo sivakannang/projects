@@ -337,7 +337,66 @@ alignas   → Specifies required alignment.
 
 */
 
+#include <iostream>
+#include <string>
+#include <utility>      // For std::declval
+#include <type_traits>  // For std::is_same and std::is_same_v
+#include <cstdint>      // For std::uint64_t
+
+struct Msg1 {
+	std::uint64_t id() const { return 42; }
+};
+
+struct Msg2 {
+	std::string id_{" my id is a big long string with lots of chars."};
+	const std::string& id() const { return id_; }
+};
+
+/*
+template<typename T>
+??? getId(const T& t)
+{
+	return ???
+}
+*/
+
+template<typename T>
+decltype(auto) getId(const T& t)
+{
+	return t.id();
+}
+
 int main()
 {
+	Msg1 m1;
+	Msg2 m2;
+
+	std::cout << getId(m1) << getId(m2) << std::endl;
+
+	// assert is a runtime debugging tool that verifies logic during program execution and triggers an immediate crash if a condition fails, but it is typically disabled in production to avoid performance overhead.
+	
+	// static_assert is a zero-overhead compile-time check that validates types or constants during compilation and triggers a build failure if requirements are not met, ensuring the final program is safe and correctly formed.
+
+	// Platform check
+	static_assert(sizeof(void*) == 8, "This library requires a 64-bit system.");
+
+	// SECTION 1: Instance-based assertions (C++11/14 Style)
+	// Uses existing variables 'm1' and 'm2'.
+	// The '{}' creates a temporary trait object that evaluates to a boolean.
+	static_assert(std::is_same< decltype(getId(m1)), std::uint64_t>{}, ""); 
+	static_assert(std::is_same< decltype(getId(m2)), const std::string&> {}, "");
+
+	// SECTION 2: Type-based assertions using std::declval (Robust C++11/14 Style)
+	// Works even if Msg1 or Msg2 have NO default constructor or are not in scope.
+	// std::declval<T>() tells the compiler: "Pretend I have an object of type T."
+	static_assert(std::is_same<decltype(getId(std::declval<Msg1>())), std::uint64_t>{}, "");
+    	static_assert(std::is_same<decltype(getId(std::declval<Msg2>())), const std::string&>{}, "");
+
+	// SECTION 3: Modern Variable Templates (Preferred C++17/20/26 Style)
+	// Uses '_v' which is a shorthand for '::value'.
+	// Since C++17, the error message string is optional, making the code much cleaner.
+	static_assert(std::is_same_v<decltype(getId(std::declval<Msg1>())), std::uint64_t>);
+	static_assert(std::is_same_v<decltype(getId(std::declval<Msg2>())), const std::string&>);
+
 	return 0;
 }
