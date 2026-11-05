@@ -1,481 +1,391 @@
+// g++ -g -rdynamic signal.cpp -o signal        ( -rdynamic gives function names in the backtrace )
+
 /***************************** Signals *****************************************
  *
- * A signal is an asynchronous notification sent to a process or to a specific thread within the same process in order to notify it of an event that occurred.
- * When a signal is sent, the operating system interrupts the target process normal flow of execution to deliver the signal.
- * If the process has previously registered a signal handler, that routine is executed. Otherwise, the default signal handler is executed.
+ * A signal is an asynchronous notification sent to a process, or to one thread in it.
+ * The kernel interrupts the target's normal flow of execution to deliver it.
+ * If the process has registered a handler, the handler runs. Otherwise the default action happens.
  *
 *******************************************************************************/
 
 /***************************** Standard Signals ********************************
  *
- * The C standard defines only 6 signals. They are all defined in signal.h header (csignal header in C++)
+ * The C standard defines only 6 signals, in signal.h (csignal in C++)
  *
  * SIGABRT   - abnormal termination.
- * SIGFPE    - floating point exception.
+ * SIGFPE    - arithmetic error, such as integer division by zero.
  * SIGILL    - invalid instruction.
  * SIGINT    - interactive attention request sent to the program.
  * SIGSEGV   - invalid memory access ( segmentation fault).
  * SIGTERM   - termination request sent to the program.
  *
- * Windows supports only standard signals.
- * Additional signals may be specified in the signal.h header by the implementation.
- * For example, Unix and Unix-like operating systems (such as Linux) define more than 15 additional signals
- *
- * https://en.wikipedia.org/wiki/C_signal_handling
- * https://en.wikipedia.org/wiki/Unix_signal
+ * POSIX systems such as Linux define many more. List them with: kill -l
  *
 *******************************************************************************/
 
 /***************************** Default Behaviours ******************************
  *
- * When a process receives a signal, there are four possible outcomes:
- * 
- * Term         -> Terminate the process. Additionally may write a image of the process state in a core file, which can be later examined using debugger
- * Ign          -> Nothing occurs, completely ignoring the signal
- * Stop         -> suspends process execution, but retains it in memory, so may continue/restart by sending additional signal to the process
- * Cont         -> The signal triggers/resume the execution of the process
+ * Term         -> Terminate the process
+ * Core         -> Terminate the process and write a core dump (if enabled), for a debugger
+ * Ign          -> Nothing happens
+ * Stop         -> Suspend the process, keeping it in memory
+ * Cont         -> Resume a stopped process
  *
- * 	Name			Event					Default Behavior
+ * 	Name		Event						Default
  *
- * 	SIGHUB		Hang-up (end of connection)			Termination
- * 	SIGINT		Interruption (ctrl-C)				Termination
- * 	SIGQUIT		Strong interruption (ctrl-\)			Term. & core dump
- * 	SIGFPE		Arithmetic error (division by zero)		Term. & core dump
- * 	SIGKILL		Very strong interruption (cannot be ignored)	Termination
- * 	SIGSEGV		Memory protection violation			Term. & core dump
- * 	SIGPIPE		Writing to a pipe without readers		Termination
- * 	SIGALRM		Timer interrupt					Ignored
- * 	SIGTSTP		Temporary halt (ctrl-Z)				Suspension
- * 	SIGCONT		Resuming a stopped process			Ignored
- * 	SIGCHLD		A child process died or was stopped		Ignored 
-
- *
- * SIGABRT   -> abort() is usually called by library functions which detect an internal error or some seriously broken constraint.
- *           -> For example malloc() will call abort() if its internal structures are damaged by a heap overflow
- * SIGHUB    -> Report that user's terminal is disconnected. Signal used to report the termination of the controlling process
- *
+ * 	SIGHUP		Terminal disconnected / controlling process ended	Term
+ * 	SIGINT		Interrupt (ctrl-C)				Term
+ * 	SIGQUIT		Quit (ctrl-\)					Core
+ * 	SIGABRT		abort() called					Core
+ * 	SIGILL		Invalid instruction				Core
+ * 	SIGFPE		Arithmetic error				Core
+ * 	SIGSEGV		Invalid memory access				Core
+ * 	SIGKILL		Kill. Can't be caught, blocked or ignored	Term
+ * 	SIGPIPE		Write to a pipe with no readers			Term
+ * 	SIGALRM		alarm() timer expired				Term
+ * 	SIGTERM		Termination request (default of 'kill pid')	Term
+ * 	SIGCHLD		A child process stopped or ended		Ign
+ * 	SIGCONT		Resume a stopped process			Cont
+ * 	SIGTSTP		Stop from the terminal (ctrl-Z)			Stop
+ * 	SIGSTOP		Stop. Can't be caught, blocked or ignored	Stop
  *
 *******************************************************************************/
 
 /***************************** Signal Handling  ********************************
  *
- * A signal can be generated by calling raise() or kill() system calls.
- *
- * raise() sends a signal to the current process, kill() sends a signal to a specific process. 
- *
- * A signal handler is a function which is called by the target environment when the corresponding signal occurs
- * The target environment suspends execution of the program until the signal handler returns or calls longjmp()
- * 
- * signal() -> sets the action taken when the program receives a specific signal
- * raise()  -> sends a signal to the calling process or thread
- * kill()   -> can be used to send any signal to any process group or process.
- *          -> kill -l ( for list of signals )
- *
- * header   -> signal.h
- * return   -> kill() = pthread_kill() = raise() = 0, signal() = Returns the previous value of the signal handler, or SIG_ERR on error.
- *
- * The signals SIGKILL and SIGSTOP cannot be caught, blocked, or ignored.
- * 
-*******************************************************************************/
-
-/***************************** API Definition **********************************
+ * sigaction() -> sets the action for a signal. Prefer it to signal(), whose behaviour
+ *                varies between systems and which can't set flags such as SA_RESTART.
+ * raise()     -> sends a signal to the calling thread
+ * kill()      -> sends a signal to a process or process group
  *
  * typedef void (*sighandler_t)(int)
  *
- * sighandler_t signal(int signum, sighandler_t handler)
- *
+ * int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
+ * sighandler_t signal(int signum, sighandler_t handler)     // Returns the old handler, or SIG_ERR
  * int raise(int sig)
- *
  * int kill(pid_t pid, int sig)
- *
  * int pthread_kill(pthread_t thread, int sig)
+ *
+ * return   -> sigaction() = raise() = kill() = pthread_kill() = 0 on success
+ * header   -> signal.h
+ *
+ * A handler that returns from SIGSEGV, SIGFPE or SIGILL caused by the code itself goes back
+ * to the same faulting instruction, which faults again, forever. It must end the process.
  *
 *******************************************************************************/
 
 /***************************** Signal Safe functions ***************************
-
-The following table defines a set of functions that shall be async-signal-safe.
-Therefore, applications can invoke them, without restriction, from signal-catching functions
-
-_Exit()             fexecve()           posix_trace_event() sigprocmask()
-_exit()             fork()              pselect()           sigqueue()
-abort()             fstat()             pthread_kill()      sigset()
-accept()            fstatat()           pthread_self()      sigsuspend()
-access()            fsync()             pthread_sigmask()   sleep()
-aio_error()         ftruncate()         raise()             sockatmark()
-aio_return()        futimens()          read()              socket()
-aio_suspend()       getegid()           readlink()          socketpair()
-alarm()             geteuid()           readlinkat()        stat()
-bind()              getgid()            recv()              symlink()
-cfgetispeed()       getgroups()         recvfrom()          symlinkat()
-cfgetospeed()       getpeername()       recvmsg()           tcdrain()
-cfsetispeed()       getpgrp()           rename()            tcflow()
-cfsetospeed()       getpid()            renameat()          tcflush()
-chdir()             getppid()           rmdir()             tcgetattr()
-chmod()             getsockname()       select()            tcgetpgrp()
-chown()             getsockopt()        sem_post()          tcsendbreak()
-clock_gettime()     getuid()            send()              tcsetattr()
-close()             kill()              sendmsg()           tcsetpgrp()
-connect()           link()              sendto()            time()
-creat()             linkat()            setgid()            timer_getoverrun()
-dup()               listen()            setpgid()           timer_gettime()
-dup2()              lseek()             setsid()            timer_settime()
-execl()             lstat()             setsockopt()        times()
-execle()            mkdir()             setuid()            umask()
-execv()             mkdirat()           shutdown()          uname()
-execve()            mkfifo()            sigaction()         unlink()
-faccessat()         mkfifoat()          sigaddset()         unlinkat()
-fchdir()            mknod()             sigdelset()         utime()
-fchmod()            mknodat()           sigemptyset()       utimensat()
-fchmodat()          open()              sigfillset()        utimes()
-fchown()            openat()            sigismember()       wait()
-fchownat()          pause()             signal()            waitpid()
-fcntl()             pipe()              sigpause()          write()
-fdatasync()         poll()              sigpending()
-
+ *
+ * A handler can interrupt the program in the middle of anything, including inside malloc or
+ * printf while they hold a lock. So a handler may only call async-signal-safe functions.
+ *
+ * Full list: man 7 signal-safety
+ *
+ * Safe     -> write, read, open, close, _exit, kill, raise, alarm, sigaction, waitpid, wait, sem_post
+ * Not safe -> printf, sprintf, malloc, free, exit, and most of stdio and pthread
+ *
+ * The simplest safe design is for the handler to only set a volatile sig_atomic_t flag,
+ * and for the main loop to check it and do the real work.
+ *
+ * A handler should also save and restore errno, if it calls anything that can change it.
+ *
 *******************************************************************************/
 
-/* https://en.wikipedia.org/wiki/Unix_signal
- * http://www.gnu.org/software/libc/manual/html_node/Standard-Signals.html#Standard-Signals
- * https://en.wikipedia.org/wiki/C_signal_handling
- * http://www.linuxprogrammingblog.com/all-about-linux-signals?page=show
- *
- * broken pipe
- * SIGALRM for windows
- * volatile memory in c
- * changing effect of a signal
- */
 
-
+#include <errno.h>
+#include <execinfo.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdarg.h>
-#include <signal.h>
-#include <time.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
-#ifdef _WIN32	
-	#include <io.h>
-	#include <process.h>
-	#include <windows.h>
-	#define STDOUT_FILENO 1
-	#define SIGALRM 14
-	int alarm(int secs, void (*callback)(int));
-#else
-	#include <unistd.h>
-	#include <sys/wait.h>
-#endif
-
-
-#ifdef __linux__
-	#include <execinfo.h>
-	void printTrace();
-#endif
-
-
-void buggy_function();
-void DBGPRINT(const char *fmt, ...);
+void buggy_function(char *p);
 void simpleFork();
+void printTrace();
+void sigHandler(int sig);
 
-void sigHandler(int signal);
+// write() is safe in a handler, but printf isn't, so these format text by hand
+static void safePrint(const char *text)
+{
+	ssize_t ignored = write(STDOUT_FILENO, text, strlen(text));
+	(void)ignored;
+}
+
+static void safePrintInt(int value)
+{
+	char digits[16];
+	int i = sizeof(digits);
+
+	digits[--i] = '\0';
+
+	do {
+		digits[--i] = (char)('0' + value % 10);
+		value /= 10;
+	} while ( value > 0 );
+
+	safePrint(&digits[i]);
+}
+
+static void received(const char *name, int sig)
+{
+	safePrint("\nReceived signal ");
+	safePrint(name);
+	safePrint(" ");
+	safePrintInt(sig);
+}
+
+static void install(int sig)
+{
+	struct sigaction action;
+
+	memset(&action, 0, sizeof(action));
+	action.sa_handler = sigHandler;
+	sigemptyset(&action.sa_mask);
+	action.sa_flags = SA_RESTART;      // Blocked calls such as the menu's read carry on after the handler
+
+	if ( sigaction(sig, &action, NULL) == -1 )
+		printf("\nsigaction(%d) failed : %s", sig, strerror(errno));
+}
+
+// Returns the number typed. Exits at end of input, and returns -1 for anything that isn't a number.
+static int readChoice()
+{
+	int choice, c;
+	int ret = scanf("%d", &choice);
+
+	if ( ret == EOF )
+		exit(0);
+
+	if ( ret == 1 )
+		return choice;
+
+	while ( (c = getchar()) != '\n' && c != EOF );
+
+	return -1;
+}
+
 
 int main()
 {
-	int choice = 0;
-	int result = 0;
-	int zero = 0;
+	void *preload[1];
+
+	// The first backtrace() call may allocate memory, which isn't safe in a handler, so do it now
+	backtrace(preload, 1);
 
 	while ( 1 )
 	{
-		fpurge(stdin);
 		printf("\n\n\n ---------- Signal Test --------------");
 		printf("\n%02d. SIGABRT                      -> Abort", SIGABRT);
-		printf("\n%02d. SIGFPE                       -> Floating point Exception", SIGFPE);
+		printf("\n%02d. SIGFPE                       -> Arithmetic error", SIGFPE);
 		printf("\n%02d. SIGILL                       -> Invalid instruction", SIGILL);
 		printf("\n%02d. SIGSEGV                      -> Access violation / Segmentation fault", SIGSEGV);
 		printf("\n%02d. SIGTERM                      -> Terminate -> 'kill pid'", SIGTERM);
 		printf("\n%02d. SIGINT                       -> Interrupt -> CTRL+C", SIGINT);
-#ifndef _WIN32
 		printf("\n%02d. SIGQUIT                      -> Quit      -> CTRL+\\", SIGQUIT);
-		printf("\n%02d. SIGSTOP                      -> Stop/Pause-> CTRL+Z", SIGSTOP);
+		printf("\n%02d. SIGTSTP                      -> Stop      -> CTRL+Z", SIGTSTP);
+		printf("\n%02d. SIGSTOP                      -> Shows that it can't be caught", SIGSTOP);
 		printf("\n%02d. SIGCONT                      -> Resume    -> kill -SIGCONT pid", SIGCONT);
-		printf("\n%02d. SIGCHLD                      -> Child termination signal, useful bcoz no need to call wait() and wait", SIGCHLD);
-#endif
-		printf("\n%02d. SIGALRM                      -> Alarm timer", SIGALRM);	
+		printf("\n%02d. SIGCHLD                      -> Child ended, so the parent doesn't have to block in wait()", SIGCHLD);
+		printf("\n%02d. SIGALRM                      -> Alarm timer", SIGALRM);
 		printf("\n99. Exit");
 		printf("\nEnter choice : ");
-		scanf("%d", &choice);
+
+		int choice = readChoice();
 
 		switch(choice)
 		{
 			case SIGABRT:
-				signal(SIGABRT, sigHandler);
-				abort(); // raise(SIGABRT) or kill(getpid(), SIGABRT)
-				printf("\nThis will not be print, as we terminated the process using abort()");
+				install(SIGABRT);
+				abort();   // The process still ends, even though the handler returns
 				break;
 
 			case SIGFPE:
-				signal(SIGFPE, sigHandler);
-				result = 5/ zero;
-				printf("\nThis will not be print, as SIGFPE happened");
+			{
+				volatile int zero = 0;   // volatile, so the compiler can't remove the division
+
+				install(SIGFPE);
+				printf("\nDividing by zero, result %d", 5 / zero);
+
+				// Still running: x86 traps on this, but ARM just returns 0
+				printf("\nThis CPU didn't trap, so raising SIGFPE directly");
+				fflush(stdout);
+				raise(SIGFPE);
 				break;
+			}
 
 			case SIGILL:
-				signal(SIGILL, sigHandler);
-				printf("\nThis will not be print, as SIGILL happened");
+				install(SIGILL);
+				fflush(stdout);
+				raise(SIGILL);
 				break;
 
 			case SIGSEGV:
-				signal(SIGSEGV, sigHandler);
+				install(SIGSEGV);
 				printf("\nsignal SIGSEGV initialized");
-				buggy_function();
-				
+				fflush(stdout);
+				buggy_function(NULL);
 				break;
-			
+
 			case SIGTERM:
-				signal(SIGTERM, sigHandler);
-				printf("\nsignal SIGTERM initialized, use 'kill pid' for raise terminate signal, use 'ps' to list and get pid");
-#ifdef _WIN32
-				//kill(_getpid(), SIGTERM);
-				raise(SIGTERM);
-#else
+				install(SIGTERM);
+				printf("\nsignal SIGTERM initialized. The process now survives 'kill pid'. Use 'kill -SIGKILL pid' to force it.");
+				fflush(stdout);
 				kill(getpid(), SIGTERM);
-#endif
 				break;
 
 			case SIGINT:
-				signal(SIGINT, sigHandler);
+				install(SIGINT);
 				printf("\nsignal SIGINT initialized, press CTRL+C to raise interrupt signal");
 				break;
 
-#ifdef _WIN32
 			case SIGALRM:
-				alarm(15, sigHandler);
-				printf("\nsignal SIGALRM initialized, timer set to 15 seconds");
-				break;
-#else
-			case SIGALRM:
-				signal(SIGALRM, sigHandler);
+				install(SIGALRM);
 				alarm(15);
-				printf("\nsignal SIGALRM initialized, timer set to 15 seconds");
+				printf("\nsignal SIGALRM initialized, timer set to 15 seconds, repeating");
 				break;
 
 			case SIGQUIT:
-				signal(SIGQUIT, sigHandler);
+				install(SIGQUIT);
 				printf("\nsignal SIGQUIT initialized, press CTRL+\\ to raise quit signal");
 				break;
 
+			case SIGTSTP:
+				install(SIGTSTP);
+				printf("\nsignal SIGTSTP initialized, press CTRL+Z. With this handler the process won't stop.");
+				break;
+
 			case SIGSTOP:
-				signal(SIGSTOP, sigHandler);
-				printf("\nsignal SIGSTOP initialized, press CTRL+Z to raise stop signal");
+				install(SIGSTOP);   // Prints the error: SIGSTOP and SIGKILL can't be caught
 				break;
 
 			case SIGCONT:
-				signal(SIGCONT, sigHandler);
-				printf("\nsignal SIGCONT initialized, use 'kill -SIGCONT pid' for raise SIGCONT signal");
+				install(SIGCONT);
+				printf("\nsignal SIGCONT initialized, use 'kill -SIGCONT pid' to raise it");
 				break;
 
 			case SIGCHLD:
-				signal(SIGCHLD, sigHandler);
-				printf("\nsignal SIGCHLD initialized, fork() and dont call wait() and wait for SIGCHLD signal and then call wait()");
+				install(SIGCHLD);
+				printf("\nsignal SIGCHLD initialized, forking a child. The handler collects it, to avoid a zombie.");
 				simpleFork();
 				break;
-#endif			
+
 			case 99:
 				exit(0);
+
 			default:
 				printf("\nInvalid choice , try again !!!");
 				break;
 		}
 	}
-
-	return 0;
 }
 
 
-void sigHandler(int signal)
+void sigHandler(int sig)
 {
-	switch(signal)
+	int savedErrno = errno;     // Otherwise the interrupted code could see a changed errno
+
+	switch(sig)
 	{
 		case SIGABRT:
-			DBGPRINT("\nReceived signal SIGFPE %d", signal);  // We r not using printf(), because its not safe inside signal handlers
+			received("SIGABRT", sig);
 			break;
 
+		// Returning would run the faulting instruction again, forever, so end the process.
+		// _exit is safe here, and exit isn't.
 		case SIGFPE:
-			DBGPRINT("\nReceived signal SIGFPE %d", signal);
-			break;
+			received("SIGFPE", sig);
+			_exit(128 + sig);
 
-		case SIGILL:                   // need to add example here
-			DBGPRINT("\nReceived signal SIGILL %d", signal);
-			break;
+		case SIGILL:
+			received("SIGILL", sig);
+			_exit(128 + sig);
 
 		case SIGSEGV:
-			DBGPRINT("\nReceived signal SIGSEGV %d", signal);
-#ifdef __linux__
+			received("SIGSEGV", sig);
 			printTrace();
-#endif
-			break;	
+			_exit(128 + sig);
 
-		case SIGTERM:                                              // use 'ps' to view list of processes.
-			DBGPRINT("\nReceived signal SIGTERM %d", signal);  // normal kill ('kill pid') signal will be catch here and application will not be terminate.
-			break;                                             // use 'kill -SIGKILL pid' for kill it forcefully and this signal is not catchable by app.
+		case SIGTERM:
+			received("SIGTERM", sig);
+			break;
 
 		case SIGINT:
-			DBGPRINT("\nReceived signal SIGINT %d", signal);
+			received("SIGINT", sig);
 			break;
-#ifdef _WIN32
+
 		case SIGALRM:
-			DBGPRINT("\nReceived signal SIGALRM %d", signal);
-			alarm(15, sigHandler);     // setting alarm again
-			break;
-#else
-		case SIGALRM:
-			DBGPRINT("\nReceived signal SIGALRM %d", signal);
+			received("SIGALRM", sig);
 			alarm(15);     // setting alarm again
 			break;
 
 		case SIGQUIT:
-			DBGPRINT("\nReceived signal SIGQUIT %d", signal);
+			received("SIGQUIT", sig);
 			break;
 
-		case SIGSTOP:
-			DBGPRINT("\nReceived signal SIGSTOP %d", signal);
+		case SIGTSTP:
+			received("SIGTSTP", sig);
 			break;
 
 		case SIGCONT:
-			DBGPRINT("\nReceived signal SIGCONT %d", signal);
+			received("SIGCONT", sig);
 			break;
 
 		case SIGCHLD:
-			DBGPRINT("\nReceived signal SIGCHLD %d and child pid is %d", signal, wait(NULL)); // read child status info for avoid zombie
-			break;	
-#endif
+		{
+			pid_t pid;
+
+			received("SIGCHLD", sig);
+
+			// Several children can end while one SIGCHLD is pending, so collect them all
+			while ( (pid = waitpid(-1, NULL, WNOHANG)) > 0 )
+			{
+				safePrint(", child pid is ");
+				safePrintInt(pid);
+			}
+			break;
+		}
 	}
 
+	errno = savedErrno;
 }
 
-void DBGPRINT(const char *fmt, ...)
-{
-	char buffer[512] = {0};
-	va_list args;
-	va_start(args, fmt);
-	vsprintf (buffer, fmt, args );
-	va_end(args);
-	write(STDOUT_FILENO, buffer, strlen(buffer));
-}
-
-
-
-#ifdef _WIN32
-
-typedef struct
-{
-	int sec;
-	void (*callback)(int);
-}ARGS;
-
-ARGS args = {0};
-
-
-int delay(int seconds)
-{
-	clock_t end_wait = clock() + seconds * CLOCKS_PER_SEC;
-	while( clock() < end_wait )
-		;
-
-	return 0;
-}
-
-DWORD WINAPI setTimerCalback(void *args)
-{
-	ARGS arg = *(ARGS *)args;
-	bool timerWait = true;
-
-#if 0
-	MSG Msg;
-	UINT TimerId = (UINT)SetTimer(NULL, 0, arg.sec * 1000, NULL); // 0 minute
-
-	while (timerWait)
-	{
-		GetMessage(&Msg, NULL, 0, 0);
-
-		if (Msg.message == WM_TIMER)
-			timerWait = false;
-
-		DispatchMessage(&Msg);
-	}
-
-	KillTimer(NULL, TimerId);
-#elif 0
-	delay(arg.sec);
-#else
-	Sleep(arg.sec * 1000);
-#endif
-	arg.callback(SIGALRM);
-
-	return 0;
-}
-
-
-
-int alarm(int secs, void (*callback)(int))
-{
-	HANDLE handle = NULL;
-	memset(&args, 0, sizeof(args));
-	
-	args.sec = secs;
-	args.callback = callback;
-
-	handle = CreateThread( NULL, 0, setTimerCalback, (void *)&args, 0, NULL);
-
-	return 0;
-
-}
-
-
-
-#else
 
 void simpleFork()
 {
-	pid_t pid = 0;
+	fflush(stdout);   // So the child doesn't inherit a copy of unprinted output
 
-	switch( pid = fork())
+	switch( fork() )
 	{
-		case -1: printf("\nfork() failed"); break;
-		case 0: printf("\nChild process"); _exit(0); break;   // Think wat will happen, if we dont give _exit() here
-		default: printf("\nParent process"); break;
+		case -1:
+			perror("fork");
+			break;
+
+		case 0:
+			safePrint("\nChild process");
+			_exit(0);   // Without this, the child would carry on and run the parent's menu too
+
+		default:
+			printf("\nParent process");
+			break;
 	}
 }
 
-#endif
 
-
-void buggy_function()
+void buggy_function(char *p)
 {
-	char *p = NULL;
-
-	memcpy( p, "i shouldn't be here!", 0xFF );
+	*(volatile char *)p = 'x';
 }
 
-
-
-
-#ifdef __linux__
 
 void printTrace()
 {
 	void *trace[32];
-	size_t size, i;
-	char **strings;
+	int size = backtrace(trace, 32);
 
-	size = backtrace(trace, 32);
-	strings = backtrace_symbols( trace, size );
+	safePrint("\n-----------Backtrace----------\n");
 
-	DBGPRINT("\n-----------Backtrace----------");
-
-	for ( i = 0; i < size; i++)
-		DBGPRINT("\n%s", strings[i]);
+	// backtrace_symbols calls malloc, but this version writes straight to the descriptor
+	backtrace_symbols_fd(trace, size, STDOUT_FILENO);
 }
-
-#endif

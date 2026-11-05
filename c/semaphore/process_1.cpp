@@ -1,68 +1,64 @@
+// g++ process_1.cpp common.cpp -pthread -o process_1
+// g++ process_2.cpp common.cpp -pthread -o process_2
+//
+// Two processes share a name through shared memory. Run process_1 first, then process_2 in
+// another window, both from this directory.
+//
+// lock makes access to the name mutually exclusive. The two Done semaphores set the order:
+// process 1 writes, process 2 reads and replaces, process 1 reads the result and cleans up.
+// Without them, process 1 could destroy the semaphores while process 2 is still using them.
 
 #include <stdio.h>
-#include <unistd.h>
 #include "common.h"
 
 
 int main()
 {
-
-	int ret = 0, sval = 0;
-
 	DATA *data = (DATA *)shmCreate();
 
 	if ( data == NULL)
-	{
-		printf("\nShared memory create failed");
-		return -1;
-	}
+		return 1;
 
-	printf("\nShared memory allocated");
-
-	ret = sem_init(&(data->lock), 1, 1); // second param = 1 , semaphore is between processes
-	if ( ret == -1)
+	// The second argument is 1 because these semaphores are shared between processes,
+	// which is why they must live in shared memory
+	if ( sem_init(&data->lock, 1, 1) == -1 || sem_init(&data->process1Done, 1, 0) == -1 || sem_init(&data->process2Done, 1, 0) == -1 )
 	{
-		shmDetach((void *)data);
+		perror("sem_init");
+		shmDetach(data);
 		shmDestroy();
-		return -1;
+		return 1;
 	}
 
-	ret = sem_getvalue(&(data->lock), &sval);
+	// Release ordering: anyone who sees ready == 1 also sees the initialized semaphores
+	__atomic_store_n(&data->ready, 1, __ATOMIC_RELEASE);
 
-	printf("\n1 => Process 1 waiting for lock : %d %d", ret, sval);
-	ret = sem_wait(&(data->lock));
-	if ( ret == -1)
-		printf("\n1 => process 1 lock failed");
+	printf("Process 1 waiting for lock\n");
+	semWait(&data->lock);
+	printf("Process 1 acquired lock\n");
 
-	ret = sem_getvalue(&(data->lock), &sval);
-	printf("\n1 => Process 1 acquired lock : %d %d", ret, sval);
-
-
-	printf("\nEnter name : ");
-	gets(data->name);
-
-	sem_post(&(data->lock));
-	printf("\n1 => Process 1 released lock");
-
-	printf("\n2 => Process 1 waiting for lock");
+	printf("Enter name : ");
 	fflush(stdout);
-	sleep(1);
-	ret = sem_wait(&(data->lock));
-	printf("\n2 => Process 1 acquired lock , ret = %d", ret);
+	readName(data->name, sizeof(data->name));
 
-	printf("\nName : %s", data->name);
-	sem_post(&(data->lock));
-	printf("\n2 => Process 1 released lock");
-	sem_destroy(&(data->lock));
-	printf("\n2 => Process 1 destroyed semaphore");
+	sem_post(&data->lock);
+	printf("Process 1 released lock\n");
 
-	printf("\nName : %s", data->name);
-	shmDetach( (void *)data);
+	sem_post(&data->process1Done);
+
+	printf("Process 1 waiting for process 2\n");
+	semWait(&data->process2Done);
+
+	semWait(&data->lock);
+	printf("Name : %s\n", data->name);
+	sem_post(&data->lock);
+
+	// Safe now: process 2 has finished with them
+	sem_destroy(&data->lock);
+	sem_destroy(&data->process1Done);
+	sem_destroy(&data->process2Done);
+
+	shmDetach(data);
 	shmDestroy();
-	printf("\n");
 
 	return 0;
-
-} 
-
-
+}

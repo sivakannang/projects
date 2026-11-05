@@ -17,8 +17,7 @@ Discussions :
 Memory Leak, Dangling pointer
 https://en.wikipedia.org/wiki/Memory_leak
 
-Windows   => cl mysql.cpp libmysql.lib -I"C:\Program Files\MySQL\MySQL Connector C 6.1\include"
-Linux     => g++ mysql.cpp -lmysqlclient -I"C:\Program Files\MySQL\MySQL Connector C 6.1\include" -o mysql
+Build     => g++ mysql.cpp $(mysql_config --cflags --libs) -o mysql
 
 *******************************************************************************/
 
@@ -69,79 +68,81 @@ Some example of mysql cmds
  * mysql -h127.0.0.1
  * mysql -h127.0.0.1 -uroot
  * mysql -h127.0.0.1 -uroot -proot database
- * mysql -h127.0.0.1 -uroot -proot companies -e "delete table girmiti"
+ * mysql -h127.0.0.1 -uroot -p companies -e "drop table girmiti"     ( -p with no value asks for the password, which keeps it out of shell history )
 
- 
+
 Some example of mysql queries
- 
+
+In SQL, 'single quotes' mean a string value. A name that needs quoting takes `backticks` in MySQL.
+Below, <name> is a placeholder for your own name, and 'value' is a real string value.
+
  * List databases
    > show databases;
  * Create a database
-   > create database 'database_name'
+   > create database <database_name>;
  * Delete a database
-   > drop database 'database_name'
+   > drop database <database_name>;
  * Select a database
-   > use 'database_name'
+   > use <database_name>;
  * To know the working/current database
-   > select database()
- 
+   > select database();
+
  * List tables
-   > show tables
+   > show tables;
  * Create a table
-   > create table 'table_name'('field1_name' 'data_type', ... , 'fieldn_name' 'data_type')
+   > create table <table_name>(<field1_name> <data_type>, ... , <fieldn_name> <data_type>);
  * Alter a table
-   > alter table 'table_name' add 'column_name' 'datatype'
-   > alter table 'table_name' drop 'column_name'
-   > alter table 'table_name' modify column 'column_name' 'datatype'
+   > alter table <table_name> add <column_name> <datatype>;
+   > alter table <table_name> drop <column_name>;
+   > alter table <table_name> modify column <column_name> <datatype>;
  * Delete a table and table contents
-   > drop table 'table_name'
+   > drop table <table_name>;
  * Delete contents of table
-   > delete / delete * from 'table_name'
+   > delete from <table_name>;
+   > truncate table <table_name>;     ( faster: it recreates the table, and can't be rolled back )
 
  * List record's from a table
-   > select *from 'table_name'
+   > select * from <table_name>;
  * List particular record/records from a table
-   > select 'field_1' from 'table_name'
-   > select 'field1', 'field_2' from 'table_name';
+   > select <field_1> from <table_name>;
+   > select <field_1>, <field_2> from <table_name>;
  * Insert a record into a table
-   > insert into 'table_name' values('value1', 'value2', 'value3',...);
+   > insert into <table_name> values('value1', 'value2', 'value3',...);
  * Delete a record/record's by condition
-   > delete from 'table_name' where 'some_column' = 'some_value'
- * Update/Modify a field values in a record
-   > update 'table_name' set 'column_1' = 'value_1', 'column_2'='value_2', ... , 'column_n"='value_n'
+   > delete from <table_name> where <some_column> = 'some_value';
+ * Update/Modify a field values in a record. Without the where, this changes every row.
+   > update <table_name> set <column_1> = 'value_1', <column_2> = 'value_2', ... where <some_column> = 'some_value';
 
  * where , and, or, order by, asc|desc , distinct, limit, in, between, like
-   > select *from 'table_name' where 'some_column'='some_value'
-   > select *from 'table_name' where 'some_column_1'='some_value_1' and 'some_column_2'='some_value_2'
-   > select *from 'table_name' where 'some_column_1'='some_value_1' or  'some_column_2'='some_value_2'
-   > select *from 'table_name' order by 'column_name' asc|desc
-   > select distinct 'column_name' from 'table_name'
-   > select *from 'table_name' limit 3
-   > select *from 'table_name' where 'column_name' in('value1', 'value2', ... ')
-   > select *from 'table_name' where 'column_name' between 'value1' and 'value2'
-   > select *from 'table_name' where 'column_name' like 'pattern'
+   > select * from <table_name> where <some_column> = 'some_value';
+   > select * from <table_name> where <some_column_1> = 'some_value_1' and <some_column_2> = 'some_value_2';
+   > select * from <table_name> where <some_column_1> = 'some_value_1' or  <some_column_2> = 'some_value_2';
+   > select * from <table_name> order by <column_name> asc|desc;
+   > select distinct <column_name> from <table_name>;
+   > select * from <table_name> limit 3;
+   > select * from <table_name> where <column_name> in('value1', 'value2', ...);
+   > select * from <table_name> where <column_name> between 'value1' and 'value2';
+   > select * from <table_name> where <column_name> like 'pattern';
 
 * SQL Functions
-  > select avg('column_name') from 'table_name'
-  > select count(*) from 'table_name'
-  > select count('column_name') from 'table_name'  => count except NULL values
-  > select sum('column_name') from 'table_name'
-  > select max('column_name') from 'table_name'
-  > select min('column_name') from 'table_name'
-  > select ucase('column_name') from 'table_name'
-  > select lcase('column_name') from 'table_name'
-  > select mid('column_name',start,length) from 'table_name'
+  > select avg(<column_name>) from <table_name>;
+  > select count(*) from <table_name>;
+  > select count(<column_name>) from <table_name>;      => doesn't count NULL values
+  > select sum(<column_name>) from <table_name>;
+  > select max(<column_name>) from <table_name>;
+  > select min(<column_name>) from <table_name>;
+  > select upper(<column_name>) from <table_name>;      => ucase is the MySQL-only name for this
+  > select lower(<column_name>) from <table_name>;      => lcase is the MySQL-only name for this
+  > select substring(<column_name>, start, length) from <table_name>;   => mid is the MySQL-only name for this
 
 
 *******************************************************************************/
 
 
-#ifdef _WIN32
-//#pragma comment(lib, "libmysql.lib")
-#else
-#endif
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include <my_global.h>
 #include <mysql.h>
 
 
@@ -167,7 +168,8 @@ typedef struct Field FIELD;
 
 struct Record
 {
-	char **values;
+	char **values;           // One per field. NULL means the column's value is SQL NULL.
+	unsigned long *lengths;  // BLOB data can contain zero bytes, so strlen can't give the length
 	struct Record *next;
 };
 typedef struct Record RECORD;
@@ -191,7 +193,7 @@ struct Database
 typedef struct Database DATABASE;
 
 DATABASE *getDbList(MYSQL *handle);
-TABLE    *getTableList(MYSQL *handle, DATABASE *database);
+TABLE    *getTableList(MYSQL *handle);
 FIELD    *getFieldList(MYSQL *handle, TABLE *table);
 RECORD   *getRecordList(MYSQL *handle, TABLE *table);
 
@@ -204,7 +206,7 @@ DATABASE *list_insert_db(DATABASE *head, DATABASE *newNode);
 TABLE    *list_insert_table(TABLE *head, TABLE *newNode);
 FIELD    *list_insert_field(FIELD *head, FIELD *newNode);
 RECORD   *list_insert_record(RECORD *head, RECORD *newNode);
-RECORD   *list_insert_record_value(RECORD *record, char *value, int idx);
+RECORD   *list_insert_record_value(RECORD *record, const char *value, unsigned long length, int idx);
 
 void list_display_dbs(DATABASE *head);
 void list_display_tables(DATABASE *database);
@@ -253,23 +255,42 @@ void SQL_Disconnect(MYSQL *handle)
 	mysql_close(handle);
 }
 
-STATUS DB_Create(MYSQL *handle, const char *dbName)
+// Runs "<prefix> `<name>`". Backticks make reserved words such as `order` and names with
+// special characters valid. A backtick inside the name is doubled, so the name can't end the
+// quoting early and add SQL of its own. Names can't be passed as parameters in SQL, so this is how to do it.
+static STATUS Query_ExecuteOnName(MYSQL *handle, const char *prefix, const char *name)
 {
-	char query[126] = {0};
+	char query[1024];
+	size_t len = (size_t)snprintf(query, sizeof(query), "%s `", prefix);
 
-	sprintf(query, "CREATE DATABASE %s", dbName);
+	for ( ; *name; name++ )
+	{
+		if ( len + 4 >= sizeof(query) )      // Room for a doubled backtick, the closing one, and the NUL
+		{
+			fprintf(stderr, "\nName too long for query : %s", prefix);
+			return FAIL;
+		}
+
+		if ( *name == '`' )
+			query[len++] = '`';
+
+		query[len++] = *name;
+	}
+
+	query[len++] = '`';
+	query[len] = '\0';
 
 	return Query_Execute(handle, query);
 }
 
+STATUS DB_Create(MYSQL *handle, const char *dbName)
+{
+	return Query_ExecuteOnName(handle, "CREATE DATABASE", dbName);
+}
+
 STATUS DB_Drop(MYSQL *handle, const char *dbName)
 {
-	char query[126] = {0};
-
-	sprintf(query, "DROP DATABASE %s", dbName);
-
-	return Query_Execute(handle, query);
-
+	return Query_ExecuteOnName(handle, "DROP DATABASE", dbName);
 }
 
 STATUS Query_Execute(MYSQL *handle, const char *query)
@@ -283,12 +304,66 @@ STATUS Query_Execute(MYSQL *handle, const char *query)
 	return SUCCESS;
 }
 
+// Stops at the first failure, so a later success can't hide it
+static STATUS Query_ExecuteAll(MYSQL *handle, const char *const queries[], int count)
+{
+	for ( int i = 0; i < count; i++ )
+	{
+		if ( Query_Execute(handle, queries[i]) != SUCCESS )
+			return FAIL;
+	}
+
+	return SUCCESS;
+}
+
+static MYSQL_RES *storeResult(MYSQL *handle)
+{
+	MYSQL_RES *result = mysql_store_result(handle);
+
+	if ( result == NULL )
+		fprintf(stderr, "\nmysql_store_result() failed => %s", mysql_error(handle));
+
+	return result;
+}
+
+// Sample data is small, and there is nothing useful to do without memory, so give up with a clear message
+static void *checkedCalloc(size_t count, size_t size)
+{
+	void *ptr = calloc(count, size);
+
+	if ( ptr == NULL )
+	{
+		fprintf(stderr, "\nOut of memory");
+		exit(EXIT_FAILURE);
+	}
+
+	return ptr;
+}
+
+static char *copyString(const char *text)
+{
+	char *copy = (char *)checkedCalloc(strlen(text) + 1, 1);
+
+	strcpy(copy, text);
+
+	return copy;
+}
+
 
 
 
 
 STATUS sqlTest()
 {
+	static const char *const QUERIES[] = {
+		"create table innoviti(emp_id int, name varchar(48), gender char, age int, team varchar(24))",
+		"create table girmiti(emp_id int, name varchar(48), gender char, age int, team varchar(24))",
+		"insert into innoviti values(101, 'Ganesh', 'M', 25, 'Development')",
+		"insert into innoviti values(102, 'Kasi', 'M', 28, 'Development')",
+		"insert into girmiti values(111, 'Siva', 'M', 27, 'Development')",
+		"insert into girmiti values(112, 'Ranjith', 'M', 24, 'Development')",
+	};
+
 	STATUS status;
 	MYSQL *handle = SQL_Connect(NULL);
 	if ( handle == NULL)
@@ -305,21 +380,7 @@ STATUS sqlTest()
 	if ( handle == NULL)
 		return FAIL;
 
-	status = Query_Execute(handle, "create table innoviti(emp_id int, name varchar(48), gender char, age int, team varchar(24))");
-	status = Query_Execute(handle, "create table girmiti(emp_id int, name varchar(48), gender char, age int, team varchar(24))");
-	if ( status != SUCCESS)
-		goto disconnect;
-
-	status = Query_Execute(handle, "insert into innoviti values(101, 'Ganesh', 'M', 25, 'Development')");
-	status = Query_Execute(handle, "insert into innoviti values(102, 'Kasi', 'M', 28, 'Development')");
-	if ( status != SUCCESS)
-		goto disconnect;
-
-	status = Query_Execute(handle, "insert into girmiti values(111, 'Siva', 'M', 27, 'Development')");
-	status = Query_Execute(handle, "insert into girmiti values(112, 'Ranjith', 'M', 24, 'Development')");
-	if ( status != SUCCESS)
-		goto disconnect;
-
+	status = Query_ExecuteAll(handle, QUERIES, sizeof(QUERIES) / sizeof(QUERIES[0]));
 
 disconnect:
 	SQL_Disconnect(handle);
@@ -334,7 +395,6 @@ disconnect:
 
 DATABASE *getDbList(MYSQL *handle)
 {
-	int num_fields = 0;
 	STATUS status;
 	DATABASE *head = NULL;
 
@@ -345,12 +405,11 @@ DATABASE *getDbList(MYSQL *handle)
 	if ( status != SUCCESS)
 		return NULL;
 
-	result = mysql_store_result(handle);
+	result = storeResult(handle);
 	if ( result == NULL)
 		return NULL;
 
-	num_fields = mysql_num_fields(result);
-	while ((row = mysql_fetch_row(result))) 
+	while ((row = mysql_fetch_row(result)))
 	{
 		DATABASE *node = make_node_db(row[0]);
 		head = list_insert_db(head, node);
@@ -361,25 +420,23 @@ DATABASE *getDbList(MYSQL *handle)
 	return head;
 }
 
-TABLE *getTableList(MYSQL *handle, DATABASE *database)
+TABLE *getTableList(MYSQL *handle)
 {
-	int num_fields = 0;
 	STATUS status;
 	TABLE *head = NULL;
 
 	MYSQL_RES *result = NULL;
 	MYSQL_ROW row;
-	
+
 	status = Query_Execute(handle, "show tables");
 	if ( status != SUCCESS)
 		return NULL;
 
-	result = mysql_store_result(handle);
+	result = storeResult(handle);
 	if ( result == NULL)
 		return NULL;
 
-	num_fields = mysql_num_fields(result);
-	while ((row = mysql_fetch_row(result))) 
+	while ((row = mysql_fetch_row(result)))
 	{
 		TABLE *node = make_node_table(row[0]);
 		head = list_insert_table(head, node);
@@ -392,28 +449,21 @@ TABLE *getTableList(MYSQL *handle, DATABASE *database)
 
 FIELD *getFieldList(MYSQL *handle, TABLE *table)
 {
-	int num_fields = 0;
-	char query[128] = {0};
-
 	STATUS status;
 	FIELD *head = NULL;
 
 	MYSQL_RES *result = NULL;
 	MYSQL_ROW row;
-	
-	sprintf(query, "desc %s", table->name);
 
-	status = Query_Execute(handle, query);
+	status = Query_ExecuteOnName(handle, "desc", table->name);
 	if ( status != SUCCESS)
 		return NULL;
 
-	result = mysql_store_result(handle);
+	result = storeResult(handle);
 	if ( result == NULL)
 		return NULL;
 
-	num_fields = mysql_num_fields(result);
-
-	while ((row = mysql_fetch_row(result))) 
+	while ((row = mysql_fetch_row(result)))
 	{
 		FIELD *node = make_node_field(row[0]);
 		head = list_insert_field(head, node);
@@ -427,36 +477,48 @@ FIELD *getFieldList(MYSQL *handle, TABLE *table)
 RECORD *getRecordList(MYSQL *handle, TABLE *table)
 {
 	int num_fields = 0;
-	char query[128] = {0};
 
 	STATUS status;
 	RECORD *head = NULL;
+	RECORD *tail = NULL;   // Tables can have millions of rows, so don't walk the whole list for each one
 
 	MYSQL_RES *result = NULL;
 	MYSQL_ROW row;
-	
 
-	sprintf(query, "select *from %s", table->name);
 
-	status = Query_Execute(handle, query);
+	status = Query_ExecuteOnName(handle, "select * from", table->name);
 	if ( status != SUCCESS)
 		return NULL;
 
-	result = mysql_store_result(handle);
+	result = storeResult(handle);
 	if ( result == NULL)
 		return NULL;
 
 	num_fields = mysql_num_fields(result);
 	table->fieldCount = num_fields;
 
-	while ((row = mysql_fetch_row(result))) 
+	while ((row = mysql_fetch_row(result)))
 	{
-		RECORD *node = make_node_record(num_fields);
+		unsigned long *lengths = mysql_fetch_lengths(result);
+		RECORD *node;
 
-		for(int idx = 0; idx < num_fields; idx++) 
-			node = list_insert_record_value(node, row[idx], idx);
+		if ( lengths == NULL )
+		{
+			fprintf(stderr, "\nmysql_fetch_lengths() failed => %s", mysql_error(handle));
+			break;
+		}
 
-		head = list_insert_record(head, node);
+		node = make_node_record(num_fields);
+
+		for(int idx = 0; idx < num_fields; idx++)
+			node = list_insert_record_value(node, row[idx], lengths[idx], idx);
+
+		if ( tail == NULL )
+			head = node;
+		else
+			tail->next = node;
+
+		tail = node;
 	}
 
 	mysql_free_result(result);
@@ -467,47 +529,38 @@ RECORD *getRecordList(MYSQL *handle, TABLE *table)
 
 DATABASE *make_node_db(char *name)
 {
-	DATABASE *database = (DATABASE *)calloc(1, sizeof(DATABASE));
-	assert(database != NULL);
+	DATABASE *database = (DATABASE *)checkedCalloc(1, sizeof(DATABASE));
 
-	database->name = (char *)calloc(1, strlen(name)+1);
+	database->name = copyString(name);
 
-	sprintf(database->name, "%s", name);
-	
 	return database;
 }
 
 TABLE *make_node_table(char *name)
 {
-	TABLE *table = (TABLE *)calloc(1, sizeof(TABLE));
-	assert(table != NULL);
+	TABLE *table = (TABLE *)checkedCalloc(1, sizeof(TABLE));
 
-	table->name = (char *)calloc(1, strlen(name)+1);
+	table->name = copyString(name);
 
-	sprintf(table->name, "%s", name);
-	
 	return table;
 }
 
 FIELD *make_node_field(char *name)
 {
-	FIELD *field = (FIELD *)calloc(1, sizeof(FIELD));
-	assert(field != NULL);
+	FIELD *field = (FIELD *)checkedCalloc(1, sizeof(FIELD));
 
-	field->name = (char *)calloc(1, strlen(name)+1);
+	field->name = copyString(name);
 
-	sprintf(field->name, "%s", name);
-	
 	return field;
 }
 
 RECORD *make_node_record(int num_fields)
 {
-	RECORD *record = (RECORD *)calloc(1, sizeof(RECORD));
-	assert(record != NULL);
+	RECORD *record = (RECORD *)checkedCalloc(1, sizeof(RECORD));
 
-	record->values = (char **)calloc(num_fields, sizeof(char *));
-	
+	record->values = (char **)checkedCalloc(num_fields, sizeof(char *));
+	record->lengths = (unsigned long *)checkedCalloc(num_fields, sizeof(unsigned long));
+
 	return record;
 }
 
@@ -560,6 +613,7 @@ FIELD *list_insert_field(FIELD *head, FIELD *newNode)
 
 }
 
+// Walks the whole list, so n inserts take n*n/2 steps. getRecordList keeps a tail pointer instead.
 RECORD *list_insert_record(RECORD *head, RECORD *newNode)
 {
 	RECORD *ptr = head;
@@ -576,16 +630,17 @@ RECORD *list_insert_record(RECORD *head, RECORD *newNode)
 
 }
 
-RECORD *list_insert_record_value(RECORD *record, char *value, int idx)
+RECORD *list_insert_record_value(RECORD *record, const char *value, unsigned long length, int idx)
 {
 	if ( value == NULL){
 		record->values[idx] = NULL;
 		return record;
 	}
-	
-	record->values[idx] = (char *)calloc(1, strlen(value)+1);
 
-	sprintf(record->values[idx], "%s", value);
+	record->values[idx] = (char *)checkedCalloc(length + 1, 1);
+
+	memcpy(record->values[idx], value, length);
+	record->lengths[idx] = length;
 
 	return record;
 }
@@ -604,7 +659,7 @@ void list_display_dbs(DATABASE *head)
 
 void list_display_tables(DATABASE *database)
 {
-	printf("\n\n--------------------- Displaying databse => %s---------\n", database->name);
+	printf("\n\n--------------------- Displaying database => %s---------\n", database->name);
 
 	TABLE *table = database->table;
 	while(table)
@@ -636,7 +691,15 @@ void list_display_records(TABLE *table)
 	{
 		printf("\n");
 		for ( int i = 0; i < table->fieldCount; i++)
-			printf("%s\t", record->values[i] );
+		{
+			// printf("%s") with NULL is undefined. fwrite, because a BLOB can contain zero bytes.
+			if ( record->values[i] == NULL )
+				printf("NULL");
+			else
+				fwrite(record->values[i], 1, record->lengths[i], stdout);
+
+			putchar('\t');
+		}
 		record = record->next;
 	}
 }
@@ -659,7 +722,13 @@ STATUS linkedListTest()
 	while(database)
 	{
 		handle = SQL_Connect(database->name);
-		database->table = getTableList(handle, database);
+		if ( handle == NULL )     // SQL_Connect printed why. Carry on with the other databases.
+		{
+			database = database->next;
+			continue;
+		}
+
+		database->table = getTableList(handle);
 		TABLE *table = database->table;
 		printf("\n -----------------------Processing database => %s ----------------", database->name);
 		while(table )
@@ -750,6 +819,7 @@ void freeRecord(RECORD *record, int num_fields)
 			free(record->values[i]), record->values[i] = NULL;
 
 	free(record->values), record->values = NULL;
+	free(record->lengths), record->lengths = NULL;
 
 	free(record), record = NULL;
 }
@@ -758,8 +828,11 @@ void freeRecord(RECORD *record, int num_fields)
 int main()
 {
 	//sqlTest();
-	linkedListTest();
-	return 0;
+	STATUS status = linkedListTest();
+
+	printf("\n");
+
+	return (status == SUCCESS) ? 0 : 1;
 }
 
 

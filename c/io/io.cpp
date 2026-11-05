@@ -1,30 +1,34 @@
 /*************************** Scope *********************************************
  *
+ * g++ io.cpp -o io
+ *
  * Standard input and output format specifiers
  * Standard input and output files/devices
  * Standard input and output functions
  * Variable length arguments
  * Getting system time and logging
- * File structure and file operation functions
+ * File operation functions
  * Command line arguments and environment variables
  *
- * Exercise : make 'cat', 'tail' application for windows
+ * Exercise : make 'cat' and 'tail' applications
  * ****************************************************************************/
 
 
 /*************************** Printing / Reading data types *********************
  *
- * %d  - int (same as %i)
+ * %d  - int (same as %i in printf. In scanf, %i also accepts 0x.. and 0.. prefixes)
  * %ld - long int (same as %li)
- * %f  - float
- * %lf - double
+ * %zu - size_t
+ * %f  - printf: double (float is promoted to double). scanf: float
+ * %lf - printf: double. scanf: double
  * %c  - char
- * %s  - string
+ * %s  - string (in scanf, always give a width such as %47s, or it can overflow)
  * %x  - hexadecimal
  * %o  - Octal
  * %u  - unsigned int
+ * %p  - pointer
  *
- * int i = 20 can be represent in Decimal  = 20, Hex = 0x14, Octal = 024, binary = 00010100
+ * int i = 20 can be represented in Decimal = 20, Hex = 0x14, Octal = 024, binary = 00010100
  *
  ******************************************************************************/
 
@@ -54,7 +58,7 @@
  * int getchar(void)
  * int putchar(int c)
  *
- * char *gets(char *s)
+ * char *fgets(char *s, int size, FILE *fp)     // gets() was removed in C11: it can't limit the length
  * int   puts(const char *s)
  *
  * int printf(const char *format, ...)
@@ -88,7 +92,7 @@
  * long ftell(FILE *fp)
  * void rewind(FILE *fp)
  * int fflush(FILE *fp)
- * int fpurge(FILE *stream)
+ * void __fpurge(FILE *stream)
  * int fileno(FILE *stream)
  * int ftruncate(int fildes, off_t length);
  * int fstat(int fildes, struct stat *buf);
@@ -99,13 +103,12 @@
  * whence => SEEK_SET | SEEK_CUR | SEEK_END
  *
  *
- * fflush()   -> flush the stream
- *            -> flush method for output stream and not for input stream
- *            -> standard
+ * fflush()   -> writes buffered output to the file
+ *            -> standard C for output streams. fflush(stdin) is undefined in standard C.
  *
- * fpurge     -> flush the stream ( can be use it for flush stdin )
- *            -> supported in stdio_ext.h and not in stdio.h 
- *            -> non standard, its from BSD
+ * __fpurge() -> discards buffered data, including unread input
+ *            -> Linux, declared in stdio_ext.h. Non-standard (BSD has fpurge)
+ *            -> to skip the rest of an input line, read up to '\n' with getchar() instead
  *
  ******************************************************************************/
 
@@ -113,15 +116,15 @@
 
 /*************************** Low level file i/o ********************************
  *
- * int  open  ( char  *filename,  int modes,  int  permission  )
- * int  read  ( int  fd,  void  *buffer,  int  nbyte )
- * int  write ( int  fd,  void  *buffer,  int  nbyte  )
- * off_t lseek( int fd, off_t offset, int whence)
- * int  close (  int  fd  )
- * 
- * modes      => O_RDONLY | O_WRONLY | O_RDWR | O_APPEND | O_BINARY | O_TEXT | O_TRUNC | O_CREAT
- * permission => S_IWRITE | S_IREAD
- * whence     => SEEK_SET | SEEK_CUR | SEEK_END
+ * int     open  ( const char *pathname, int flags, mode_t mode )    // mode is only used with O_CREAT
+ * ssize_t read  ( int fd, void *buffer, size_t count )              // may read less than count
+ * ssize_t write ( int fd, const void *buffer, size_t count )        // may write less than count
+ * off_t   lseek ( int fd, off_t offset, int whence )
+ * int     close ( int fd )
+ *
+ * flags  => O_RDONLY | O_WRONLY | O_RDWR | O_APPEND | O_TRUNC | O_CREAT | O_NONBLOCK
+ * mode   => S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH ...  or octal such as 0644
+ * whence => SEEK_SET | SEEK_CUR | SEEK_END
  *
  *
  * int dup(int oldfd)
@@ -143,49 +146,22 @@
  * int mkdir(const char *pathname, mode_t mode);
  * int rmdir(const char *pathname);
  * int chdir(const char *path);
- * char *getcwd(char buf[.size], size_t size);
+ * char *getcwd(char *buf, size_t size);
  * char *get_current_dir_name(void);
- * int stat(const char *restrict pathname, struct stat *statbuf);
+ * int stat(const char *pathname, struct stat *statbuf);
  * int truncate(const char *path, off_t length);
  *
  * ***************************************************************************/
 
-/********* Commnad line arguments and Environment variables capture ************
- 
-int main(int argc, char *argv[], char **env)
-{
-	int offset = 0;
-	File_Log("Number of arguments : %d", argc);
-
-	while ( offset < argc){
-		File_Log("Argument[%02d] => %s", offset, argv[offset]);
-		offset++;
-	}
-
-
-	while(*env)
-		File_Log("Environment => %s", *env++);
-
-	return 0;
-}
-
-******************************************************************************/
-
-#ifdef _WIN32
-	#include <io.h>
-
-#else
-	#include <unistd.h>
-#endif
-
+#include <errno.h>
+#include <fcntl.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <errno.h>
 #include <sys/stat.h>
-#include <fcntl.h>
-#include <stdarg.h>
+#include <time.h>
+#include <unistd.h>
 
 
 typedef enum
@@ -194,22 +170,19 @@ typedef enum
 	SUCCESS
 }STATUS;
 
-int File_Read(char *filename, char *buffer, int len);
-int File_Write(char *filename, char *buffer, int len);
-int File_Append(char *filename, char *buffer, int len);
-int File_Log(const char* format, ...);
-STATUS File_Print(char *filename);
+int File_Read(const char *filename, char *buffer, int len);
+char *File_Read(const char *filename);
+int File_Write(const char *filename, const char *buffer, int len);
+int File_Append(const char *filename, const char *buffer, int len);
+int File_Log(const char* format, ...) __attribute__((format(printf, 1, 2)));
+STATUS File_Print(const char *filename);
 
 int average(int count, ...);
 char *FGETS(char *s, int max, FILE *fp);
 int FPUTS(const char *s, FILE *fp);
-int Time_Get(char *outField);
-void printFileStruct(FILE *fp);
 
 
-
-
-int File_Read(char *filename, char *buffer, int len)
+int File_Read(const char *filename, char *buffer, int len)
 {
 	int ret = 0;
 	FILE * fp = fopen(filename, "r");
@@ -223,35 +196,41 @@ int File_Read(char *filename, char *buffer, int len)
 	return ret;
 }
 
-char *File_Read(char *filename)
+// Returns the whole file as a NUL-terminated string, or NULL. The caller must free it.
+char *File_Read(const char *filename)
 {
-	FILE *fp = NULL;
-	struct stat property = {0};
+	struct stat property;
 	char *buffer = NULL;
-	int ret = 0;
+	size_t ret = 0;
 
-	stat(filename, &property);
-
-	fp = fopen(filename, "r");
+	FILE *fp = fopen(filename, "r");
 	if ( fp == NULL)
 		return NULL;
 
+	if ( fstat(fileno(fp), &property) != 0 )
+	{
+		fclose(fp);
+		return NULL;
+	}
+
 	buffer = (char *)malloc(property.st_size+1);
+	if ( buffer == NULL )
+	{
+		fclose(fp);
+		return NULL;
+	}
 
 	ret = fread(buffer, 1, property.st_size, fp);
 
 	fclose(fp);
 
-	buffer[property.st_size] = 0;
-
-	printf("\nsize : =>%ld %d<=", property.st_size, ret);
+	buffer[ret] = 0;   // ret, because the file can shrink after fstat
 
 	return buffer;
-
 }
 
 
-int File_Write(char *filename, char *buffer, int len)
+int File_Write(const char *filename, const char *buffer, int len)
 {
 	int ret = 0;
 	FILE * fp = fopen(filename, "w");
@@ -265,7 +244,7 @@ int File_Write(char *filename, char *buffer, int len)
 	return ret;
 }
 
-int File_Append(char *filename, char *buffer, int len)
+int File_Append(const char *filename, const char *buffer, int len)
 {
 	int ret = 0;
 	FILE * fp = fopen(filename, "a");
@@ -279,11 +258,11 @@ int File_Append(char *filename, char *buffer, int len)
 	return ret;
 }
 
-STATUS File_Print(char *filename)
+STATUS File_Print(const char *filename)
 {
 	int ch = 0;
 
-	FILE * fp = fopen(filename, "a");
+	FILE * fp = fopen(filename, "r");
 	if ( fp == NULL)
 		return FAIL;
 
@@ -293,60 +272,52 @@ STATUS File_Print(char *filename)
 	fclose(fp);
 
 	return SUCCESS;
-
 }
 
 int File_Log(const char* format, ...)
 {
-	int ret=0;
-	int month = 0;
-	int fp = 0;
-	char buffer[15001] = {'\0'};
-	char logfile[30] = {'\0'};	
-
+	char buffer[4096];
+	char logfile[30];
+	time_t t = time(NULL);
+	struct tm lt;
 	va_list args;
+	int fd, ret, len;
 
-	month = Time_Get(buffer);
+	localtime_r(&t, &lt);   // localtime returns a shared static buffer, which isn't thread-safe
+
+	len = snprintf(buffer, sizeof(buffer), "\n%02d%02d%02d: %02d/%02d/%02d: => ", lt.tm_hour, lt.tm_min, lt.tm_sec, lt.tm_mon + 1, lt.tm_mday, lt.tm_year - 100);
 
 	va_start(args, format);
-	vsprintf (&buffer[strlen(buffer)], format, args );
-	va_end(args);	
+	ret = vsnprintf(buffer + len, sizeof(buffer) - len, format, args);
+	va_end(args);
 
-	sprintf(logfile, "log_%02d.txt", month);
+	if ( ret > 0 )
+		len = ((size_t)(len + ret) < sizeof(buffer)) ? len + ret : (int)sizeof(buffer) - 1;
 
 	printf("%s", buffer);
 
+	snprintf(logfile, sizeof(logfile), "log_%02d.txt", lt.tm_mon + 1);
 
-	fp = open (logfile, O_WRONLY|O_APPEND|O_CREAT, S_IWRITE | S_IREAD); // S_IWRITE - Open or Create with write permission 
-	
-	if(fp<0)
+	fd = open(logfile, O_WRONLY | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR);
+	if ( fd < 0 )
 	{
-		switch(errno)
-		{
-			case EACCES: //return _ERR_FILE_ACCESS; 
-			case EMFILE: //return _ERR_FILE_TOO_MANY_HANDLERS;
-			default: //return _ERR_FILE_UNKNOWN;
-				printf("\n errno = %d , errstr = %s" , errno, strerror(errno));
-				return -1;
-		}
+		printf("\n errno = %d , errstr = %s", errno, strerror(errno));
+		return -1;
 	}
 
-	ret = write(fp, (const char *)buffer,strlen(buffer));
+	ret = write(fd, buffer, len);
 
-	close(fp);
+	close(fd);
 
 	return ret;
-	
-
 }
 
 
 char *FGETS(char *s, int max, FILE *fp)
 {
-	int c;
-	char *p;
+	int c = 0;   // Stays 0 if max is too small for the loop to run
+	char *p = s;
 
-	p = s;
 	while ( --max > 0 && (c = getc(fp)) != EOF)
 		if ( (*p++ = c) == '\n')
 			break;
@@ -354,81 +325,53 @@ char *FGETS(char *s, int max, FILE *fp)
 	*p = '\0';
 
 	return (c == EOF && p == s) ? NULL : s;
-
 }
 
 int FPUTS(const char *s, FILE *fp)
 {
 	int c;
 
-	while( c = *s++)
+	while( (c = *s++) )
 		putc(c, fp);
 
 	return ferror(fp) ? EOF : 0;
-}
-
-void printFileStruct(FILE *fp)
-{
-#ifdef _WIN32
-	printf("\n\n\n------------------------------------------");
-	printf("\n _ptr      =>%s<=", fp->_ptr);
-	printf("\n _cnt      =>%d<=", fp->_cnt);
-	printf("\n _base     =>%s<=", fp->_base);
-	printf("\n _flag     =>%d<=", fp->_flag);
-	printf("\n _file     =>%d<=", fp->_file);
-	printf("\n _charbuf  =>%d<=", fp->_charbuf);
-	printf("\n _bufsiz   =>%d<=", fp->_bufsiz);
-	printf("\n _tmpfname =>%s<=", fp->_tmpfname);
-#else
-	
-#endif
-}
-
-
-int Time_Get(char *outField)
-{
-
-	time_t t = time(0);
-	struct tm* lt = localtime(&t);
- 	char time_str[128] = {0};
-	
-	sprintf(time_str, "\n%02d%02d%02d: %02d/%02d/%02d: => ", lt->tm_hour, lt->tm_min, lt->tm_sec, lt->tm_mon + 1, lt->tm_mday, lt->tm_year - 100);
-
-	strncat(outField, time_str, strlen(time_str));
-	return lt->tm_mon + 1;
 }
 
 
 int average(int count, ...)
 {
 	int sum = 0;
-
 	va_list valist;
+
+	if ( count <= 0 )
+		return 0;
+
 	va_start(valist, count);
 
 	for ( int i = 0; i < count; i++)
 		sum += va_arg(valist, int);
 
+	va_end(valist);
+
 	return sum/count;
 }
 
 
+// Command line arguments and environment variables
 int main(int argc, char *argv[], char **env)
 {
-	int offset = 0;
 	File_Log("Number of arguments : %d", argc);
 
-	while ( offset < argc){
+	for ( int offset = 0; offset < argc; offset++ )
 		File_Log("Argument[%02d] => %s", offset, argv[offset]);
-		offset++;
-	}
 
-
+	// Screen only: environment variables often hold tokens and passwords, so keep them out of log files
 	while(*env)
-		File_Log("Environment => %s", *env++);
+		printf("\nEnvironment => %s", *env++);
 
 	File_Log("average = %d", average(5, 1, 2, 3, 4, 5));
 
+	printf("\n");
 
 	return 0;
 }

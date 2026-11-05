@@ -1,59 +1,80 @@
-
+#include <errno.h>
 #include <stdio.h>
+#include <string.h>
+#include <sys/ipc.h>
 #include <sys/shm.h>
 #include "common.h"
 
-int shmid = 0;
+static int shmid = -1;
+
+// The file must exist, so run the programs from this directory
+static key_t getKey()
+{
+	key_t key = ftok("common.cpp", 'B');
+
+	if ( key == -1 )
+		perror("ftok(common.cpp)");
+
+	return key;
+}
 
 void *shmCreate()
 {
-	
-	key_t key = 0;
-	void *shmptr = NULL;
-	int size = sizeof(DATA);
-	char option = 0;
+	void *shmptr;
+	key_t key = getKey();
 
-	key = ftok("common.cpp", 'B');
-
-	shmid = shmget(key, size, 0666 | IPC_CREAT);
-	if ( shmid == -1){
-		printf("\nShared memory allocation failed");
+	if ( key == -1 )
 		return NULL;
+
+	shmid = shmget(key, sizeof(DATA), 0600 | IPC_CREAT | IPC_EXCL);
+
+	// A crashed earlier run can leave a segment behind, with old semaphores in it. Replace it.
+	if ( shmid == -1 && errno == EEXIST )
+	{
+		int old = shmget(key, 0, 0600);
+
+		if ( old != -1 )
+			shmctl(old, IPC_RMID, NULL);
+
+		shmid = shmget(key, sizeof(DATA), 0600 | IPC_CREAT | IPC_EXCL);
 	}
 
-	printf("\nDel -> shared memory allocated");
+	if ( shmid == -1 )
+	{
+		perror("shmget");
+		return NULL;
+	}
 
 	shmptr = shmat(shmid, NULL, 0);
-	if ( shmptr == (void *)-1) {
+	if ( shmptr == (void *)-1 )
+	{
+		perror("shmat");
 		shmctl(shmid, IPC_RMID, NULL);
-		printf("\nShared memory attach failed");
 		return NULL;
 	}
 
-	printf("\nDel -> shared memory attached");
-
 	return shmptr;
-
 }
 
 void *shmAttach()
 {
-	key_t key = 0;
-	void *shmptr = NULL;
-	int size = sizeof(DATA);
-	char option = 0;
+	void *shmptr;
+	key_t key = getKey();
 
-	key = ftok("common.cpp", 'B');
+	if ( key == -1 )
+		return NULL;
 
-	shmid = shmget(key, size, 0666);
-	if ( shmid == -1){
-		printf("\nShared memory allocation failed");
+	shmid = shmget(key, sizeof(DATA), 0600);
+	if ( shmid == -1 )
+	{
+		perror("shmget (is process_1 running?)");
 		return NULL;
 	}
 
 	shmptr = shmat(shmid, NULL, 0);
-	if ( shmptr == (void *)-1) {
-		printf("\nShared memory attach failed");
+	if ( shmptr == (void *)-1 )
+	{
+		perror("shmat");
 		return NULL;
 	}
 
@@ -71,4 +92,21 @@ void shmDestroy()
 	shmctl(shmid, IPC_RMID, NULL);
 }
 
+int semWait(sem_t *sem)
+{
+	int ret;
 
+	do {
+		ret = sem_wait(sem);
+	} while ( ret == -1 && errno == EINTR );
+
+	return ret;
+}
+
+void readName(char *name, int size)
+{
+	if ( fgets(name, size, stdin) == NULL )
+		name[0] = '\0';
+
+	name[strcspn(name, "\n")] = '\0';
+}

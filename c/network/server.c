@@ -50,6 +50,14 @@ int main() {
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
     servaddr.sin_port = htons(SERVER_PORT);
 
+    // Set SO_RCVBUF before listen(). The TCP window scale is agreed during the handshake,
+    // and accepted sockets inherit it, so setting it after accept() is too late.
+    // The kernel caps the value at net.core.rmem_max.
+    optval = RCVBUF_SIZE;
+    if (setsockopt(listen_fd, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval)) < 0) {
+        perror("setsockopt SO_RCVBUF");
+    }
+
     if (bind(listen_fd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
         perror("bind");
         exit(EXIT_FAILURE);
@@ -73,8 +81,11 @@ int main() {
 
         ret = select(listen_fd + 1, &readfds, NULL, NULL, &tv);
         if (ret < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
             perror("select");
-            continue;
+            break;
         } else if (ret == 0) {
             printf("Waiting for connection...\n");
             continue;
@@ -88,12 +99,6 @@ int main() {
                 continue;
             }
             printf("Accepted new client.\n");
-
-            // Set SO_RCVBUF
-            optval = RCVBUF_SIZE;
-            if (setsockopt(client_fd, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval)) < 0) {
-                perror("setsockopt SO_RCVBUF");
-            }
 
             // Set SO_RCVTIMEO
             struct timeval rcv_timeout;
@@ -141,7 +146,9 @@ int main() {
                         client_fd = -1;
                         goto accept_next;
                     } else {
-                        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                        if (errno == EINTR) {
+                            continue;
+                        } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
                             printf("Recv timeout, retrying...\n");
                             attempts++;
                             continue;
@@ -157,9 +164,7 @@ int main() {
                 if (total_read == READ_SIZE) {
                     counter++;
                     buffer[READ_SIZE] = '\0'; // Null terminate for safety if data is text
-                    printf("[#%d] bytes received , data = %s\n", counter, buffer);
-                    // Optional: print content
-                    // printf("%.*s\n", READ_SIZE, buffer);
+                    printf("[#%d] %d bytes received , data = %s\n", counter, READ_SIZE, buffer);
                 } else {
                     printf("Partial read incomplete after %d attempts, closing client.\n", attempts);
                     close(client_fd);

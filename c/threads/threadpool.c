@@ -1,6 +1,11 @@
-#include <stdio.h>
-#include <stdlib.h>
+// gcc threadpool.c -pthread -o threadpool
+//
+// A fixed number of worker threads take tasks from a bounded queue.
+// Adding a task blocks while the queue is full, and a worker blocks while it is empty.
+
 #include <pthread.h>
+#include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 #define MAX_QUEUE 100
@@ -20,18 +25,30 @@ typedef struct {
     int count;
 
     pthread_t threads[MAX_THREADS];
+    int threadCount;
     int stop;
 
     pthread_mutex_t lock;
-    pthread_cond_t cond;
+    pthread_cond_t notEmpty;   // Workers wait here for a task
+    pthread_cond_t notFull;    // Callers of thread_pool_add wait here for space
 } ThreadPool;
 
-// Task queue operations
-void enqueue(ThreadPool* pool, task_fn fn, void* arg) {
+// There are two condition variables because each event has its own kind of waiter. With a
+// single one, a signal meant for a worker could wake a caller, who just goes back to sleep,
+// and the worker never wakes up. The wait loops recheck the condition, because a thread
+// can wake without its condition being true.
+
+// Returns 0, or -1 if the pool is shutting down and the task wasn't added
+static int enqueue(ThreadPool* pool, task_fn fn, void* arg) {
     pthread_mutex_lock(&pool->lock);
 
-    while (pool->count == MAX_QUEUE) {
-        pthread_cond_wait(&pool->cond, &pool->lock); // wait if full
+    while (pool->count == MAX_QUEUE && !pool->stop) {
+        pthread_cond_wait(&pool->notFull, &pool->lock);
+    }
+
+    if (pool->stop) {
+        pthread_mutex_unlock(&pool->lock);
+        return -1;
     }
 
     pool->queue[pool->rear].fn = fn;
@@ -39,95 +56,126 @@ void enqueue(ThreadPool* pool, task_fn fn, void* arg) {
     pool->rear = (pool->rear + 1) % MAX_QUEUE;
     pool->count++;
 
-    pthread_cond_signal(&pool->cond);
+    pthread_cond_signal(&pool->notEmpty);
     pthread_mutex_unlock(&pool->lock);
+
+    return 0;
 }
 
-Task dequeue(ThreadPool* pool) {
+// Returns a task with fn == NULL only when the pool is stopping and the queue is empty
+static Task dequeue(ThreadPool* pool) {
     Task task = { NULL, NULL };
     pthread_mutex_lock(&pool->lock);
 
     while (pool->count == 0 && !pool->stop) {
-        pthread_cond_wait(&pool->cond, &pool->lock); // wait if empty
+        pthread_cond_wait(&pool->notEmpty, &pool->lock);
     }
 
     if (pool->count > 0) {
         task = pool->queue[pool->front];
         pool->front = (pool->front + 1) % MAX_QUEUE;
         pool->count--;
-        pthread_cond_signal(&pool->cond);
+        pthread_cond_signal(&pool->notFull);
     }
 
     pthread_mutex_unlock(&pool->lock);
     return task;
 }
 
-void* worker(void* arg) {
+static void* worker(void* arg) {
     ThreadPool* pool = (ThreadPool*)arg;
+
     while (1) {
         Task task = dequeue(pool);
-        if (task.fn)
-            task.fn(task.arg);
-        else if (pool->stop)
+
+        if (task.fn == NULL)
             break;
+
+        // Run it outside the lock, so that workers can run tasks at the same time
+        task.fn(task.arg);
     }
+
     return NULL;
 }
 
-// Initialize pool
-void thread_pool_init(ThreadPool* pool) {
+// Returns 0, or -1 if no thread could be started. Fewer than MAX_THREADS still works.
+int thread_pool_init(ThreadPool* pool) {
     pool->front = 0;
     pool->rear = 0;
     pool->count = 0;
     pool->stop = 0;
+    pool->threadCount = 0;
 
     pthread_mutex_init(&pool->lock, NULL);
-    pthread_cond_init(&pool->cond, NULL);
+    pthread_cond_init(&pool->notEmpty, NULL);
+    pthread_cond_init(&pool->notFull, NULL);
 
     for (int i = 0; i < MAX_THREADS; i++) {
-        pthread_create(&pool->threads[i], NULL, worker, pool);
+        int ret = pthread_create(&pool->threads[pool->threadCount], NULL, worker, pool);
+
+        if (ret != 0)
+            fprintf(stderr, "pthread_create : %s\n", strerror(ret));
+        else
+            pool->threadCount++;
     }
+
+    if (pool->threadCount == 0) {
+        pthread_mutex_destroy(&pool->lock);
+        pthread_cond_destroy(&pool->notEmpty);
+        pthread_cond_destroy(&pool->notFull);
+        return -1;
+    }
+
+    return 0;
 }
 
-// Add task
-void thread_pool_add(ThreadPool* pool, task_fn fn, void* arg) {
-    enqueue(pool, fn, arg);
+// Returns 0, or -1 if fn is NULL or the pool is shutting down
+int thread_pool_add(ThreadPool* pool, task_fn fn, void* arg) {
+    if (fn == NULL)    // NULL is how a worker recognizes shutdown
+        return -1;
+
+    return enqueue(pool, fn, arg);
 }
 
-// Shutdown pool
+// Waits for the tasks already in the queue to finish, and then stops the workers.
+// All other calls using the pool must have returned before the caller reuses or frees it.
 void thread_pool_destroy(ThreadPool* pool) {
     pthread_mutex_lock(&pool->lock);
     pool->stop = 1;
-    pthread_cond_broadcast(&pool->cond);
+    pthread_cond_broadcast(&pool->notEmpty);
+    pthread_cond_broadcast(&pool->notFull);
     pthread_mutex_unlock(&pool->lock);
 
-    for (int i = 0; i < MAX_THREADS; i++) {
+    for (int i = 0; i < pool->threadCount; i++) {
         pthread_join(pool->threads[i], NULL);
     }
 
     pthread_mutex_destroy(&pool->lock);
-    pthread_cond_destroy(&pool->cond);
+    pthread_cond_destroy(&pool->notEmpty);
+    pthread_cond_destroy(&pool->notFull);
 }
 
 
-void print_task(void* arg) {
+static void print_task(void* arg) {
     int id = *(int*)arg;
-    printf("Thread %ld: Task %d\n", pthread_self(), id);
+    printf("Thread %lu: Task %d\n", (unsigned long)pthread_self(), id);   // pthread_t's type varies, so cast it to print
     usleep(100000); // simulate work
 }
 
-int main() {
+int main(void) {
     ThreadPool pool;
-    thread_pool_init(&pool);
-
     int ids[10];
+
+    if (thread_pool_init(&pool) != 0)
+        return 1;
+
     for (int i = 0; i < 10; i++) {
         ids[i] = i + 1;
         thread_pool_add(&pool, print_task, &ids[i]);
     }
 
-    sleep(2); // Let tasks finish
+    // ids must stay valid until the tasks finish. This call waits for them.
     thread_pool_destroy(&pool);
+
     return 0;
 }
-

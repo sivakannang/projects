@@ -1,38 +1,52 @@
-// linkedList.cpp : Defines the entry point for the console application.
-//
+// g++ linkedlist.cpp -o linkedlist
 
-#ifdef WIN32
-#include "stdafx.h"
-#endif
-
-#include "stdio.h"
-#include "stdlib.h"
+#include <stdio.h>
+#include <stdlib.h>
 #include "linkedlist.h"
 
 
+// Returns the number read. Exits on end of input, and skips a line that isn't a number.
+static int readInt(const char *prompt)
+{
+	int value = 0;
 
+	for (;;)
+	{
+		printf("%s", prompt);
 
-EMPLOYEE *head;
+		int ret = scanf("%d", &value);
+		if ( ret == 1 )
+			return value;
 
+		if ( ret == EOF )
+			exit(0);
 
-NODE *delete_bykey(int key, NODE *head);
+		int c;
+		while ( (c = getchar()) != '\n' && c != EOF );
+	}
+}
 
-// 1. Sort a Linked list
-// 2. Remove duplicates from a sorted linked list
-// 3. Remove duplicates from a unsorted linked list
-// 4. Reverse a Linked List
-// 5. Pair wise swap
-// 6. Find/Detect loop is in linked list
-// 7. Detect and Remove loop from a list
-// 8. Middle of Linked List
+static NODE *newNode(NODE node, NODE *next)
+{
+	NODE *tmp = (NODE *)malloc(sizeof(NODE));
+
+	if ( tmp == NULL )
+	{
+		perror("malloc");
+		exit(1);
+	}
+
+	*tmp = node;
+	tmp->next = next;
+
+	return tmp;
+}
+
 
 int main()
 {
-	EMPLOYEE employee = {0};
-	EMPLOYEE *emp;
-
-	int choice = 0, key = 0;
-	
+	NODE *head = NULL;
+	NODE *emp;
 
 	for(;;)
 	{
@@ -44,30 +58,26 @@ int main()
 		printf("\n05:Display List");
 		printf("\n06:List Size");
 		printf("\n07:Search");
-		printf("\n08:Sort");
+		printf("\n08:Sort by id");
 		printf("\n09:Reverse");
 		printf("\n10:Pair wise swap");
 		printf("\n11:Remove Duplicates on un-sorted");
-		printf("\n12:Clone");
-		printf("\n13:Concat");
+		printf("\n12:Clone and display the copy");
+		printf("\n13:Concat a clone to the end of the list");
 		printf("\n14:Delete By Key");
 		printf("\n15:Quit");
 
-		printf("\n\nEnter the choice (1-15) : ");
-		scanf("%d", &choice);
-
-		switch(choice)
+		switch( readInt("\n\nEnter the choice (1-15) : ") )
 		{
 			case INSERT_FRONT:
-			        employee = getInfo();	
-				head = insert_front(employee, head);
+				head = insert_front(getInfo(), head);
 				break;
 
 			case DELETE_FRONT:
 				head = delete_front(head);
 				break;
 
-			case INSERT_REAR: 
+			case INSERT_REAR:
 				head = insert_rear(getInfo(), head);
 				break;
 
@@ -83,17 +93,15 @@ int main()
 				printf("\nList length : %d", length(head));
 				break;
 
-			case SEARCH: 
-				printf("\nEnter emp id to search: ");
-				scanf("%d", &key);
-				emp = search(head, key);
+			case SEARCH:
+				emp = search(head, readInt("\nEnter emp id to search: "));
 				if ( emp == NULL)
 					printf("\nSearch data not found");
 				else
 					displayInfo(emp);
 				break;
-			
-			case SORT: 
+
+			case SORT:
 				head = sort(head);
 				break;
 
@@ -105,53 +113,40 @@ int main()
 				head = pair_wise_swap(head);
 				break;
 
-			//case 10:
-				//first = removeDuplicateSorted(first);
-				//display(first);
-				//break;
-				
-
 			case REMOVE_DUPLICATES:
 				head = removeDuplicateUnSorted(head);
 				break;
 
-			case 12:
-				//clone(head);
+			case CLONE:
+				emp = clone(head);
+				displayList(emp);
+				freeList(emp);
 				break;
 
-			case 13:
-				head = concat(head, NULL);
+			case CONCAT:
+				// Must be a copy. Joining a list to itself would create a loop.
+				head = concat(head, clone(head));
 				break;
 
-			case 14:
-				printf("\nEnter employee id to delete : ");
-				scanf("%d", &key);
-				head = delete_bykey(key, head);
+			case DELETE_BY_KEY:
+				head = delete_bykey(readInt("\nEnter employee id to delete : "), head);
 				break;
 
-			case 15: exit(0);
-			default: printf("\nInvalid Choice"); break;
+			case EXIT:
+				freeList(head);
+				return 0;
+
+			default:
+				printf("\nInvalid Choice");
+				break;
 		}
-		
 	}
-	return 0;
 }
 
 
 NODE *insert_front(NODE node, NODE *head)
 {
-	NODE *tmp = (NODE *)malloc(sizeof(NODE));
-
-	*tmp = node;
-
-	tmp->next = head;
-
-	return tmp;
-}
-
-void display(NODE first)
-{
-	
+	return newNode(node, head);
 }
 
 NODE *delete_front(NODE *head)
@@ -165,7 +160,7 @@ NODE *delete_front(NODE *head)
 	NODE *tmp = head;
 
 	head = head->next;
-	
+
 	FREE(tmp);
 
 	return head;
@@ -173,11 +168,7 @@ NODE *delete_front(NODE *head)
 
 NODE *insert_rear(NODE node, NODE *head)
 {
-	
-	/* Obtain the new node and copy the item */
-	NODE *tmp = (NODE *)malloc(sizeof(NODE));
-	*tmp = node;
-	tmp->next = NULL;
+	NODE *tmp = newNode(node, NULL);
 
 	/* If list is empty return new node as the first node */
 	if ( head == NULL) return tmp;
@@ -188,7 +179,7 @@ NODE *insert_rear(NODE node, NODE *head)
 
 	cur->next = tmp;
 
-	return head; 
+	return head;
 }
 
 NODE *delete_rear(NODE *head)
@@ -206,7 +197,7 @@ NODE *delete_rear(NODE *head)
 	}
 
 
-	/* Obtain address of the last node and just just previous to that */
+	/* Obtain address of the last node and the one just before it */
 	NODE *prev = NULL;
 	NODE *cur  = head;
 	while ( cur->next != NULL){
@@ -214,7 +205,7 @@ NODE *delete_rear(NODE *head)
 		cur = cur->next;
 	}
 
-	/* delete the last node and return to available list */
+	/* delete the last node */
 	prev->next = NULL; // Make last but one node as the last node
 	FREE(cur);
 
@@ -223,26 +214,14 @@ NODE *delete_rear(NODE *head)
 
 NODE *delete_bykey(int key, NODE *head)
 {
-
-	NODE *prev, *cur;
+	NODE *prev = NULL, *cur = head;
 
 	if ( head == NULL){  //Check for Empty List
 		printf("\nList is Empty\n");
 		return NULL;
 	}
 
-	if ( key == head->id){
-		cur = head;           // Save the address of the first node
-		head = head->next;   // Point first to second node in the list
-		free(cur), cur = 0;    // Delete the first node
-		return head;          // Return second node as the first node
-	}
-
-	prev = NULL;
-	cur = head;
-
-	while ( cur != NULL){
-		if ( key == cur->id) break;
+	while ( cur != NULL && cur->id != key ){
 		prev = cur;            // Save the address of current node
 		cur = cur->next;       // Point cur to the next node
 	}
@@ -252,45 +231,39 @@ NODE *delete_bykey(int key, NODE *head)
 		return head;
 	}
 
-	prev->next = cur->next;
-	free(cur), cur = 0;
+	if ( prev == NULL )            // Deleting the first node
+		head = cur->next;
+	else
+		prev->next = cur->next;
+
+	FREE(cur);
 
 	return head;
-
 }
 
 int length(NODE *head)
 {
 	int count = 0;
 
-	if ( head == NULL) return 0;
-
-	NODE *cur = head;
-	while ( cur != NULL ){
+	for ( NODE *cur = head; cur != NULL; cur = cur->next )
 		count++;
-		cur = cur->next;
-	}
 
 	return count;
 }
 
 NODE *search(NODE *head, int key)
 {
-	if (head == NULL) return NULL;
-
-	NODE *emp = head;
-
-	while(emp != NULL){
-		if ( emp->id == key )  return emp;
-		emp = emp->next;
+	for ( NODE *emp = head; emp != NULL; emp = emp->next )
+	{
+		if ( emp->id == key )
+			return emp;
 	}
 
 	return NULL;
-	
 }
 
 
-EMPLOYEE *concat(EMPLOYEE *first, EMPLOYEE *second)
+NODE *concat(NODE *first, NODE *second)
 {
 	if ( first == NULL )  return second;
 
@@ -305,15 +278,11 @@ EMPLOYEE *concat(EMPLOYEE *first, EMPLOYEE *second)
 	return first;
 }
 
-// https://www.geeksforgeeks.org/reverse-a-linked-list/
 NODE *reverse(NODE *head)
 {
 	NODE *cur = head, *prev = NULL, *nxt = NULL;
 
-	if ( head == NULL || head->next == NULL )
-		return head;
-
-	while ( cur->next != NULL )
+	while ( cur != NULL )
 	{
 		nxt = cur->next;     // save next node
 		cur->next = prev;    // reverse pointer
@@ -322,15 +291,15 @@ NODE *reverse(NODE *head)
 	}
 
 	return prev;                 // return new head
-	
 }
 
+// Floyd's algorithm: if there is a loop, the fast pointer eventually catches the slow one
 bool has_cycle(NODE *head)
 {
 	NODE *slow = head;
 	NODE *fast = head;
 
-	while ( slow && fast && fast->next )
+	while ( fast && fast->next )
 	{
 		slow = slow->next;
 		fast = fast->next->next;
@@ -341,37 +310,31 @@ bool has_cycle(NODE *head)
 	return false;
 }
 
-/*NODE *clone(NODE *head)
+NODE *clone(NODE *head)
 {
-	NODE *list, *temp, *first;
-	
-	list = head;
-	first = head;
-	
-	while (first != NULL){
-		temp = (NODE)malloc(1 * sizeof(NODE));
-		*temp = *first;
-		first = first->next;
+	NODE *first = NULL;
+	NODE **tail = &first;
+
+	for ( NODE *cur = head; cur != NULL; cur = cur->next )
+	{
+		*tail = newNode(*cur, NULL);
+		tail = &(*tail)->next;
 	}
 
-	return list;
-}*/
-
+	return first;
+}
 
 
 NODE *removeDuplicateSorted(NODE *head)
 {
-
 	NODE *cur = head;
 	NODE *dup = NULL;
-	
 
 	if ( cur == NULL){
 		printf("\nList is Empty\n");
 		return NULL;
 	}
 
-	
 	while ( cur->next != NULL){
 		if ( cur->id == cur->next->id){
 			dup = cur->next;
@@ -387,28 +350,21 @@ NODE *removeDuplicateSorted(NODE *head)
 
 NODE *removeDuplicateUnSorted(NODE *head)
 {
-	
-	NODE *base = head;
-	NODE *prev = NULL;
-	NODE *cur = NULL;
-	NODE *dup = NULL;
-
-
-	if ( base == NULL){
+	if ( head == NULL){
 		printf("\nList is Empty\n");
 		return NULL;
 	}
 
-	while ( base->next != NULL){
-		
-		
-		cur = base->next;
-		prev = base;
+	// Removing duplicates can empty the rest of the list, making base NULL, so check it first
+	for ( NODE *base = head; base != NULL; base = base->next ){
 
-		while ( cur){
+		NODE *prev = base;
+		NODE *cur = base->next;
+
+		while ( cur ){
 
 			if ( base->id == cur->id){ //10 20 20 10 10
-				dup = cur;
+				NODE *dup = cur;
 				cur = cur->next;
 				prev->next = cur;
 				FREE(dup);
@@ -416,10 +372,8 @@ NODE *removeDuplicateUnSorted(NODE *head)
 			else{
 				prev = cur;
 				cur = cur->next;
-				
 			}
 		}
-		base = base->next;
 	}
 
 	return head;
@@ -443,14 +397,9 @@ NODE *pair_wise_swap(NODE *head)
 		prev->next = nxt;
 
 		if ( nxt == NULL || nxt->next == NULL )
-		{
-			prev->next = nxt;
 			break;
-		}
-		else
-		{
-			prev->next = nxt->next;
-		}
+
+		prev->next = nxt->next;
 
 		prev = nxt;
 		cur  = prev->next;
@@ -460,24 +409,52 @@ NODE *pair_wise_swap(NODE *head)
 }
 
 
-int comp_id (const void * a, const void * b);
-
-NODE *sort(NODE *head)
+// Merges two lists sorted by id. Equal ids keep their order, which makes the sort stable.
+static NODE *mergeSorted(NODE *a, NODE *b)
 {
-	//qsort(head, length(head), sizeof(EMPLOYEE), comp_id)i;
-	return head;	
-	
+	NODE *first = NULL;
+	NODE **tail = &first;
+
+	while ( a && b )
+	{
+		NODE **smaller = (b->id < a->id) ? &b : &a;
+
+		*tail = *smaller;
+		tail = &(*smaller)->next;
+		*smaller = (*smaller)->next;
+	}
+
+	*tail = a ? a : b;
+
+	return first;
 }
 
-int comp_id (const void * a, const void * b)
+// Merge sort by id. It relinks the nodes, which is why qsort can't be used: the nodes aren't in an array.
+NODE *sort(NODE *head)
 {
-	return ( ((EMPLOYEE *)a)->id - ((EMPLOYEE *)b)->id );
+	if ( head == NULL || head->next == NULL )
+		return head;
+
+	// Find the middle: the fast pointer moves twice as quickly as the slow one
+	NODE *slow = head;
+	NODE *fast = head->next;
+
+	while ( fast && fast->next )
+	{
+		slow = slow->next;
+		fast = fast->next->next;
+	}
+
+	NODE *second = slow->next;
+	slow->next = NULL;
+
+	return mergeSorted(sort(head), sort(second));
 }
 
 void displayList(NODE *head)
 {
 	NODE *tmp = head;
-	
+
 	if ( tmp == NULL)
 	{
 		printf("\nList is Empty\n");
@@ -489,35 +466,28 @@ void displayList(NODE *head)
 		displayInfo(tmp);
 		tmp = tmp->next;
 	}
-
 }
 
 
 EMPLOYEE getInfo()
 {
-	EMPLOYEE emp = {0};
+	EMPLOYEE emp = {};
 
 	printf("\n---------- Getting Employee Details --------------\n");
 
-	printf("\nEnter ID number          : ");
-	fflush(stdin);
-	scanf("%d", &emp.id);
+	emp.id = readInt("\nEnter ID number          : ");
 
+	// The widths stop scanf overflowing the arrays: MAX_LEN_TEXT - 1, plus the NUL
 	printf("\nEnter name               : ");
-	fflush(stdin);
-	scanf("%s", emp.name);
+	if ( scanf("%47s", emp.name) != 1 ) exit(0);
 
 	printf("\nEnter gender ( M or F )  : ");
-	fflush(stdin);
-        scanf(" %c", &emp.gender);
+	if ( scanf(" %c", &emp.gender) != 1 ) exit(0);
 
-	printf("\nEnter age                : ");
-	fflush(stdin);
-        scanf("%hu", &emp.age);
+	emp.age = (short)readInt("\nEnter age                : ");
 
-	printf("\nEnter department         : ");	
-	fflush(stdin);
-	scanf("%s", emp.department);
+	printf("\nEnter department         : ");
+	if ( scanf("%47s", emp.department) != 1 ) exit(0);
 
 	printf("\n\n");
 
@@ -542,8 +512,16 @@ void FREE(EMPLOYEE *employee)
 	displayInfo(employee);
 
 	free(employee);
-	employee = NULL;
 
 	printf("\nRecord deleted\n");
 }
 
+void freeList(NODE *head)
+{
+	while ( head )
+	{
+		NODE *nxt = head->next;
+		free(head);
+		head = nxt;
+	}
+}

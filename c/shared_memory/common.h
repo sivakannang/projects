@@ -1,3 +1,5 @@
+#ifndef SHARED_MEMORY_COMMON_H
+#define SHARED_MEMORY_COMMON_H
 
 typedef struct
 {
@@ -13,7 +15,6 @@ typedef struct
 	char gender;
 	int  salary;
 	char designation[48];
-
 }EMPLOYEE;
 
 typedef struct
@@ -23,23 +24,24 @@ typedef struct
 	int  price;
 }BOOK;
 
-typedef enum
+// The layout of the whole segment. A struct lets the compiler work out the offsets.
+typedef struct
 {
-	T_STUDENT,
-	T_EMPLOYEE,
-	T_BOOK
-}TYPE;
+	STUDENT  student;
+	EMPLOYEE employee;
+	BOOK     book;
+}SHARED_DATA;
 
-STUDENT *getStudentInfo(STUDENT *student);
-void displayStudentInfo(STUDENT *student);
+// These return false at end of input
+bool getStudentInfo(STUDENT *student);
+bool getEmployeeInfo(EMPLOYEE *employee);
+bool getBookInfo(BOOK *book);
 
-EMPLOYEE *getEmployeeInfo(EMPLOYEE *employee);
-void displayEmployeeInfo(EMPLOYEE *employee);
+void displayStudentInfo(const STUDENT *student);
+void displayEmployeeInfo(const EMPLOYEE *employee);
+void displayBookInfo(const BOOK *book);
 
-BOOK *getBookInfo(BOOK *book);
-void displayBookInfo(BOOK *book);
+// Reads a line into text, without the newline. Returns false at end of input.
+bool readLine(const char *prompt, char *text, int size);
 
-void *getPtrFromSharedMem(void *ptr, TYPE type);
-
-
-
+#endif

@@ -1,14 +1,14 @@
 /***************************** Dirent ******************************************
  *
- * Dirent use to perform open, read and close operations on directories.
+ * g++ dirent.cpp -o dirent
+ * ./dirent <path>
  *
- * dirent.h is the part of gcc/g++ sdk kit and not the part of visual c++ kit, so for windows it need to be include explicitly.
- *
- * unistd.h and direct.h(windows) provides, mkdir(), rmdir(), chdir() and getcwd() features
+ * dirent.h opens, reads and closes directories.
+ * unistd.h provides rmdir(), chdir() and getcwd(), and sys/stat.h provides mkdir().
  *
 *******************************************************************************/
 
-/***************************** API defenitions *********************************
+/***************************** API definitions *********************************
  *
  * char *getcwd(char *buf, size_t size)
  * int mkdir(const char *pathname, mode_t mode)
@@ -21,38 +21,25 @@
  *
  * struct dirent {
  * 	ino_t          d_ino;       // inode number
- * 	off_t          d_off;       // not an offset; see NOTES
+ * 	off_t          d_off;       // not an offset; see NOTES in man readdir
  * 	unsigned short d_reclen;    // length of this record
- * 	unsigned char  d_type;      // type of file; not supported by all filesystem types
+ * 	unsigned char  d_type;      // type of file; DT_UNKNOWN on some filesystems
  * 	char           d_name[256]; // filename
  * };
  *
- * return        -> mkdir() = rmdir() = chdir() = closedir() = 0, getcwd() = opendir() = readdir() = valid pointer
- * header        -> dirent.h, unistd.h (linux) , direct.h(windows)
+ * return -> mkdir, rmdir, chdir, closedir: 0 on success, -1 on error
+ *        -> getcwd, opendir: valid pointer on success, NULL on error
+ *        -> readdir: valid pointer, or NULL at the end of the directory or on error
  *
 *******************************************************************************/
 
-
-
-
-
-#include <stdio.h>
-#include <stdlib.h>
+#include <dirent.h>
 #include <errno.h>
+#include <limits.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <ctype.h>
-
-
-#ifdef _WIN32
-#include "dirent.h"
-#include <direct.h>
-bool isWindows = true;
-#else
-#include <dirent.h>
 #include <unistd.h>
-bool isWindows = false;
-#endif
 
 
 typedef enum
@@ -61,19 +48,15 @@ typedef enum
 	SUCCESS = 0
 }STATUS;
 
-bool Dir_Exists(char *path);
-DIR *Dir_Open(char *path);
+bool Dir_Exists(const char *path);
+DIR *Dir_Open(const char *path);
 STATUS Dir_Close(DIR *dir);
 
-STATUS Dir_Make(char *path);
-STATUS Dir_Remove(char *path);
-char *Dir_GetCurrentPath(char *path);
+STATUS Dir_Make(const char *path);
+STATUS Dir_Remove(const char *path);
+char *Dir_GetCurrentPath(char *path, size_t size);
 
-STATUS Dir_List(char *path, int level);
-
-bool ISDIGIT_STR(const char *str);
-STATUS makeAlienoPackage(char *srcPath, char *dstPath, char *nameIdx, int level);
-char *getNameIdx(char *dirName, char *nameIdx);
+STATUS Dir_List(const char *path, int level);
 
 void help();
 
@@ -83,31 +66,23 @@ int main(int argc, char *args[])
 	if ( argc != 2)
 	{
 		help();
-		return FAIL;
+		return 1;
 	}
 
-	Dir_List(args[1], 0);
-
-
-	return 0;
+	return (Dir_List(args[1], 0) == SUCCESS) ? 0 : 1;
 }
 
 void help()
 {
-	printf("\n\n---------------------------");
-	printf("\nNumber of arguments should be 2");
-	printf("\ndirent path");
-	printf("\n---------------------------");
+	printf("usage: dirent <path>\n");
 }
 
-DIR *Dir_Open(char *path)
+DIR *Dir_Open(const char *path)
 {
 	DIR *dir = opendir(path);
+
 	if ( dir == NULL)
-	{
-		printf("\ndiropen() failed : %s -> %d", path, errno);
-		return NULL;
-	}
+		printf("opendir() failed : %s -> %s\n", path, strerror(errno));
 
 	return dir;
 }
@@ -115,192 +90,107 @@ DIR *Dir_Open(char *path)
 
 STATUS Dir_Close(DIR *dir)
 {
-	int ret = closedir(dir);
-
-	if ( ret ){
-		printf("\nclosedir() failed : %d", errno);
+	if ( closedir(dir) != 0 )
+	{
+		printf("closedir() failed : %s\n", strerror(errno));
 		return FAIL;
 	}
 
 	return SUCCESS;
 }
 
-bool Dir_Exists(char *path)
+bool Dir_Exists(const char *path)
 {
 	struct stat sb;
 
-	if ( (stat(path, &sb) == 0) && S_ISDIR(sb.st_mode) )
-		return true;
-
-	return false;
+	return (stat(path, &sb) == 0) && S_ISDIR(sb.st_mode);
 }
 
-STATUS Dir_Make(char *path)
+STATUS Dir_Make(const char *path)
 {
-
-#ifdef _WIN32
-	int ret = _mkdir(path);
-#else
-	int ret = mkdir(path, 0775);
-#endif
-	
-	if ( ret != SUCCESS)
+	if ( mkdir(path, 0775) != 0 )
 	{
-		printf("\nmkdir() failed : %s -> %d", path, errno);
+		printf("mkdir() failed : %s -> %s\n", path, strerror(errno));
 		return FAIL;
 	}
 
 	return SUCCESS;
 }
 
-STATUS Dir_Remove(char *path)
+STATUS Dir_Remove(const char *path)
 {
-
-#ifdef _WIN32
-	int ret = _rmdir(path);
-#else
-	int ret = rmdir(path);
-#endif
-
-	if ( ret != SUCCESS)
+	if ( rmdir(path) != 0 )
 	{
-		printf("\nrmdir() failed : %s -> %d", path, errno);
+		printf("rmdir() failed : %s -> %s\n", path, strerror(errno));
 		return FAIL;
 	}
 
 	return SUCCESS;
 }
 
-char *Dir_GetCurrentPath(char *path)
+char *Dir_GetCurrentPath(char *path, size_t size)
 {
-
-#ifdef _WIN32
-	char *ptr = _getcwd(path, 256);
-#else
-	char *ptr = getcwd(path, 256);
-#endif
+	char *ptr = getcwd(path, size);
 
 	if ( ptr == NULL)
-	{
-		printf("\ngetcwd() failed -> %d", errno);
-		return NULL;
-	}
+		printf("getcwd() failed -> %s\n", strerror(errno));
 
 	return ptr;
-
 }
 
 
-STATUS Dir_List(char *path, int level)
+// d_type isn't filled in on every filesystem, so ask lstat when it is DT_UNKNOWN.
+// lstat doesn't follow symlinks, so a symlink loop can't cause endless recursion.
+static bool isDirectory(const char *path, const struct dirent *entry)
 {
-	STATUS status = FAIL;
+	struct stat sb;
+
+	if ( entry->d_type != DT_UNKNOWN )
+		return entry->d_type == DT_DIR;   // A value, not a bit mask: DT_SOCK also contains the DT_DIR bit
+
+	return (lstat(path, &sb) == 0) && S_ISDIR(sb.st_mode);
+}
+
+STATUS Dir_List(const char *path, int level)
+{
+	STATUS status = SUCCESS;
 	struct dirent *entry = NULL;
-	char newPath[512] = {0};
 
 	DIR *dir = Dir_Open(path);
 	if ( dir == NULL)
 		return FAIL;
 
-	while ( entry = readdir(dir) ) {
+	errno = 0;
 
-		if ( entry->d_type & DT_DIR ) {
-			
-			if ( (strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0) )
-				continue;
-	
-			printf("%*s- %s\n", level*2, "", entry->d_name);
+	while ( (entry = readdir(dir)) != NULL ) {
 
-			sprintf(newPath, "%s%s%s", path, isWindows ? "\\" : "/", entry->d_name);	
-			Dir_List(newPath, level+1);
+		char newPath[PATH_MAX];
 
-		}else{
-			printf("%*s- %s\n", level*2, "", entry->d_name);
+		if ( (strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0) )
+			continue;
+
+		printf("%*s- %s\n", level*2, "", entry->d_name);
+
+		if ( snprintf(newPath, sizeof(newPath), "%s/%s", path, entry->d_name) >= (int)sizeof(newPath) )
+		{
+			printf("%*s  path too long, skipping\n", level*2, "");
+			status = FAIL;
 		}
+		else if ( isDirectory(newPath, entry) && Dir_List(newPath, level+1) != SUCCESS )
+		{
+			status = FAIL;
+		}
+
+		errno = 0;   // Only an errno set by readdir itself should count below
+	}
+
+	if ( errno != 0 )
+	{
+		printf("readdir() failed : %s -> %s\n", path, strerror(errno));
+		status = FAIL;
 	}
 
 	Dir_Close(dir);
 
-	return SUCCESS;
+	return status;
 }
-
-bool ISDIGIT_STR(const char *str)
-{
-	if ( !str || !*str )
-		return false;
-
-	while(isdigit(*str))
-		str++;
-
-	return *str ? false : true;
-	
-}
-
-
-/***************************************************** Alieno Host Package Creation******************************/
-
-char *getNameIdx(char *dirName, char *nameIdx)
-{
-	//1 2 15 f1 f15
-	char *ptr = dirName;
-
-	if ( ISDIGIT_STR(ptr))
-	{
-		sprintf(nameIdx, "%s_I_", dirName);
-	}
-	else
-	{
-		int grpNo = atoi(ptr + 1);
-		char whr = ptr[0];
-		whr = toupper(whr);
-		sprintf(nameIdx, "%d_%c_", grpNo, whr);
-	}	
-
-	return nameIdx;
-
-}
-
-
-STATUS makeAlienoPackage(char *srcPath, char *dstPath, char *nameIdx, int level)
-{
-	STATUS status = FAIL;
-	struct dirent *entry = NULL;
-	char newPath[512] = {0};
-	char newNameIdx[48] = {0};
-	char dstFileName[256] = {0};
-
-	DIR *dir = Dir_Open(srcPath);
-	if ( dir == NULL)
-		return FAIL;
-
-	while ( entry = readdir(dir) ) {
-
-		if ( entry->d_type & DT_DIR ) {
-			
-			if ( (strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0) )
-				continue;
-	
-			printf("%*s- %s\n", level*2, "", entry->d_name);
-
-			sprintf(newPath, "%s%s%s", srcPath, isWindows ? "\\" : "/", entry->d_name);
-			//sprintf(newNameIdx, "%s%s_", nameIdx, entry->d_name);
-			getNameIdx(entry->d_name, newNameIdx);
-			makeAlienoPackage(newPath, dstPath, newNameIdx, level+1);
-
-		}else{
-			char cmd[1024] = {0};
-			memset(dstFileName, 0, sizeof(dstFileName));	
-			sprintf(dstFileName, "%s%s", nameIdx, entry->d_name);
-
-			sprintf(cmd, "%s %s%s%s %s%s%s", isWindows ? "copy" : "cp", srcPath, isWindows ? "\\" : "/", entry->d_name,  dstPath, isWindows ? "\\" : "/", dstFileName);
-			system(cmd);
-
-			printf("%*s- %s -> %s -> %s\n", level*2, "", entry->d_name, dstFileName, cmd);
-		}
-	}
-
-	Dir_Close(dir);
-
-	return SUCCESS;
-}
-
-/***************************************************** Alieno Host Package Creation******************************/

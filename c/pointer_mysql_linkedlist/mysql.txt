@@ -1,16 +1,18 @@
-rename libmysql.d-l-l to libmysql.dll and libmysql.l-i-b to libmysql.lib
-Windows   => cl mysql.cpp libmysql.lib -I"C:\Program Files\MySQL\MySQL Connector C 6.1\include"
-Linux     => g++ mysql.cpp -lmysqlclient -I"C:\Program Files\MySQL\MySQL Connector C 6.1\include" -o mysql
+Build
+g++ mysql.cpp $(mysql_config --cflags --libs) -o mysql
 
 
+Change a password (MySQL 5.7.6 and later. PASSWORD() and the mysql.user.Password column no longer exist in MySQL 8)
+mysql > ALTER USER 'root'@'localhost' IDENTIFIED BY '<new password>';
 
-mysql > SET PASSWORD FOR root@localhost=PASSWORD('root');
 
-mysql > UPDATE mysql.user SET Password = PASSWORD('pwd') WHERE User='root';
-
+Example insert
 INSERT INTO Customers (CustomerName, City, Country) VALUES ('Cardinal', 'Stavanger', 'Norway');
 
-GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY 'root' WITH GRANT OPTION;
 
-FLUSH PRIVILEGES;
+Allow a user to connect from other hosts (MySQL 8: GRANT no longer creates users or sets passwords)
+Give it only the privileges it needs, and a strong password. Avoid a remote root login.
+mysql > CREATE USER 'app'@'%' IDENTIFIED BY '<strong password>';
+mysql > GRANT SELECT, INSERT, UPDATE, DELETE ON companies.* TO 'app'@'%';
 
+FLUSH PRIVILEGES is only needed after editing the grant tables directly, not after these statements.
