@@ -1,6 +1,6 @@
-// filename: stacks_paren_minmax.cpp
-// build:    g++ -std=c++17 -O2 -Wall -Wextra stacks_paren_minmax.cpp -o app
+// build:    g++ -std=c++17 -O2 -Wall -Wextra stack.cpp -o stack
 
+#include <cstddef>
 #include <iostream>
 #include <string>
 #include <stack>
@@ -28,7 +28,7 @@
 // Complexity:
 //   Time O(n), Space O(n) worst-case.
 // -----------------------------------------------------------------------------
-bool is_paranthesis_balanced(const std::string& str) {
+bool is_parenthesis_balanced(const std::string& str) {
 	std::stack<char> s;
 
 	for (char c : str) {
@@ -42,7 +42,7 @@ bool is_paranthesis_balanced(const std::string& str) {
 				s.pop();
 				break;
 			case ']':
-				if (s.empty() || s.top() != '[') return false; // <-- fix typo if copying manually
+				if (s.empty() || s.top() != '[') return false;
 				s.pop();
 				break;
 			case ')':
@@ -143,32 +143,46 @@ int main() {
 			{"no brackets here", true},
 	};
 	for (const auto& [s, expected] : paren_tests) {
-		bool got = is_paranthesis_balanced(s);
+		bool got = is_parenthesis_balanced(s);
 		std::cout << "Input: \"" << s << "\" -> " << (got ? "balanced" : "NOT balanced");
-		if (got != expected) std::cout << "  [EXPECTED " << (expected ? "balanced" : "NOT balanced") << "]";
+		if (got != expected) std::cout << "  [MISMATCH, expected " << (expected ? "balanced" : "NOT balanced") << "]";
 		std::cout << '\n';
 	}
 
 	std::cout << "\n===== Problem 2: Min-Max Stack =====\n";
 	stack_minmax<int> smm;
 
-	std::cout << "Push sequence: 5, 3, 7, 3, 2, 8, 10, 1\n\n";
-	for (int v : {5, 3, 7, 3, 2, 8, 10, 1}) {
-		smm.push(v);
+	const std::vector<int> pushes{5, 3, 7, 3, 2, 8, 10, 1};
+	const std::vector<int> mins  {5, 3, 3, 3, 2, 2, 2, 1};   // Expected min and max after each push
+	const std::vector<int> maxs  {5, 5, 7, 7, 7, 8, 10, 10};
+
+	// Print the current state, and compare min and max with the expected ones
+	auto show = [&smm](int want_min, int want_max) {
 		print_opt("top()", smm.top());
 		print_opt("min()", smm.min());
 		print_opt("max()", smm.max());
+		if (smm.min() != want_min || smm.max() != want_max)
+			std::cout << "MISMATCH, expected min " << want_min << " max " << want_max << '\n';
 		std::cout << "---\n";
+	};
+
+	std::cout << "Push sequence: 5, 3, 7, 3, 2, 8, 10, 1\n\n";
+	for (std::size_t i = 0; i < pushes.size(); ++i) {
+		smm.push(pushes[i]);
+		show(mins[i], maxs[i]);
 	}
 
 	std::cout << "\nPopping...\n";
-	while (!smm.empty()) {
+	for (std::size_t i = pushes.size() - 1; i > 0; --i) {
 		smm.pop();
-		print_opt("top()", smm.top());
-		print_opt("min()", smm.min());
-		print_opt("max()", smm.max());
-		std::cout << "---\n";
+		show(mins[i - 1], maxs[i - 1]);
 	}
+
+	smm.pop();
+	std::cout << "After the last pop\n";
+	print_opt("top()", smm.top());
+	print_opt("min()", smm.min());
+	print_opt("max()", smm.max());
 
 	return 0;
 }

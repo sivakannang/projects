@@ -1,3 +1,5 @@
+// g++ -std=c++17 encapsulation.cpp -o encapsulation
+
 /******************* Encapsulation *************************
 *
 * - A class is a user-defined blueprint that encapsulates data and functions.
@@ -42,41 +44,46 @@ Rule of Five / Zero :
 *
 * ************************************************************************/
 
+#include <iomanip>
 #include <iostream>
 #include <string>
 
 // Encapsulation Example
+// Money is kept as whole paise: double can't represent most decimal amounts exactly, so its errors add up
 class BankAccount {
 	private:
 		std::string accountHolder;
-		double balance;
+		long long balancePaise;
 
 	public:
-		BankAccount(const std::string& name, double initialBalance) {
-			accountHolder = name;
-			balance = initialBalance;
+		BankAccount(const std::string& name, long long initialPaise)
+			: accountHolder(name), balancePaise(initialPaise) {}
+
+		void deposit(long long paise) {
+			if (paise > 0)
+				balancePaise += paise;
 		}
 
-		void deposit(double amount) {
-			if (amount > 0)
-				balance += amount;
-		}
+		// Returns false if the amount is invalid or the balance is too low
+		bool withdraw(long long paise) {
+			if (paise <= 0 || paise > balancePaise)
+				return false;
 
-		void withdraw(double amount) {
-			if (amount > 0 && amount <= balance)
-				balance -= amount;
+			balancePaise -= paise;
+			return true;
 		}
 
 		void printSummary() const {
 			std::cout << "Account Holder: " << accountHolder << "\n";
-			std::cout << "Balance: Rs. " << balance << "\n";
+			std::cout << "Balance: Rs. " << balancePaise / 100 << "." << std::setw(2) << std::setfill('0') << balancePaise % 100 << "\n";
 		}
 };
 
 int main() {
-	BankAccount acc("Siva", 10000);
-	acc.deposit(2500);
-	acc.withdraw(1200);
+	BankAccount acc("Siva", 1000000);
+	acc.deposit(250000);
+	if (!acc.withdraw(120000))
+		std::cout << "Withdrawal refused\n";
 	acc.printSummary();
 	return 0;
 }

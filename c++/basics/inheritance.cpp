@@ -1,10 +1,12 @@
+// g++ -std=c++17 inheritance.cpp -o inheritance
+
 /************************   C++ Inheritance *****************************
 * 
 *  - Inheritance allows one class (derived) to acquire properties of another (base).
 *
 *  - Promotes code reuse and supports polymorphism.
 *
-*  - Access specifiers affect inheritance:
+*  - Access specifiers affect inheritance. A base's private members are never accessible in the derived class:
 *    * public inheritance: public and protected members stay accessible.
 *    * protected inheritance: public & protected become protected.
 *    * private inheritance: public and protected become private.
@@ -34,7 +36,8 @@
 *     - Ensures only one base subobject when inherited via multiple paths.
 *
 *  6. Can constructors and destructors be inherited?
-*     - Constructors are not inherited, but destructors are called in reverse order.
+*     - Not by default, though `using Base::Base;` brings in the base's constructors (C++11).
+*     - Base constructors run first, and destructors run in reverse order.
 *
 ***********************************************************************************************/
 

@@ -1,5 +1,7 @@
 /*
  *
+ g++ -std=c++20 -O2 -pthread atomic.cpp -o atomic      ( wait/notify and atomic_ref need C++20 )
+
  What problem does std::atomic solve?
    - When two threads access the same variable and at least one writes, you get a data race → undefined behavior.
    - std::atomic<T> lets you read/write/update a single object safely without a mutex, and (optionally) control visibility/ordering of memory effects between threads.
@@ -10,7 +12,7 @@
    - Lock-free (maybe): often lock-free on primitives; check with a.is_lock_free().
 
  Types you will use:
-   - std::atomic<T> — for integral types, pointers, enums, some trivially copyable structs.
+   - std::atomic<T> — for integral types, pointers, enums, any trivially copyable struct. A large struct isn't lock-free.
    - std::atomic_flag — tiny always lock-free boolean.
    - std::atomic_ref<T> (C++20) — atomic view on an existing object.
    - (C++20) wait/notify on atomics: a.wait(old), a.notify_one/all()
@@ -23,13 +25,14 @@
    Read-Modify-Write (integral/pointer):
    - a.fetch_add(x); a.fetch_sub(x);
    - a.fetch_and(mask); a.fetch_or(mask); a.fetch_xor(mask);
+   - fetch_add and fetch_sub also work on floating point from C++20.
 
    Compare-and-swap (CAS):
    - a.compare_exchange_weak(exp, desired, succ_order, fail_order);
    - a.compare_exchange_strong(exp, desired, succ_order, fail_order);
 
    C++20:
-   - a.wait(old);              // sleep until a.load()!=old
+   - a.wait(old);              // block while a.load()==old
    - a.notify_one/all();       // wake one/all waiter
 
 | Order                | What it guarantees                            | Use for                           |
@@ -46,7 +49,7 @@ Interview Questions (crisp answers)
 ==========================
 1) relaxed use case? → stats/counters where only atomicity matters; no inter-thread ordering needed.
 2) acquire vs release? → acquire on loads prevents later ops from moving before; release on stores prevents earlier ops from moving after.
-3) weak vs strong CAS? → weak may spuriously fail (use in a loop); strong reduces spurious failures.
+3) weak vs strong CAS? → weak may fail spuriously, so use it in a loop; strong fails only when the value differs, and can cost more on some CPUs.
 4) Why volatile isn’t for threads? → doesn’t establish happens-before; no atomicity or ordering guarantees.
 5) Publish pointer + data? → write data, then store(ptr, release); reader load(acquire) → sees initialized data.
 6) When mutex over atomics? → multi-step invariants/critical sections; clarity over micro-optimizations.
@@ -72,7 +75,7 @@ using namespace std::chrono_literals;
 void demo_atomic_counter() {
     PRINT("Atomic counter (relaxed)");
     std::atomic<unsigned> counter{0};
-    constexpr int threads = 8;std::thread t(producer);
+    constexpr int threads = 8;
     constexpr int iters   = 250'000;
 
     std::vector<std::thread> th;
@@ -117,14 +120,16 @@ void demo_release_acquire() {
 }
 
 // ------------------------------------------------------------
-// 3) CAS loop on double — portable add without fetch_add(double)
+// 3) CAS loop on double — the pattern for any update fetch_add can't do.
+//    C++20 has fetch_add for double, this shows how to build your own.
+//    relaxed is enough, as no other data is published with this value.
 // ------------------------------------------------------------
 std::atomic<double> g_total{0.0};
 
 void add_double(double x) {
     double old = g_total.load(std::memory_order_relaxed);
     while (!g_total.compare_exchange_weak(old, old + x,
-                                          std::memory_order_acq_rel,
+                                          std::memory_order_relaxed,
                                           std::memory_order_relaxed)) {
         // 'old' updated with the current value on failure
     }
@@ -146,9 +151,15 @@ void demo_cas_double() {
 // ------------------------------------------------------------
 // 4) Tiny spinlock with atomic_flag (use sparingly)
 // ------------------------------------------------------------
+// test_and_set writes, which takes the cache line from the other cores each time.
+// So after a failure, spin on a read until the lock looks free (test and test-and-set).
 struct SpinLock {
-    std::atomic_flag f = ATOMIC_FLAG_INIT;
-    void lock()   { while (f.test_and_set(std::memory_order_acquire)) { /* spin */ } }
+    std::atomic_flag f;   // Starts clear from C++20, ATOMIC_FLAG_INIT is deprecated
+    void lock() {
+        while (f.test_and_set(std::memory_order_acquire)) {
+            while (f.test(std::memory_order_relaxed)) { /* spin, a real one adds a pause instruction here */ }
+        }
+    }
     void unlock() { f.clear(std::memory_order_release); }
 };
 

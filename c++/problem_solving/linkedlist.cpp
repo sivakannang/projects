@@ -1,5 +1,5 @@
 /*
-  ll_ops_full.cpp
+  linkedlist.cpp
 
   ============================================================
   Singly Linked List utilities (interview-ready)
@@ -30,13 +30,13 @@
     - LLHelpers::destroySafe(head)    // break cycle if present, then free
 
   Build:
-    g++ -std=c++17 -O2 -Wall -Wextra ll_ops_full.cpp -o llops && ./llops
+    g++ -std=c++17 -O2 -Wall -Wextra linkedlist.cpp -o linkedlist && ./linkedlist
 */
 
 #include <iostream>
 #include <vector>
 #include <queue>
-#include <functional>
+#include <string>
 #include <initializer_list>
 
 // ---------------------------------
@@ -76,11 +76,12 @@ namespace LLHelpers {
     inline void printLimited(ListNode* head, int limit, const char* label = "list") {
         std::cout << label << " : ";
         int count = 0;
-        for (ListNode* p = head; p && count < limit; p = p->next, ++count) {
+        ListNode* p = head;
+        for (; p && count < limit; p = p->next, ++count) {
             std::cout << p->val;
             if (p->next && count + 1 < limit) std::cout << " -> ";
         }
-        if (count == limit) std::cout << " -> ...";
+        if (p) std::cout << " -> ...";    // Stopped by the limit, and more nodes remain
         std::cout << "\n";
     }
 
@@ -191,7 +192,7 @@ struct LinkedListOps {
 
         // slow->next is the node to remove
         ListNode* toDel = slow->next;
-        slow->next = slow->next ? slow->next->next : nullptr;
+        slow->next = toDel->next;
         delete toDel;
         return dummy.next;
     }
@@ -392,8 +393,10 @@ int main() {
         ListNode* inter1 = getIntersectionNode(x1, y1);
         std::cout << "Intersection (acyclic): "
                   << (inter1 ? std::to_string(inter1->val) : "null") << "\n";
-        // Free the combined structure once (don't double-delete):
-        destroy(x1); // frees shared tail; y1 is now dangling (demo OK)
+        // Free each node once: cut y1's own nodes off the shared tail first
+        y1->next->next = nullptr;
+        destroy(y1);
+        destroy(x1);
 
         // --- Cyclic intersection ---
         // c1: 1 -> 2 -> 3 -> [4 -> 5 -> 6 -> back to 5]
@@ -411,9 +414,10 @@ int main() {
         std::cout << "Intersection (cyclic): "
                   << (inter2 ? std::to_string(inter2->val) : "null") << "\n";
 
-        // Cleanup safely: one call is enough to free the whole structure
+        // Free each node once: c2's own nodes are not reachable from c1, so cut and free them first
+        c2->next->next = nullptr;
+        destroy(c2);
         destroySafe(c1);
-        // (Do not destroy c2 separately; it would be dangling now.)
     }
 
     return 0;

@@ -1,3 +1,4 @@
+// g++ -std=c++17 memory.cpp -o memory
 
 /*---------------------------------------------------------
 
@@ -75,7 +76,10 @@ Smart Pointers in C++  <memory>
 
 - Prefer smart pointers over raw new/delete for exception safe memory management
 
-- Avoid new operator and use use std::make_unique() and std::make_shared() for exception safe construction
+- Avoid new operator and use std::make_unique() and std::make_shared()
+  * The code never has to pair a new with a delete, and doesn't repeat the type
+  * make_shared also puts the object and its reference counts in one allocation. The catch is that
+    the memory isn't freed until the last weak_ptr is gone too.
 
 
 Questions:
@@ -109,7 +113,7 @@ Important Smart Pointer Functions
 // std::shared_ptr
 // - get()         -> returns the raw pointer
 // - use_count()   -> returns reference count
-// - unique()      -> true if use_count() == 1
+// - unique()      -> removed in C++20, so use use_count() == 1. gcc still accepts it, but other compilers don't.
 // - reset(ptr)    -> replaces managed object
 // - swap()        -> swaps with another shared_ptr
 
@@ -135,25 +139,26 @@ Important Smart Pointer Functions
 // std::unique_ptr<Object[]> p4 = std::make_unique<Object[]>(50);
 
 
-// we can't construct array directly in make_shared(), we have to use new[], refer below shared_ptr array example
+// make_shared() can construct arrays only from C++20. Before that, use new[] as in the examples below.
 
 // std::shared_ptr<int>      p1 = std::make_shared<int>();
 // std::shared_ptr<Object>   p2 = std::make_shared<Object>("Lamp");
-// std::shared_ptr<Student>   student(new Student[3], [](int *p) { delete [] p; });    // Until C++14
-// std::shared_ptr<Student[]> student(new Student[3])                                  // From C++17
+// std::shared_ptr<Student[]> student(new Student[3]);                                 // From C++17
+// std::shared_ptr<Student[]> student = std::make_shared<Student[]>(3);                // From C++20
 // auto v = std::make_shared<std::vector<int>>(10); // 10 elements, value-initialized
 
-// std::shared_ptr<int>  p3(new int[50], [](int *p) { delete[] p;} );   // Until C++17, for shared pointer arrays we can't use int[] ,we should specify int only
+// std::shared_ptr<int>  p3(new int[50], [](int *p) { delete[] p;} );   // Until C++17, shared_ptr had no array form, so specify int rather than int[]
 // std::shared_ptr<Student> student(new Student[3], [](Student *s) {delete[] s;});
-- Until C++17, shared pointer array calls delete instead of delete[], so need to write custom deletor . Also can't use make_shared() here, as it doesn't support customized deleter here
+- Until C++17, a shared_ptr to an array calls delete instead of delete[], so it needs a custom deleter. make_shared() can't take a custom deleter.
 
 
-//  void function(std::unique_ptr<A>(new A()), std::unique_ptr<B>(new B())) { ... }
-//  Suppose that new A() succeeds, but new B() throws an exception , memory silently leakes for A() , no way to clean it up.
-//  But by wrapping A and B into std::make_uniques you are sure the leak will not occur
-//  Prefer using make_unique() or make_shared() , avoid using new()
+//  function(std::unique_ptr<A>(new A()), std::unique_ptr<B>(new B()));
+//  Until C++14, this could run new A(), then new B(), and only then the unique_ptr constructors.
+//  If new B() threw, A leaked. make_unique closed that gap.
+//  C++17 closed it for this code too, as each argument is now fully evaluated before the next one starts.
+//  make_unique() and make_shared() are still preferred, for the reasons above.
 
-// for access array version ->    student.get()[idx] , for member access student.get()[idx].id
+// for access array version ->    student[idx] , for member access student[idx].id    (operator[] needs the T[] form, from C++17 for shared_ptr)
 
 
 ---------------------------------------------------------
@@ -191,10 +196,12 @@ Questions:
 
 *******************************************************************/
 
+#include <atomic>
+#include <cstddef>
 #include <iostream>
 #include <memory>
-#include <cassert>
-#include <atomic>
+#include <string>
+#include <utility>
 
 class StackOnly {
 public:
@@ -251,6 +258,11 @@ private:
 
 class HeapOnlySmart {
 public:
+    // make_unique can't call a private constructor, so this uses new
+    static std::unique_ptr<HeapOnlySmart> create() {
+        return std::unique_ptr<HeapOnlySmart>(new HeapOnlySmart());
+    }
+
     void show() { std::cout << "Created on heap only, managed by smart pointer\n"; }
 
 private:
@@ -258,14 +270,14 @@ private:
     HeapOnlySmart() = default;
     ~HeapOnlySmart() = default;
 
-    // Prevent copy/move if desired (as in your original code)
+    // Prevent copy/move, which could create an object outside the heap
     HeapOnlySmart(const HeapOnlySmart&) = delete;
     HeapOnlySmart& operator=(const HeapOnlySmart&) = delete;
     HeapOnlySmart(HeapOnlySmart&&) = delete;
     HeapOnlySmart& operator=(HeapOnlySmart&&) = delete;
 
-    // The unique_ptr needs access to the private destructor to work
-    friend std::unique_ptr<HeapOnlySmart>;
+    // unique_ptr doesn't call the destructor itself: its deleter does, so that needs the access
+    friend struct std::default_delete<HeapOnlySmart>;
 };
 
 template <typename T>
@@ -338,7 +350,7 @@ void memory_demo() {
 void smart_pointer_demo() {
 	// unique_ptr examples
 	std::unique_ptr<int> up = std::make_unique<int>(10);
-	int* raw_up = up.get();
+	std::cout << "unique_ptr get(): " << *up.get() << std::endl;
 	std::unique_ptr<int> released_up(up.release());
 	released_up.reset(new int(20));
 	std::unique_ptr<int> up2 = std::make_unique<int>(30);
@@ -348,7 +360,7 @@ void smart_pointer_demo() {
 	std::shared_ptr<int> sp1 = std::make_shared<int>(100);
 	std::shared_ptr<int> sp2 = sp1;
 	std::cout << "Use count: " << sp1.use_count() << std::endl;
-	std::cout << "Is unique? " << std::boolalpha << sp1.unique() << std::endl;
+	std::cout << "Is unique? " << std::boolalpha << (sp1.use_count() == 1) << std::endl;
 	sp2.reset(new int(200));
 
 	// weak_ptr examples
@@ -387,19 +399,16 @@ namespace siva {
 				}
 
 				// 5. Move Assignment
+				// Take the new pointer before deleting the old object. In a list,
+				// head = std::move(head->next) has other inside the object being deleted.
 				unique_ptr& operator=(unique_ptr&& other) noexcept {
-					if (this != &other) {
-						delete ptr_;          // Delete existing resource
-						ptr_ = other.ptr_;    // Take new resource
-						other.ptr_ = nullptr; // Nullify source
-					}
+					reset(other.release());
 					return *this;
 				}
 
 				// 6. Nullptr Assignment
 				unique_ptr& operator=(std::nullptr_t) {
-					delete ptr_;
-					ptr_ = nullptr;
+					reset();
 					return *this;
 				}
 
@@ -433,13 +442,22 @@ namespace siva {
 				int *ref_; // Raw int for single-threaded use
 
 				void release() {
-					if (ref_ && --*ref_ == 0 ) {
-						delete ptr_;
-						delete ref_;
-					}
-					// Crucial: Set to nullptr to prevent use-after-free
+					// Clear the members first: deleting the object can destroy this shared_ptr
+					// too, if it lives inside that object, as a next pointer in a list does
+					T *ptr = ptr_;
+					int *ref = ref_;
 					ptr_ = nullptr;
 					ref_ = nullptr;
+
+					if (ref && --*ref == 0 ) {
+						delete ptr;
+						delete ref;
+					}
+				}
+
+				void swap(shared_ptr& other) noexcept {
+					std::swap(ptr_, other.ptr_);
+					std::swap(ref_, other.ref_);
 				}
 
 			public:
@@ -464,25 +482,19 @@ namespace siva {
 				}
 
 				// 5. Copy Assignment
+				// Copy and swap: take the new value before releasing the old one. Releasing first
+				// breaks head = head->next, because that can delete the object sp lives in.
+				// tmp's destructor releases the old value at the end. This also handles self-assignment.
 				shared_ptr& operator=(const shared_ptr& sp) {
-					if (this != &sp) {
-						release(); // Cleanup existing resource
-						ptr_ = sp.ptr_;
-						ref_ = sp.ref_;
-						if (ref_) ++*ref_;
-					}
+					shared_ptr tmp(sp);
+					swap(tmp);
 					return *this;
 				}
 
 				// 6. Move Assignment
 				shared_ptr& operator=(shared_ptr&& sp) noexcept {
-					if (this != &sp) {
-						release(); // Cleanup existing resource
-						ptr_ = sp.ptr_;
-						ref_ = sp.ref_;
-						sp.ptr_ = nullptr;
-						sp.ref_ = nullptr;
-					}
+					shared_ptr tmp(std::move(sp));
+					swap(tmp);
 					return *this;
 				}
 
@@ -512,13 +524,22 @@ namespace siva {
 				std::atomic<int> *ref_; // Thread-safe atomic counter
 
 				void release() {
-					// Decrement and check if we are the last owner
-					if (ref_ && ref_->fetch_sub(1, std::memory_order_acq_rel) == 1) {
-						delete ptr_;
-						delete ref_;
-					}
+					// Clear the members first, as in shared_ptr above
+					T *ptr = ptr_;
+					std::atomic<int> *ref = ref_;
 					ptr_ = nullptr;
 					ref_ = nullptr;
+
+					// Decrement and check if we are the last owner
+					if (ref && ref->fetch_sub(1, std::memory_order_acq_rel) == 1) {
+						delete ptr;
+						delete ref;
+					}
+				}
+
+				void swap(sharedptr& other) noexcept {
+					std::swap(ptr_, other.ptr_);
+					std::swap(ref_, other.ref_);
 				}
 
 			public:
@@ -542,26 +563,17 @@ namespace siva {
 					sp.ref_ = nullptr;
 				}
 
-				// 5. Copy Assignment
+				// 5. Copy Assignment (copy and swap, as in shared_ptr above)
 				sharedptr& operator=(const sharedptr& sp) {
-					if (this != &sp) {
-						release(); // Clean up current resource
-						ptr_ = sp.ptr_;
-						ref_ = sp.ref_;
-						if (ref_) ref_->fetch_add(1, std::memory_order_relaxed);
-					}
+					sharedptr tmp(sp);
+					swap(tmp);
 					return *this;
 				}
 
 				// 6. Move Assignment
 				sharedptr& operator=(sharedptr&& sp) noexcept {
-					if (this != &sp) {
-						release(); // Clean up current resource
-						ptr_ = sp.ptr_;
-						ref_ = sp.ref_;
-						sp.ptr_ = nullptr;
-						sp.ref_ = nullptr;
-					}
+					sharedptr tmp(std::move(sp));
+					swap(tmp);
 					return *this;
 				}
 
@@ -589,28 +601,28 @@ namespace siva {
 void demo_own_smart_pointers() {
     std::cout << "--- Starting siva Smart Pointer Demo (2026) ---\n" << std::endl;
 
-    // 1. Testing siva::shared_ptr (Thread-Safe Atomic Version)
+    // 1. Testing siva::shared_ptr (Single-Threaded Non-Atomic Version)
     {
-        std::cout << "[Test 1: shared_ptr (Atomic)]" << std::endl;
+        std::cout << "[Test 1: shared_ptr (Single-Threaded)]" << std::endl;
         siva::shared_ptr<int> sp1(new int(10));
         std::cout << "sp1 count: " << sp1.use_count() << " | Value: " << *sp1 << std::endl;
 
         {
-            siva::shared_ptr<int> sp2 = sp1; // Copy assignment
+            siva::shared_ptr<int> sp2 = sp1; // Copy constructor, as sp2 is new
             std::cout << "sp1 count after copy: " << sp1.use_count() << std::endl;
         } // sp2 goes out of scope here
         
         std::cout << "sp1 count after sp2 destroyed: " << sp1.use_count() << std::endl;
         
-        siva::shared_ptr<int> sp3 = std::move(sp1); // Move assignment
+        siva::shared_ptr<int> sp3 = std::move(sp1); // Move constructor, as sp3 is new
         std::cout << "sp3 count after move: " << sp3.use_count() << " | Value: " << *sp3 << std::endl;
         if (!sp1) std::cout << "sp1 is now null after move." << std::endl;
     }
     std::cout << std::endl;
 
-    // 2. Testing siva::sharedptr (Single-Threaded Non-Atomic Version)
+    // 2. Testing siva::sharedptr (Thread-Safe Atomic Version)
     {
-        std::cout << "[Test 2: sharedptr (Single-Threaded)]" << std::endl;
+        std::cout << "[Test 2: sharedptr (Atomic)]" << std::endl;
         siva::sharedptr<std::string> sptr1(new std::string("Hello Siva"));
         siva::sharedptr<std::string> sptr2 = sptr1;
         
@@ -653,6 +665,8 @@ int main() {
 	HeapOnly* h = HeapOnly::create();
 	h->show();
 	h->destroy();
+
+	HeapOnlySmart::create()->show();
 
 	return 0;
 }

@@ -1,3 +1,4 @@
+// g++ -std=c++17 exceptions.cpp -o exceptions
 
 /* ---------------------------------------------------------
    Basics of Exception Handling in C++
@@ -6,7 +7,7 @@
 // - C++ uses try, catch, and throw keywords for exception handling.
 // - Allows separating error handling code from regular code.
 // - Exceptions are objects; can be of any type (usually std::exception or custom types).
-// - Catch blocks must appear in order from most derived to base class.
+// - Catch blocks are tried in order, so put the most derived class first. A base class first would catch everything.
 // - If an exception is not caught, std::terminate() is called.
 
 
@@ -83,10 +84,10 @@ Questions:
 
 --------------------------------------------------------- */
 
-#include <iostream>
-#include <string>
 #include <exception>
-#include <memory>
+#include <iostream>
+#include <stdexcept>
+#include <string>
 
 void mayThrow(bool trigger) {
 	if (trigger) {

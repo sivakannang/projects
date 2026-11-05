@@ -1,3 +1,4 @@
+// g++ -std=c++17 basics.cpp -o basics
 
 /*
 ---------------------------------------------------------
@@ -61,12 +62,13 @@ Questions:
 ---------------------------------------------------------
    std::initializer_list
 ---------------------------------------------------------
-   - It is a light weight, enable uniform initialization, immutable container ( supports begin(), end(), size() )
+   - It is a lightweight read-only view of a list of values, not an owning container ( supports begin(), end(), size() )
    - It is to pass a list of values to a function or constructors without needing arrays or vectors
-   - It is kind of const array, we can't modify, need copy to other container for modifiction ( std::vector v(std::initializer_list) )
+   - It is kind of const array, we can't modify, need copy to other container for modification ( std::vector<int> v(list) )
+   - Its elements live only as long as the original braced list, so don't store one or return one
 
 --------------------------------------------------------------
-   std::bind and std::palceholder  ( avoid bind and prefer lambdas in modern c++ )
+   std::bind and std::placeholders  ( avoid bind and prefer lambdas in modern c++ )
 --------------------------------------------------------------
    - Creates a callable object by binding arguments to a function.
    - Useful for partial function application and callbacks.
@@ -79,16 +81,18 @@ Questions:
 ----------------------------------------------------------------
    std::function C++11
 ----------------------------------------------------------------
-   - legacy function pointer has limitations, it store only free functions
-   - std::function is type-erased callable wrapper for free function, member function(via bind), functors, lambdas, bind.
+   - legacy function pointer has limitations, it stores only free functions, static member functions and lambdas with no captures
+   - std::function is type-erased callable wrapper for free function, member function, data member, functors, lambdas, bind.
+   - A member function needs no bind: the object becomes the first argument
+        std::function<void(const Printer&, const std::string&)> f = &Printer::printMessage;
    - Enables storing and passing around callable, it is copyable & assignable
    - std::function<ReturnType(ArgTypes...)> func = Callable
 
 -----------------------------------------------------------------
    std::invoke:  ( C++17 )
 -----------------------------------------------------------------
-   - std::function is heavy weight, stores and invokes later not useful for instant dispatch, doesn't work directly with member functions or data pointers
-   - It provides a unified way to call any callable object ( free function, member function, functor, lambdas, data members )
+   - std::function is heavy weight: it stores a callable to invoke later, with type erasure and possibly a heap allocation
+   - std::invoke stores nothing. It provides a unified way to call any callable object ( free function, member function, functor, lambdas, data members )
    - No overhead, instant dispatch, perfectly forwards arguments (supports std::move, std::ref, etc.)
    - std::invoke(callable, args...)
 
@@ -98,7 +102,7 @@ Questions:
    - std::invoke calls a callable with already-separate arguments; std::apply unpacks a tuple-like and then uses invoke, supports pair, tuple, array.
    - supports perfect forwarding and internally calls invoke. Use std::forward_as_tuple or std::move into a tuple to control this
    	auto t = std::make_tuple(1, 2, 3, 4, 5);
-	std::cout << std::apply(add, t) << std::cout;
+	std::cout << std::apply(add, t) << std::endl;
    - How to avoid copies when elements are heavy or move-only?
 	Use std::forward_as_tuple(...) to create a tuple of references, or std::tuple<...> with moved elements; then apply will forward correctly
 
@@ -109,7 +113,7 @@ Questions:
    - std::optional<T> is type-safe, avoids sentinel hacks, avoids heap allocations, and makes APIs more expressive.
    - Core ops: has_value(), operator bool(), value(), value_or(default), emplace(...), reset(), *opt, opt->.
    - Construction: std::nullopt means “no value”. Prefer auto o = std::optional<T>{}; or std::optional<T> o = std::nullopt;.
-   - No references: std::optional<T&> is not allowed; use std::optional<std::reference_wrapper<T>> if needed.
+   - No references until C++26: std::optional<T&> isn't allowed before that; use std::optional<std::reference_wrapper<T>> if needed.
 	std::optional<std::string> name;
 	auto s = name.value_or("guest"); // no throw, returns default
    - When to prefer optional<T> vs variant<T, E>/expected<T,E>?
@@ -136,7 +140,7 @@ Questions:
    - What is std::variant and how is it different from a union?
 	A tagged union with automatic type tracking and safe access; unions lack active-member tracking and require manual discipline
    - What is std::visit doing under the hood?
-	It dispatches to the correct overload based on the active alternative(s); it’s resolved at compile time via generated switch/overloads
+	It dispatches to the correct overload based on the active alternative(s). The table or switch is generated at compile time, but the choice is made at runtime from v.index()
    - variant vs any vs optional quick choice?
 	Known closed set → variant; arbitrary unknown type → any; maybe-present single type → optional
    - What’s the difference between std::visit and std::get?
@@ -250,7 +254,7 @@ Questions:
 	Capturing this copies the pointer; [*this] (C++17) copies the object.
 	No-capture lambdas can decay to function pointers, captured lambdas cannot.
 
-  - global, static global, static local, thread_int(static storage) members are accessible by default without capture
+  - global, static global, static local and thread_local variables are accessible without capture
 
   - operator() is const by default. Use mutable to allow modifying captured-by-copy members inside the lambda.
 
@@ -278,7 +282,7 @@ Measuring Elapsed Time (use steady_clock)
     auto t1 = std::chrono::steady_clock::now();
     std::this_thread::sleep_for(120ms);
     auto t2 = std::chrono::steady_clock::now();
-    std::cout << "ms = " << std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count() << std::endl;
+    std::cout << "ms = " << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << std::endl;
 
 ---------------------------------------------------------
    Variadic Templates in C++
@@ -340,19 +344,16 @@ Don’t write return std::move(local); (disables NRVO; forces a move).
 
 ---------------------------------------------------------
  - how to execute something before invoke main() ?
-	global/static object's construtor will be invoked before main
-
-**********************************************
-
-
+	global/static object's constructor will be invoked before main
 
 ***************************************************/
-#include <iostream>
-#include <functional>
-#include <utility>
-#include <initializer_list>
 #include <chrono>
+#include <functional>
+#include <initializer_list>
+#include <iostream>
+#include <string>
 #include <thread>
+#include <utility>
 
 void printOrderDetails(int orderId, const std::string& product, double price)
 {
@@ -361,7 +362,7 @@ void printOrderDetails(int orderId, const std::string& product, double price)
 
 void print_all(std::initializer_list<int> nums) {
 	for (int n : nums) std::cout << n << " ";
-	std::cout << "";
+	std::cout << std::endl;
 }
 
 class Printer {
@@ -385,7 +386,7 @@ public:
 
 void bind_forward_demo() {
 
-	bool flag = false;
+	int offset = 10;
 
 	// std::initializer_list
 	print_all({1, 2, 3, 4, 5});
@@ -400,19 +401,22 @@ void bind_forward_demo() {
 	auto printmsg = std::bind(&Printer::printMessage, &printer, std::placeholders::_1);
 	printmsg("siva");
 	std::invoke(&Printer::printMessage, &printer, "siva");
+	std::function<void(const Printer&, const std::string&)> memberFunc = &Printer::printMessage;   // No bind needed
+	memberFunc(printer, "siva");
 
 	// std::function - bind with placeholder
 	auto printorder = std::bind(printOrderDetails, std::placeholders::_1, "Laptop", std::placeholders::_2);
 	printorder(101, 75999.99);
 
 	// std::function & std::invoke - lambdas with capture
-	std::function<int(int)> lambdaFunc = [flag](int x) {
-        	return x + 10;
+	std::function<int(int)> lambdaFunc = [offset](int x) {
+        	return x + offset;
 	};
-	int result = lambdaFunc(15);
-	result = std::invoke( [flag](int x) {
-		return x + 10;
+	std::cout << lambdaFunc(15) << std::endl;
+	int result = std::invoke( [offset](int x) {
+		return x + offset;
 	}, 15);
+	std::cout << result << std::endl;
 
 	// std::function & std::invoke - functors
 	PriceBandCheck checker(90, 110);
@@ -431,7 +435,7 @@ void chrono_test() {
 	auto end = steady_clock::now();
 
 	auto duration = duration_cast<milliseconds>(end - start);
-	std::cout << "Elapsed time: " << duration.count() << " ms";
+	std::cout << "Elapsed time: " << duration.count() << " ms" << std::endl;
 }
 
 int main() {

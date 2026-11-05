@@ -39,8 +39,7 @@
 
  Build
  -----
- g++ -std=gnu++17 -O2 your_file.cpp -o your_prog
- (Use -pthread if your toolchain needs it for shared_mutex.)
+ g++ -std=c++17 -O2 -pthread lru_cache.cpp -o lru_cache
 
  Gotchas & Tips
  --------------
@@ -48,18 +47,22 @@
  std::shared_ptr<T> (i.e., Val = std::shared_ptr<T>) to cheap-copy results.
  - If you need heterogeneous lookup (e.g., std::string keys with string_view
  queries), we can extend with transparent hash/equal and additional overloads.
+ - get() needs the exclusive lock, so a read-heavy workload gains little from the
+ shared_mutex. Under real contention, split the cache into several locked shards.
 
  ================================================================================
  */
 
-#include <list>
-#include <unordered_map>
-#include <optional>
-#include <stdexcept>
+#include <cstddef>
 #include <iostream>
-#include <utility>        // std::move
-#include <shared_mutex>   // std::shared_mutex, std::shared_lock
+#include <list>
 #include <mutex>          // std::unique_lock
+#include <optional>
+#include <shared_mutex>   // std::shared_mutex, std::shared_lock
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <utility>        // std::move
 
 template<typename Key, typename Val>
 class LRUCache {

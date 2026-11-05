@@ -18,7 +18,7 @@ Note: Width is ~100 chars; view in a monospace font.
              |           |            |               |            |                     |             | invalidate iterators
  list        | —         | O(1)       | O(1)          | O(1)       | O(1) with iterator  | O(n)        | Node-based; stable iterators;
              |           |            |               |            |                     |             | splice O(1)
- forward_list| —         | —          | —             | —          | O(1) via *_after    | O(n)        | Singly-linked; forward only
+ forward_list| —         | O(1) front | —             | O(1)       | O(1) via *_after    | O(n)        | Singly-linked; forward only
  array       | O(1)      | O(1)       | —             | —          | —                   | O(n)        | Fixed size
  string      | O(1)      | O(1)       | Amort. O(1)   | —          | O(n)                | O(n)        | Like vector; modern libcs no COW
 
@@ -28,7 +28,7 @@ Note: Width is ~100 chars; view in a monospace font.
  Container             | Lookup (find/lb/ub) | Insert | Erase | Iteration | Notes
 ----------------------+----------------------+--------+-------+-----------+-------------------------------------------
  map / set             | O(log n)            | O(log n) | O(log n) | Sorted   | Keys immutable (const Key); stable iters
- multimap / multiset   | O(log n)            | O(log n) | O(log n) | Sorted   | Duplicates allowed; equal_range O(log n + k)
+ multimap / multiset   | O(log n)            | O(log n) | O(log n) | Sorted   | Duplicates allowed; count and erase(key) O(log n + k)
 
 ========================================================================================================
  UNORDERED ASSOCIATIVE (HASH TABLE)
@@ -59,21 +59,22 @@ Note: Width is ~100 chars; view in a monospace font.
  Algorithm                                | Complexity                      | Stable? | Notes
 ------------------------------------------+----------------------------------+---------+-------------------------------------------
  sort                                     | O(n log n)                      | No      | Introsort; ~O(log n) stack
- stable_sort                              | O(n log n) time, O(n) space     | Yes     | Usually merge-sort variant
+ stable_sort                              | O(n log n) with O(n) memory     | Yes     | Merge-sort variant; O(n log² n) if no memory
  partial_sort                             | O(n log k)                      | No      | Smallest k sorted at front
  nth_element                              | Average O(n)                    | No      | nth is as if sorted; partitions around it
  partition                                | O(n)                            | No      | Predicate-true first; order not preserved
  stable_partition                         | O(n log n) in-place / O(n) buf  | Yes     | Preserves group order
- lower_bound / upper_bound / binary_search| O(log n)                        | n/a     | On sorted ranges
+ lower_bound / upper_bound / binary_search| O(log n) compares               | n/a     | Sorted ranges; O(n) steps on list, so use map's own
  merge (two sorted ranges)                | O(n1 + n2)                      | Yes     | Output sorted
- inplace_merge                            | O(n log n)                      | Yes     | Merge adjacent sorted ranges
+ inplace_merge                            | O(n) with memory, else O(n log n)| Yes    | Merge adjacent sorted ranges
  reverse / rotate / unique / remove(_if)  | O(n)                            | n/a     | remove compacts; pair with erase for vectors
 
 ========================================================================================================
  ITERATOR INVALIDATION — MUST KNOW
 ========================================================================================================
  • vector/string: reallocation invalidates ALL iterators/refs; erase/insert at pos invalidates iterators at/after pos
- • deque: inserts/erases at ends may invalidate; middle ops can invalidate more
+ • deque: insert at either end invalidates all iterators, but not refs/pointers; erase at an end invalidates only the erased;
+   insert/erase in the middle invalidates everything
  • list/forward_list: only erased node’s iterators invalidated; others stay valid
  • map/set (and multi-): erase invalidates only the erased iterators; others stable
  • unordered_*: REHASH invalidates ALL iterators; erase invalidates only erased; refs/pointers remain valid across rehash

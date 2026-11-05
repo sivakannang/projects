@@ -1,6 +1,15 @@
-#include <iostream>
-#include <string>
+// g++ -std=c++17 ruleof5.cpp -o ruleof5
+//
+// Rule of Five: a class that manages a resource itself usually needs all five special members.
+// User1, User2 and User3 show this with raw pointers and a reference member.
+//
+// Rule of Zero: prefer members that manage themselves, and then write none of them. See UserZero below.
+
 #include <cstring>
+#include <iostream>
+#include <memory>
+#include <string>
+#include <utility>
 
 
 class Address {
@@ -83,6 +92,11 @@ class User1 {
 			}
 			return *this;
 		}
+
+		void print() const {
+			std::cout << "Name: " << (name ? name : "(null)") << '\n';
+			address.print();
+		}
 };
 
 class User2 {
@@ -90,6 +104,21 @@ class User2 {
 	private:
 		char *name;
 		Address *address;
+
+		// If a constructor throws, the destructor doesn't run, because the object never existed.
+		// So name would leak if creating the Address threw, and it must be freed here.
+		void copyAddress(const Address* addr)
+		{
+			if ( !addr )
+				return;
+
+			try {
+				address = new Address(*addr);
+			} catch (...) {
+				delete [] name;
+				throw;
+			}
+		}
 
 	public:
 		User2(const char *n = nullptr, const Address* addr = nullptr ) : name(nullptr), address(nullptr)
@@ -99,7 +128,7 @@ class User2 {
 			std::strcpy(name, n);
 		}
 
-		if ( addr )  { address = new Address(*addr); }
+		copyAddress(addr);
 	}
 
 		~User2()
@@ -115,7 +144,7 @@ class User2 {
 			std::strcpy(name, u.name);
 		}
 
-		if ( u.address )  { address = new Address(*u.address); }
+		copyAddress(u.address);
 	}
 
 		User2& operator = (const User2& u )
@@ -154,7 +183,10 @@ class User2 {
 			return *this;
 		}
 
-
+		void print() const {
+			std::cout << "Name: " << (name ? name : "(null)") << '\n';
+			if ( address ) address->print();
+		}
 };
 
 
@@ -206,11 +238,51 @@ class User3 {
 };
 
 
+// Rule of Zero: the same data as User1 and User2, with nothing to write. The compiler-generated
+// members copy, move and destroy correctly, and a throwing constructor can't leak.
+// unique_ptr makes this class move-only. Add a copy constructor only if copies are needed.
+class UserZero {
+	private:
+		std::string name;
+		std::unique_ptr<Address> address;
+
+	public:
+		explicit UserZero(std::string n = "", const Address& addr = Address())
+			: name(std::move(n)), address(std::make_unique<Address>(addr)) {}
+
+		void print() const {
+			std::cout << "Name: " << name << '\n';
+			if ( address ) address->print();
+		}
+};
+
+
 int main()
 {
 	Address address("cts");
 
 	User1 user1("kanna", address);
+	User1 user1Copy(user1);                 // Copy constructor
+	User1 user1Moved(std::move(user1));     // Move constructor
+	user1 = user1Copy;                      // Copy assignment
+	user1Copy = std::move(user1Moved);      // Move assignment
+	user1.print();
+
+	User2 user2("siva", &address);
+	User2 user2Copy(user2);
+	User2 user2Moved(std::move(user2));
+	user2 = user2Copy;
+	user2Copy = std::move(user2Moved);
+	user2.print();
+
+	User3 user3("ganesh", address);
+	User3 user3Copy(user3);
+	User3 user3Moved(std::move(user3));
+	user3Moved.print();
+
+	UserZero zero("zero", address);
+	UserZero zeroMoved(std::move(zero));
+	zeroMoved.print();
 
 	return 0;
 }

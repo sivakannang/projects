@@ -1,5 +1,5 @@
 
-// g++ stl.cpp -std=c++11
+// g++ -std=c++17 stl.cpp -o stl
 
 /*****************************************************  STL - Standarad template Library ( Generic library ) ***************************
  *
@@ -44,7 +44,7 @@
  *
  * ********************************************************* pair and tuple ************************************************************
  *
- * header : utility
+ * header : <utility> for pair, <tuple> for tuple
  *
  * syntax :
  * 	- pair<T1, T2> var                  ( pair can use it's member variabe pair.first and pair.second for getter/setter, it can also use std::get and std::tie )
@@ -63,7 +63,7 @@
  * 	- std::tuple_element : returns the type of tuple element
  * 	- std::tuple_size<std::tuple>::value    : returns number of elements in the tuple
  *
- * ex : pair_tuble_test()
+ * ex : pair_tuple_test()
  *
  *
  * ***************************************************** Iterator **********************************************************************
@@ -89,17 +89,19 @@
  * 	- distance(iterator first, iterator second) - It will return the number of elements or we can say distance between the first and the last iterator.
  *
  * 	advance and next/prev diffrence ?
- * 		advance()   - result will be written in the passed argument, doesn't return anything, bidirectional
- * 		next/prev() - result will be return in the new copy, passed argumnet will not be modified, one directional either forward/backward
+ * 		advance()   - moves the iterator passed to it, and doesn't return anything. A negative distance moves backward.
+ * 		next/prev() - returns a moved copy, and the iterator passed is not modified. Their default distance is 1.
+ * 		Moving backward needs a bidirectional iterator, whichever one is used.
  *
  *
  * Types of Iterators:
  *
  * 	1. Input Iterators ( only be used in a single-pass algorithms, no element is accessed more than once )
  * 	2. Output Iterators ( only be used in a single-pass algorithms, but not for accessing elements, but for being assigned elements )
- * 	3. Forward Iterator ( combined of input and output iterators, moves in forward direction and that too one step at a time )
+ * 	3. Forward Iterator ( like an input iterator, but multi-pass, moves forward one step at a time. Writable unless const )
  * 	4. Bidirectional Iterators ( same as forward iterator but can move both the directions )
  * 	5. Random-Access Iterators ( powerful iterator, combined all of the above iterator features, provides random access, this is the one whose functionality is similar to pointer )
+ * 	C++20 adds contiguous iterators: random access, with elements stored next to each other in memory ( vector, array, string )
  *
  * ex : iterator_test()
  *
@@ -125,13 +127,13 @@
  *	max_size                        -> returns the maximum possible number of elements. size and max_size always safe
  *	reserve                         -> reserves least storage, so that vector expand and copy operation can be reduced
  *	capacity                        -> returns the number of elements that can be hold in currently allocated storage
- *	shrink_to_fit                   -> release the unused memory from the container, after this method call, size and capacity will be equal
+ *	shrink_to_fit                   -> requests releasing the unused memory. It is a non-binding request, so capacity may stay above size
  *
  * Modifiers:
  *	clear                           -> clear the container contents, this method call will make the size to 0, but capacity remains same
  *  assign                          -> Assigns new contents to the vector, replacing its current contents, and modifying its size accordingly
- *	insert                          -> insert an element in the beginning or before the iterator position. v.insert(5) or v.insert(v.begin()+2, 5)
- *	emplace(c++11)                  -> constructs element in-place, it helps to avoid temporary copy, use emplace in place of insert
+ *	insert                          -> insert an element before the iterator position. v.insert(v.begin()+2, 5)
+ *	emplace(c++11)                  -> constructs element in-place from constructor arguments, it helps to avoid a temporary object
  *	erase                           -> erase one or range of elements, ex : v.erase(v.begin() + 5) <- erase 6th one, v.erase(v.begin(), v.begin() + 3) <- 1st 3
  *	push_back                       -> adds an element to the end
  *	emplace_back                    -> constructs an element in-place at the end
@@ -144,7 +146,7 @@
  *  erase_after                     -> erases an element after an element		
  *	resize                          -> resize the container. ex - vector, v.resize(n) or v.resize(n, 10)
  *						if n < v.size() , then v.size() = n, remaining elements will be discarded, capacity remains same
- *						if n > v.size() , then v.size() = n, new elements will be added and initialized with given value, else with 0
+ *						if n > v.size() , then v.size() = n, new elements will be added and initialized with given value, else value-initialized ( 0 for int )
  *	top				-> access the last element
  *	push				-> stack - inserts element at the top. queue - inserts element at the end
  *	pop				-> stack - removes the top element.    queue - removes the first element
@@ -219,7 +221,8 @@
  * definition       : template<class T, class Allocator = std::allocator<T>> class vector;
  * syntax           : vector<object_type> vector_name
  * type             : sequence container
- * algorithm        : when size == capacity, allocate new memory by doubling the previous capacity. copy elements to new memory and then free the old memory.
+ * algorithm        : when size == capacity, allocate larger memory. move or copy the elements to it, and then free the old memory.
+ *                    The growth factor is up to the library: libstdc++ and libc++ double it, and MSVC grows by 1.5 times.
  *
  * member functions : constructor, destructor, operator=, assign, get_allocator
  * element access   : at, operator[], front, back, data
@@ -229,22 +232,24 @@
  * iterator         : begin, end, cbegin, cend, rbegin, rend, crbegin, crend
  *
  * ex:
- * 	v.insert(5)                                       <- insert a element  in the beginning with value as 5
- * 	v.insert(5, 10)                                   <- insert 5 elements in the beginning with value as 10
+ * 	v.insert(v.begin(), 5)                            <- insert a element  in the beginning with value as 5
+ * 	v.insert(v.begin(), 5, 10)                        <- insert 5 elements in the beginning with value as 10
  * 	v.insert(v.begin()+2, 5)                          <- insert a element  before iter+2 position with value as 5
  * 	v.insert(v.begin(), v1.begin(), v1.end() )        <- insert a vector v1 in the beginning of vector v, with vector v1 values
  *
  *
  * std::remove and vector::erase idiom
  *
- * 	std::erase()  -> erase the element, which requires a costlier reallign the elements, vector size will change
- * 	std::remove() -> it doesn't delete anything, just reordering the container values and returns the end iterator of ordered one, so that it can be passed to erase for delete at one shot
+ * 	v.erase()     -> erase the element, which shifts every element after it, so calling it for each match is O(n^2). vector size will change
+ * 	std::remove() -> it doesn't delete anything, just moves the kept values forward and returns the new logical end, so that it can be passed to erase for delete at one shot. O(n) in total
  *
  * 	vector<int> v = {1,2,5,2,9,5,6,2,5,1,6,7,8,5}
- * 	std::remove(5) || std::remove(v.begin(), v.end(), 5)
- *	v will be       {1 2 2 9 6 2 1 6 7 8 6 7 8 5}
+ * 	std::remove(v.begin(), v.end(), 5)
+ *	v will be       {1 2 2 9 6 2 1 6 7 8 ? ? ? ?}    ( the values after the new end are unspecified )
  * 	v.erase( std::remove( v.begin(), v.end(), 5 ), v.end() );
- * 	v will be       {1 2 2 9 6 2 1 6 7 8} 
+ * 	v will be       {1 2 2 9 6 2 1 6 7 8}
+ *
+ * 	C++20 does both in one call : std::erase(v, 5) or std::erase_if(v, predicate)
  * 
  * How to use vector efficiently?
  * 	i. Vector will be more efficient if elements are inserted or removed from the back-end only. Erase/Insert in the begiining/middle require shifting the elements
@@ -368,7 +373,7 @@
  * definition       : template< class Key, class T, class Compare = std::less<Key>, class Allocator = std::allocator<std::pair<const Key, T> >> class map;
  * syntax           : map<key_type, object_type> map_name
  * type             : associative container
- * algorithm        : RedBlock Tree
+ * algorithm        : Red-Black Tree
  *
  * member functions : constructor, destructor, operator=, get_allocator
  * capacity         : empty, size, max_size
@@ -393,7 +398,7 @@
  * definition       : template< class Key, class Compare = std::less<Key>, class Allocator = std::allocator<Key>> class set;
  * syntax           : set<object_type> set_name
  * type             : associative container
- * algorithm        : RedBlock Tree
+ * algorithm        : Red-Black Tree
  *
  * member functions : constructor, destructor, operator=, get_allocator
  * capacity         : empty, size, max_size
@@ -413,7 +418,7 @@
  * ******************************************************** Unordered Map and MultiMap **********************************************************
  *
  * description      : Unordered map is an associative container that contains key-value pairs with unique keys
- * header           : <map>
+ * header           : <unordered_map>
  * definition       : template< class Key, class T, class Hash=std::hash<Key>, class KeyEqual=std::equal_to<Key>,
  * 			class Allocator = std::allocator< std::pair<const Key, T> >> class unordered_map;
  * syntax           : unordered_map<key_type, object_type> unordered_map_name
@@ -438,8 +443,8 @@
  * 
  ************************************************************ Unordered Set and Multiset **********************************************************
  *
- * description      : Unordered set is an associative container that contains a set of unique objects of type Key. Search
- * header           : <set>
+ * description      : Unordered set is an associative container that contains a set of unique objects of type Key
+ * header           : <unordered_set>
  * definition       : template<class Key, class Hash = std::hash<Key>, class KeyEqual = std::equal_to<Key>, class Allocator = std::allocator<Key>> class unordered_set;
  * syntax           : unordered_set<object_type> unordered_set_name
  * type             : unordered associative container
@@ -466,50 +471,54 @@
  *
  * array vs vector
  * 	array  - fixed size array
- * 	vector - dynamic size array, will double it's size when ever size = capacity
+ * 	vector - dynamic size array, grows when size = capacity
  *
  * vector vs list
  * 	vector - provides random access operator[]
  * 	       - much efficient if insert or delete are only in the end
- * 	       - insert or delete any place other than end, requires costlier reallignment
- * 	       - memory reallocation and copy the complete vector opeartion required size = capacity
- * 	list   - doesn't provide's random access
- * 	       - insert/delete is easy, no reallignment
+ * 	       - insert or delete any place other than end, requires shifting the elements
+ * 	       - reallocates and moves or copies the complete vector when size = capacity
+ * 	       - elements are next to each other in memory, which is cache friendly and usually fastest in practice
+ * 	list   - doesn't provide random access
+ * 	       - insert/delete at a known position is O(1), and other iterators stay valid
+ * 	       - each element is a separate allocation, with slow traversal from cache misses
  *
  * vector vs map
+ * 	vector - sorted vector with binary search has fast lookup and iteration, but O(n) insert
+ * 	map    - O(log n) insert, lookup and erase, for data that changes often
  * queue vs deque
- * 	queue - we can insert only in one end and remove from other end
+ * 	queue - we can insert only in one end and remove from other end. It is an adaptor, by default over deque
  * 	deque - insert and remove from both the ends .
  * 	      - Provides random access operator[] like vector
  * 	      - So using deque , we can model both stack and queue
  * map vs set
+ * 	map - key-value pairs, looked up by key
+ * 	set - keys only, for checking membership and keeping unique values sorted
  * map vs multimap
+ * 	map      - unique keys, with operator[] and at()
+ * 	multimap - duplicate keys allowed, read them with equal_range
  * map vs unordered_map
- *
- *
- *
- *
- *
- *
- *
+ * 	map           - sorted, O(log n), supports range queries with lower_bound and upper_bound. Keys need operator<
+ * 	unordered_map - no order, O(1) on average but O(n) in the worst case. Keys need a hash and operator==
  *
  * *************************************************************************************************************************************/
 
-#include <iostream>
-#include <string>
-#include <utility>
-#include <tuple>
-#include <array>
-#include <vector>
-#include <queue>
 #include <algorithm>
-#include <map>
+#include <array>
+#include <iostream>
+#include <iterator>
 #include <list>
+#include <map>
+#include <queue>
 #include <set>
+#include <string>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 using namespace std;
 
-void pair_tuble_test();
+void pair_tuple_test();
 void array_test();
 void iterator_test();
 void vector_test();
@@ -523,35 +532,32 @@ void print_array(T& arr){
 	std::cout << std::endl;
 }
 
-void args_test(int argc, char *argv[], char **env) {
+void args_test(int argc, char *argv[]) {
 
 	int idx = 0;
 	while ( idx < argc )
 		std::cout << argv[idx++] << std::endl;
-	
-	while ( *env )
-		std::cout << *env++ << std::endl;
 
 	std::set<std::string> m_set(argv, argv+argc);
 	for ( auto& str : m_set)
 		std::cout << str << std::endl;
-
 }
-int main(int argc, char *argv[], char **env){
 
-	//pair_tuble_test();
-	//array_test();
-	//iterator_test();
-	//vector_test();
-	//map_test();
+int main(int argc, char *argv[]){
+
+	pair_tuple_test();
+	array_test();
+	iterator_test();
+	vector_test();
+	map_test();
 	list_test();
-	args_test(argc, argv, env);
+	args_test(argc, argv);
 
 	return 0;
 }
 
 
-void pair_tuble_test() {
+void pair_tuple_test() {
 
 	std::pair<std::string, double> product1;                                  // default constructor
 	product1 = std::make_pair("OnePlus6", 35000.00);
@@ -585,13 +591,13 @@ void pair_tuble_test() {
 
 	// tuple test 
 	std::tuple<std::string, int, double> product4 = std::make_tuple("onePlus", 6, 35999.99);
-	std::tuple<int, int, double> product5(1, 6, 35999.99);
 	std::cout << "product 4 -> " << std::get<0>(product4) << " , version : " << std::get<1>(product4) << " , price : " << std::get<2>(product4) << std::endl;
 	std::get<2>(product4) = std::get<2>(product4) - 1000;
 	std::cout << "product 4 -> " << std::get<0>(product4) << " , version : " << std::get<1>(product4) << " , price : " << std::get<2>(product4) << std::endl;
 
 	std::string name;
-	int version, price;
+	int version;
+	double price;
 	std::tie(name, version, price) = product4;
 	std::cout << "product 4 -> " << name << " , version : " << version << " , price : " << price << std::endl;
 	std::cout << std::get<0>(product1) << std::endl;
@@ -608,7 +614,6 @@ void array_test() {
 
 	std::array<int, 6> array1 = {1,2,3,4};
 	std::array<int, 6> array2 = {5,6,7,8};
-	std::array<int, 7> array3;
 
 	std::cout << "arr.at(0)             : " << array1.at(0) << std::endl;
 	std::cout << "arr[0]                : " << array1[0] << std::endl;
@@ -640,14 +645,6 @@ void array_test() {
 
 }
 
-
-/*template<class Container>
-void print(const Container &container){
-	Container::iterator i = container.begin();
-	while( i != container.end() )
-		std::cout << *i++ << " ";
-	std::cout << std::endl;
-}*/
 
 void iterator_test() {
 
@@ -767,8 +764,8 @@ void vector_test() {
 	pq.push(10);
 	pq.push(30);
 	pq.push(20);
-	print_queue(pq);
-	print_queue(pq);
+	print_queue(pq);    // Prints 30 20 10
+	print_queue(pq);    // Prints nothing: print_queue pops, so the first call emptied it
 
 
 }
@@ -827,7 +824,7 @@ void map_test() {
 
 }
 
-void print_list(list<int> l) {
+void print_list(const list<int>& l) {
 
 	for ( auto it = l.begin(); it != l.end(); it++) {
 		cout << *it << endl;

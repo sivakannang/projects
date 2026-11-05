@@ -1,12 +1,16 @@
+// g++ -std=c++17 tree.cpp -o tree
 
 /******************************************************************** Tree ***************************************************************
  *
+ * Complexity, where h is the height of the tree:
  *
  * 			insert		delete		search
- * BST                  Olog(n)
+ * BST                  O(h)		O(h)		O(h)		h is log(n) on average, but n for sorted input
+ * AVL                  O(log n)	O(log n)	O(log n)	Rotations keep it balanced
+ * Binary heap          O(log n)	O(log n) top	O(n)		top() is O(1)
  *
- *
- *
+ * The AVL here recalculates heights while balancing, which keeps the code simple but makes each
+ * insert O(n). A real AVL stores the height in each node, to get the O(log n) above.
  */
 /*
  * binary search tree:
@@ -40,6 +44,8 @@
 
 
 /*
+Ways to define a BST, depending on how it treats duplicates. This code uses the third one:
+
 1.) left <= root < right
 
 2.) left < root <= right
@@ -47,9 +53,11 @@
 3.) left < root < right, such that no duplicate keys exist
 */
 
+#include <algorithm>
 #include <iostream>
+#include <queue>
+#include <stdexcept>
 #include <vector>
-#include <exception>
 #include "tree.h"
 
 void heap_binary_max_impl_test();
@@ -106,25 +114,27 @@ void Tree::post_order(Node *node) {
 	std::cout << node->data << " ";
 }
 
-void level_order(Node *root) {
-    
+void Tree::level_order() {
+
 	if ( root == nullptr )
 		return;
-	
+
 	std::queue<Node *> q;
 	q.push(root);
 
-    while ( !q.empty() ) {
-		
+	while ( !q.empty() ) {
+
 		Node *node = q.front();
-		std::cout << node->data << std::endl;
+		std::cout << node->data << " ";
 		q.pop();
-		
+
 		if ( node->left )
-			q.push(node->left)
+			q.push(node->left);
 		if ( node->right )
 			q.push(node->right);
-	}		
+	}
+
+	std::cout << std::endl;
 }
 
 unsigned long Tree::height(Node *node) {
@@ -140,8 +150,8 @@ unsigned long Tree::height(Node *node) {
 
 long Tree::diff(Node *node) {
 
-	// b_factor = height(left) - height(right)
-	return height(node->left) - height(node->right);
+	// b_factor = height(left) - height(right). The casts matter: unsigned subtraction can't go negative.
+	return static_cast<long>(height(node->left)) - static_cast<long>(height(node->right));
 }
 
 unsigned long Tree::leafCount(Node *node) {
@@ -205,11 +215,11 @@ Node *BST::remove(Node *node, int data) {
 			node =  node->left ? node->left : node->right;
 			delete tmp;
 		}
-		else {                                                              // case 2 - two child's
-			tmp = find_min(node->right);                 // 1. find the min value node
-			node->data = tmp->data;                      // 2. copy the min value node to current node
-			node->right = remove(tmp->right, tmp->data); // 3. remove the duplicated min value node from current node->right
-			                                             // 4. If you want to arrange it towards node->left side, then we should find max value
+		else {                                                              // case 3 - two children
+			tmp = find_min(node->right);                  // 1. find the min value node in the right subtree
+			node->data = tmp->data;                       // 2. copy the min value node to current node
+			node->right = remove(node->right, tmp->data); // 3. remove the duplicated min value node from current node->right
+			                                              // 4. If you want to arrange it towards node->left side, then we should find max value
 		}
 	}
 
@@ -281,7 +291,8 @@ Node *Tree::balance(Node *node)
     return node;
 }
 
-bool bst_util(Node *node, Node *&prev)
+// An in-order walk of a BST visits keys in increasing order, so compare each node with the previous one
+static bool bst_util(Node *node, Node *&prev)
 {
 	if ( node )
 	{
@@ -299,28 +310,13 @@ bool bst_util(Node *node, Node *&prev)
 	return true;
 }
 
-bool is__bst(Node *head)
-{
-	Node *prev = nullptr;
-	return bst_util(head, prev);
-}
-
+// prev is passed down rather than being static: a static would keep its value between calls,
+// comparing this tree with the last node of the previous one
 bool Tree::is_bst(Node *node) {
-	
-	static Node *prev = NULL;
 
-	if ( node == NULL )
-		return true;
+	Node *prev = nullptr;
 
-	if ( !is_bst( node->left) )
-		return false;
-
-	if ( prev != NULL && node->data <= prev->data )
-		return false;
-
-	prev = node;
-
-	return is_bst( node->right);
+	return bst_util(node, prev);
 }
 
 
@@ -332,16 +328,16 @@ void PriorityQueue::heapify_up(int idx) {
 	}
 }
 
-void PriorityQueue::heapify_down(int idx) {
-	
+void PriorityQueue::heapify_down(unsigned int idx) {
+
 	unsigned int largest = idx;
 	unsigned int left_idx = left(idx);                            // get right and left node index
 	unsigned int right_idx = right(idx);
 
-	if ( left_idx < size() && v[left_idx] > v[idx] )     // check if left node value is greater than parent node
+	if ( left_idx < size() && v[left_idx] > v[largest] )     // check if left node value is greater than parent node
 		largest = left_idx;
 
-	if ( right_idx < size() && v[right_idx] > v[idx] )   // check if right node value is greater than parent node
+	if ( right_idx < size() && v[right_idx] > v[largest] )   // compare with the largest so far, so the bigger child is chosen
 		largest = right_idx;
 
 	if ( idx != largest) {                               // Swap, if child node value is greater than parent node, and call recursively
@@ -352,15 +348,13 @@ void PriorityQueue::heapify_down(int idx) {
 
 }
 
+// Let the caller handle an empty heap. Catching it here would leave no value to return.
 int PriorityQueue::top() {
 
-	try {
-		if ( size() == 0)
-			throw out_of_range("Vector<X>::at() : Index is out of range(Heap Underflow)");
-		return v.at(0);
-	}catch(const out_of_range& ex) {
-		std::cout << ex.what() << std::endl;
-	}
+	if ( size() == 0)
+		throw out_of_range("PriorityQueue::top() : Heap Underflow");
+
+	return v[0];
 }
 
 void PriorityQueue::push(int key) {
@@ -371,15 +365,13 @@ void PriorityQueue::push(int key) {
 }
 
 void PriorityQueue::pop() {
-	try {
-		if ( size() == 0)
-			throw out_of_range("Vector<X>::pop() : Index is out of range(Heap Underflow)");
-		v[0] = v.back(); // Replace the root of the heap with last element of the vector
-		v.pop_back();
-		heapify_down(0); // call heapify_down on root node
-	} catch ( const out_of_range& ex) {
-		std::cout << ex.what() << std::endl;
-	}
+
+	if ( size() == 0)
+		throw out_of_range("PriorityQueue::pop() : Heap Underflow");
+
+	v[0] = v.back(); // Replace the root of the heap with last element of the vector
+	v.pop_back();
+	heapify_down(0); // call heapify_down on root node
 }
 
 
@@ -407,10 +399,6 @@ void heap_binary_max_impl_test() {
 
 	cout << endl << "Size is " << pq.size() << endl;
 
-	//for(auto it = pq.begin(); it != pq.end(); it++)
-		//cout << *it;
-	cout << endl;
-	
 	cout << pq.top() << " ";
 	pq.pop();
 
@@ -423,11 +411,19 @@ void heap_binary_max_impl_test() {
 	cout << pq.top() << " ";
 	pq.pop();
 
-	cout << endl << std::boolalpha << pq.empty();
-	
-	pq.top();	// top operation on an empty heap
-	pq.pop();	// pop operation on an empty heap
+	cout << endl << std::boolalpha << pq.empty() << endl;
 
+	try {
+		pq.top();	// top operation on an empty heap
+	} catch (const out_of_range& ex) {
+		cout << ex.what() << endl;
+	}
+
+	try {
+		pq.pop();	// pop operation on an empty heap
+	} catch (const out_of_range& ex) {
+		cout << ex.what() << endl;
+	}
 }
 
 
@@ -445,10 +441,11 @@ int main() {
 	std::cout << bst.leafCount() << " " << bst.height() << std::endl;
 
 	bst.display();
+	bst.level_order();
 
 	for ( int i = 0; i <= 15; i++)
 		bst.search(i);
-	
+
 	//case 1 - no child
 	bst.display();
 	bst.remove(11);
@@ -475,7 +472,7 @@ int main() {
 	for ( int i = 10; i < 100; i++ )
 		avl.insert(i);
 	avl.display();
-	std::cout << avl.height() << " " << avl.leafCount() << std::endl;
+	std::cout << avl.height() << " " << avl.leafCount() << " isBST : " << avl.isBST() << std::endl;
 
 	heap_binary_max_impl_test();
 

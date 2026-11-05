@@ -1,13 +1,29 @@
+/*
+   g++ -std=c++17 -O2 -Wall -Wextra employee_directory.cpp -o employee_directory
+   ./employee_directory      ( run it from this folder, it reads employees.csv )
+
+   Loads employees and their managers from a CSV, and prints the reporting tree.
+
+   Two passes, so a manager can appear in the file after their reportees :
+     - First read all the employees into a map, O(N) on average
+     - Then link each employee to their manager
+
+   Data from a file can't be trusted. A bad line is reported and skipped, and a manager cycle can't hang or crash the print.
+   print_tree is recursive, so a very deep tree would need an explicit stack.
+*/
+
+#include <charconv>
+#include <functional>
 #include <iostream>
-#include <string>
-#include <vector>
+#include <fstream>
 #include <optional>
 #include <sstream>
-#include <fstream>
-#include <algorithm>
-#include <utility>
-#include <functional>
+#include <stdexcept>
+#include <string>
 #include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 struct Employee {
 	int id_{-1};
@@ -25,46 +41,49 @@ struct Employee {
 	}
 };
 
-// Parse a CSV line with columns: id,name,manager_id(optional)
-inline bool parse_employee_line(const std::string& line, Employee& out) {
-	// Quick reject (no comma)
-	if (line.find(',') == std::string::npos) return false;
+// The whole text must be a number. std::stoi would read "12abc" as 12.
+inline std::optional<int> parse_int(const std::string& text) {
+	int value = 0;
+	const char* end = text.data() + text.size();
+	auto [ptr, ec] = std::from_chars(text.data(), end, value);
+	if (ec != std::errc{} || ptr != end) return std::nullopt;
+	return value;
+}
 
+// Parse a CSV line with columns: id,name,manager_id(optional)
+inline std::optional<Employee> parse_employee_line(const std::string& line) {
 	std::istringstream iss(line);
 	std::string col;
+	Employee out;
 
 	// id
-	if (!std::getline(iss, col, ',')) return false;
-	try {
-		out.id_ = std::stoi(col);
-	} catch (...) { return false; }
+	if (!std::getline(iss, col, ',')) return std::nullopt;
+	auto id = parse_int(col);
+	if (!id) return std::nullopt;
+	out.id_ = *id;
 
 	// name
-	if (!std::getline(iss, col, ',')) return false;
+	if (!std::getline(iss, col, ',') || col.empty()) return std::nullopt;
 	out.name_ = col;
 
 	// manager (optional)
-	if (std::getline(iss, col, ',')) {
-		if (!col.empty()) {
-			try { out.manager_id_ = std::stoi(col); }
-			catch (...) { out.manager_id_.reset(); }
-		} else {
-			out.manager_id_.reset();
-		}
-	} else {
-		out.manager_id_.reset();
+	if (std::getline(iss, col, ',') && !col.empty()) {
+		out.manager_id_ = parse_int(col);
+		if (!out.manager_id_) return std::nullopt;
 	}
-	return true;
+	return out;
 }
 
 class EmployeeDirectory {
 	std::unordered_map<int, Employee> employees_;
 
 	public:
+	// Throws std::runtime_error if the file can't be opened
 	explicit EmployeeDirectory(const std::string& filename) {
 		employees_ = load_employees(filename);
 	}
 
+	// The order is not sorted, as it comes from an unordered_map
 	void print() const {
 		for (const auto& kv : employees_) std::cout << kv.second;
 	}
@@ -74,9 +93,17 @@ class EmployeeDirectory {
 		std::string indent;
 		indent.reserve(256);
 
+		// Without this, a manager cycle in the data recurses until the stack overflows
+		std::unordered_set<int> visited;
+
 		std::function<void(int)> dfs = [&](int id) {
 			auto it = employees_.find(id);
 			if (it == employees_.end()) return;
+
+			if (!visited.insert(id).second) {
+				std::cout << indent << "id: " << id << " already printed, the data has a cycle\n";
+				return;
+			}
 
 			std::cout << indent << it->second;
 
@@ -86,7 +113,7 @@ class EmployeeDirectory {
 				dfs(child);
 			}
 			// Restore indent
-			indent.erase(indent.size() >= 2 ? indent.size() - 2 : 0);
+			indent.resize(indent.size() - 2);
 		};
 
 		dfs(emp_id);
@@ -95,46 +122,46 @@ class EmployeeDirectory {
 	private:
 	static std::unordered_map<int, Employee> load_employees(const std::string& filename) {
 		std::ifstream ifs(filename);
+		if (!ifs) throw std::runtime_error("Failed to open file: " + filename);
+
 		std::unordered_map<int, Employee> employees;
-
-		if (!ifs) {
-			std::cerr << "Failed to open file: " << filename << '\n';
-			return employees;
-		}
-
-		// Optional: pre-reserve if you can estimate count (e.g., by first counting lines)
-		// employees.reserve(1024);
-
 		std::string record;
 
 		// Skip header
 		if (!std::getline(ifs, record)) return employees;
 
-		std::vector<std::pair<int,int>> edges;  // (emp_id, manager_id)
-		edges.reserve(1024);
+		std::vector<int> file_order;     // The map has no order, and reportees should stay in file order
 
-		Employee e;
+		int line_no = 1;
 		while (std::getline(ifs, record)) {
+			++line_no;
 			if (record.empty()) continue;
-			if (!parse_employee_line(record, e)) continue;
 
-			// Insert or overwrite the employee entry (try_emplace avoids default-construct)
-			auto [it, inserted] = employees.try_emplace(e.id_, std::move(e));
-			if (!inserted) {
-				// If duplicate ID, update name/manager; keep existing reportees_
-				it->second.name_ = it->second.name_.empty() ? it->second.name_ : it->second.name_;
+			auto employee = parse_employee_line(record);
+			if (!employee) {
+				std::cerr << "Line " << line_no << " skipped, invalid : " << record << '\n';
+				continue;
 			}
 
-			// Save edge if manager present
-			if (it->second.manager_id_) {
-				edges.emplace_back(it->second.id_, *it->second.manager_id_);
+			int id = employee->id_;
+			if (employees.try_emplace(id, std::move(*employee)).second) {
+				file_order.push_back(id);
+			} else {
+				std::cerr << "Line " << line_no << " skipped, duplicate id : " << id << '\n';
 			}
 		}
 
-		// Wire reportees in a second pass (O(N))
-		for (const auto& [child, mgr] : edges) {
-			auto it = employees.find(mgr);
-			if (it != employees.end()) it->second.reportees_.push_back(child);
+		// Wire reportees in a second pass (O(N)). Each employee is in the map once, so each gets one edge.
+		for (int id : file_order) {
+			const Employee& employee = employees.at(id);
+			if (!employee.manager_id_) continue;
+
+			auto manager = employees.find(*employee.manager_id_);
+			if (manager == employees.end()) {
+				std::cerr << "Employee " << id << " has an unknown manager : " << *employee.manager_id_ << '\n';
+				continue;
+			}
+			manager->second.reportees_.push_back(id);
 		}
 
 		return employees;
@@ -142,8 +169,13 @@ class EmployeeDirectory {
 };
 
 int main() {
-	EmployeeDirectory empDirectory("employees.csv");
-	empDirectory.print();
-	empDirectory.print_tree(1);
+	try {
+		EmployeeDirectory empDirectory("employees.csv");
+		empDirectory.print();
+		empDirectory.print_tree(1);
+	} catch (const std::exception& e) {
+		std::cerr << e.what() << '\n';
+		return 1;
+	}
 	return 0;
 }

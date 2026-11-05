@@ -1,14 +1,33 @@
-#include <iostream>
-#include <thread>
-#include <queue>
-#include <utility>
-#include <unordered_map>
-#include <memory>
+/*
+   g++ -std=c++20 -O2 -Wall -Wextra -pthread scheduler.cpp -o scheduler      ( std::jthread needs C++20 )
+
+   Runs tasks at a given time, or repeatedly, on a single timer thread.
+
+   A min-heap of (time, id) gives the next task to run, and a map of id -> task holds the tasks.
+   The timer thread sleeps on a condition variable until the next task is due, or until a new earlier task arrives.
+
+   Cancel removes the task from the map, and its heap entry is skipped when it comes up (lazy deletion).
+   Removing from the middle of a heap would be O(n).
+
+   Limits of this design :
+     - Tasks run on the timer thread, so a slow task delays all the others. ../scheduler_with_tp runs them on a thread pool.
+     - Recurring tasks are fixed-delay : the next run is an interval after the last one finishes.
+       An every 100ms task taking 50ms runs every 150ms. Fixed-rate would keep to every 100ms.
+*/
+
 #include <atomic>
 #include <chrono>
-#include <vector>
 #include <condition_variable>
+#include <exception>
 #include <functional>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <queue>
+#include <thread>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 using steadyclock = std::chrono::steady_clock;
 using timepoint   = steadyclock::time_point;
@@ -18,10 +37,8 @@ constexpr task_id invalid_task = 0;
 
 struct Task {
 	std::function<void()> fn_;
-	timepoint  time_{};
 	bool       recurring_{false};
 	duration   interval_{};
-	bool       cancelled_{false};  // accessed only under mu_
 };
 
 using Node = std::pair<timepoint, task_id>;
@@ -34,7 +51,6 @@ struct Comp {
 
 class Scheduler {
 	private:
-		std::jthread timer_;
 		std::mutex mu_;
 		std::condition_variable cv_;
 
@@ -43,22 +59,29 @@ class Scheduler {
 		std::unordered_map<task_id, std::shared_ptr<Task>> tasks_map_;
 
 		bool stopping_{false}; // protected by mu_
+		std::once_flag join_once_;
+
+		// Declared last, so the thread starts after all the members above are ready
+		std::jthread timer_;
 
 	public:
-		Scheduler() {
-			timer_ = std::jthread([this](std::stop_token st){ timer_loop(st); });
-		}
+		Scheduler() : timer_([this] { timer_loop(); }) {}
 		~Scheduler() { shutdown(); }
 
+		// Tasks which are waiting don't run. A task which is running finishes first.
+		// Can be called many times, and from many threads.
 		void shutdown() {
-			// request stop and wake
-			if (timer_.joinable()) timer_.request_stop();
 			{
+				// stopping_ must change under the lock, else the timer can miss the wakeup
 				std::lock_guard<std::mutex> lock(mu_);
 				stopping_ = true;
 			}
 			cv_.notify_all();
-			if (timer_.joinable()) timer_.join();
+
+			// A task can't join its own thread. The timer loop stops after this task, and the destructor joins.
+			if (std::this_thread::get_id() == timer_.get_id()) return;
+
+			std::call_once(join_once_, [this] { timer_.join(); });
 
 			// clean containers under lock, destroy outside lock
 			std::priority_queue<Node, std::vector<Node>, Comp> heap_trash;
@@ -70,11 +93,10 @@ class Scheduler {
 			}
 		}
 
+		// All of these return invalid_task if the scheduler has stopped
 		template<class Fn>
 			task_id schedule_at(timepoint tp, Fn fn) {
-				auto now = steadyclock::now();
-				if (tp < now) tp = now; // clamp to "run ASAP"
-				return task_add(tp, false, duration::zero(), std::move(fn));
+				return task_add(tp, false, duration::zero(), std::move(fn));   // A time in the past runs as soon as possible
 			}
 
 		template<class Fn>
@@ -86,25 +108,20 @@ class Scheduler {
 		template<class Fn>
 			task_id schedule_every(duration d, Fn fn) {
 				if (d <= duration::zero()) return invalid_task; // avoid zero/negative interval
-				timepoint tp = steadyclock::now() + d;
-				return task_add(tp, true, d, std::move(fn));
+				return task_add(steadyclock::now() + d, true, d, std::move(fn));
 			}
 
+		// Returns true if the task existed, it won't start again. A run in progress finishes.
+		// Returns false for an unknown id, a finished task, or a task which is already cancelled.
 		bool task_cancel(task_id id) {
 			std::lock_guard<std::mutex> lock(mu_);
-			auto it = tasks_map_.find(id);
-			if (it == tasks_map_.end()) return false;  // already gone or running
-			it->second->cancelled_ = true;             // mark; lazy removal
-								   // don't erase here; let the timer thread retire it safely
-			cv_.notify_one();
-			return true;
+			return tasks_map_.erase(id) == 1;
 		}
 
 	private:
 		template<class Fn>
 			task_id task_add(timepoint tp, bool recurring, duration interval, Fn fn) {
 				auto st = std::make_shared<Task>();
-				st->time_     = tp;
 				st->recurring_= recurring;
 				st->interval_ = interval;
 				st->fn_       = std::function<void()>(std::move(fn)); // needs copyable callable
@@ -119,61 +136,51 @@ class Scheduler {
 				return id;
 			}
 
-		void timer_loop(std::stop_token st) {
+		void timer_loop() {
 			std::unique_lock<std::mutex> lock(mu_);
 
-			for (;;) {
+			while (!stopping_) {
 				// Wait for work or stop
 				if (tasks_heap_.empty()) {
-					cv_.wait(lock, [&]{
-							return st.stop_requested() || stopping_ || !tasks_heap_.empty();
-							});
-					if (st.stop_requested()) break;
-					if (stopping_ && tasks_heap_.empty()) break;
-				} else {
-					auto due = tasks_heap_.top().first;
-					// Wake early if new earlier task arrives or stop requested
-					cv_.wait_until(lock, due, [&]{
-							return st.stop_requested() || stopping_ || tasks_heap_.empty() ||
-							tasks_heap_.top().first != due;
-							});
-					if (st.stop_requested()) break;
-					if (stopping_ && tasks_heap_.empty()) break;
-					// If woken because earlier arrived, loop will recompute; if time reached, we'll run below.
+					cv_.wait(lock, [&]{ return stopping_ || !tasks_heap_.empty(); });
+					continue;
 				}
 
+				auto due = tasks_heap_.top().first;
+				// Wake early if new earlier task arrives or stop requested
+				if (cv_.wait_until(lock, due, [&]{ return stopping_ || tasks_heap_.top().first != due; }))
+					continue;
+
+				// Check stopping_ each time. Tasks can keep becoming due, so this loop might never end by itself.
 				auto now = steadyclock::now();
-				while (!tasks_heap_.empty() && tasks_heap_.top().first <= now) {
-					auto [when, id] = tasks_heap_.top(); tasks_heap_.pop();
+				while (!stopping_ && !tasks_heap_.empty() && tasks_heap_.top().first <= now) {
+					task_id id = tasks_heap_.top().second;
+					tasks_heap_.pop();
 
-					// Lookup current state
 					auto it = tasks_map_.find(id);
-					if (it == tasks_map_.end()) { continue; } // lazy-deleted/canceled earlier
+					if (it == tasks_map_.end()) continue; // cancelled, this is its stale heap entry
 					auto task_sp = it->second;
-
-					if (task_sp->cancelled_) {
-						tasks_map_.erase(it);
-						continue;
-					}
-
 
 					// Run outside the lock
 					lock.unlock();
-					try { task_sp->fn_(); } catch (...) { /* swallow/log */ }
+					try {
+						task_sp->fn_();
+					} catch (const std::exception& e) {
+						std::cerr << "Task " << id << " failed : " << e.what() << '\n';
+					} catch (...) {
+						std::cerr << "Task " << id << " failed\n";
+					}
 					lock.lock();
 
-					// Re-find; it may have been canceled while running
-					auto it2 = tasks_map_.find(id);
-					if (it2 == tasks_map_.end()) {
-						// someone removed it while we were running
-					} else if (task_sp->cancelled_) {
-						tasks_map_.erase(it2);
-					} else if (task_sp->recurring_) {
-						// Fixed-rate: maintain cadence based on last scheduled time
-						task_sp->time_ = steadyclock::now() + task_sp->interval_;
-						tasks_heap_.emplace(task_sp->time_, id);
-					} else {
-						tasks_map_.erase(it2); // one-shot complete
+					// Find it again, it may have been cancelled while running
+					it = tasks_map_.find(id);
+					if (it != tasks_map_.end()) {
+						if (task_sp->recurring_) {
+							// Fixed-delay : the next run is an interval after this one finished
+							tasks_heap_.emplace(steadyclock::now() + task_sp->interval_, id);
+						} else {
+							tasks_map_.erase(it); // one-shot complete
+						}
 					}
 
 					// refresh 'now' so we can drain more due tasks in this pass
@@ -225,16 +232,16 @@ int main() {
 	if (sch.task_cancel(fast_id)) {
 		std::cout << "[" << ms_since_start() << " ms] cancelled 400ms recurring task\n";
 	} else {
-		std::cout << "[" << ms_since_start() << " ms] cancel failed (already running/finished)\n";
+		std::cout << "[" << ms_since_start() << " ms] cancel failed (unknown or finished)\n";
 	}
 
 	// keep running a bit more
 	std::this_thread::sleep_for(2s);
+
+	sch.task_cancel(slow_id);
 
 	// clean shutdown
 	sch.shutdown();
 	std::cout << "[" << ms_since_start() << " ms] exiting\n";
 	return 0;
 }
-
-

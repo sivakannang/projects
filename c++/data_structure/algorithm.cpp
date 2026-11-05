@@ -1,3 +1,4 @@
+// g++ -std=c++20 algorithm.cpp -o algorithm      (C++20: uses auto parameters in functions)
 
 /******************************************************** STL Algorithm ***************************************************************
  *
@@ -11,18 +12,7 @@
 #include <string>
 #include <algorithm>
 
-void print_array(auto &arr);
-void test();
-
 void non_modifying_sequence_ops_test();
-void modifying_sequence_ops_test();
-void partitions_test();
-
-void min_max_test();
-void sorting_test();
-void merging_test();
-
-void binary_search_test();
 void heap_test();
 
 void print_array(auto &arr){
@@ -34,7 +24,7 @@ void print_array(auto &arr){
 int main() {
 
 	non_modifying_sequence_ops_test();
-	//heap_test();
+	heap_test();
 
 	return 0;
 }
@@ -110,13 +100,13 @@ struct Odd {
 
 	public:
 		bool operator() (auto i) {
-			return (i % 2 == 1);
+			return (i % 2 != 0);   // Not == 1: a negative odd number gives -1
 		}
 };
 
 struct Print {
 	public:
-		bool operator() ( auto i) {
+		void operator() ( auto i) {
 			std::cout << i << " ";
 		}
 };
@@ -158,8 +148,6 @@ void non_modifying_sequence_ops_test() {
 	Print print;
 	for_each( vi.begin(), vi.end(), print);
 	std::cout << std::endl;
-
-	std::cout << *(vi.end()) << vi[6] << std::endl;
 
 	if ( std::find(vi.begin(), vi.end(), 6) == vi.end() ) {
 		std::cout << "element not found" << std::endl;
@@ -220,31 +208,33 @@ void non_modifying_sequence_ops_test() {
 	it = std::search_n(vi.begin(), vi.end(), 3, 8);
 	std::cout << "search_n(3, 8) from vi : found three 8's at index " << it - vi.begin() << " , value " << *it << std::endl; // index 3, value 8
 
-	std::cout << "equal(vi, keys) = " << std::boolalpha << std::equal(vi.begin(), vi.end(), keys.begin()) << std::endl;        // prints false
+	// Pass both ends, as keys is shorter. With only keys.begin(), equal could read past the end of keys.
+	std::cout << "equal(vi, keys) = " << std::boolalpha << std::equal(vi.begin(), vi.end(), keys.begin(), keys.end()) << std::endl;  // prints false
 	keys.clear();
 	keys = vi;
 	std::cout << "equal(vi, keys) = " << std::boolalpha << std::equal(vi.begin(), vi.end(), keys.begin(), equal) << std::endl; // prints true
 
 	keys[5] = 9;
 	print_array(vi);   // [ 2 4 6 8 8 8 10 12 12 8 10 12 ]
-	print_array(keys); // [ 2 4 6 8 8 9 10 12 12 8 11 12 ]
+	print_array(keys); // [ 2 4 6 8 8 9 10 12 12 8 10 12 ]
 
 	auto itr = std::mismatch(vi.begin(), vi.end(), keys.begin(), equal);
 	// prints mismatch index 5 , value 8 9
 	std::cout << "mismatch(vi, keys) : mismatch index " << itr.first - vi.begin() << " , value "  << *itr.first << " " << *itr.second << std::endl;
-	std::cout << &vi[0] << " " << vi.data() <<  std::endl;
 	++itr.first, ++itr.second;
 	auto itr1 = std::mismatch(itr.first, vi.end(), itr.second, equal);
-	std::cout << "mismatch(vi, keys) : mismatch index " << itr1.first - vi.begin() << " , value "  << *itr1.first << " " << *itr1.second << std::endl;
+
+	// No more differences means mismatch returns end(), which must not be dereferenced
+	if ( itr1.first == vi.end() )
+		std::cout << "mismatch(vi, keys) : no more mismatches" << std::endl;
+	else
+		std::cout << "mismatch(vi, keys) : mismatch index " << itr1.first - vi.begin() << " , value "  << *itr1.first << " " << *itr1.second << std::endl;
 
 }
 
- /**************************************************** Algorithm - Modifying sequence operations **********************************
-  * ***********************************************************************************************************************************/
-
  /* *************************************************** Algorithm - Heap ****************************************************************
  *
- *  - make_heap      -> Constructs a max heap in the range [first, last]
+ *  - make_heap      -> Constructs a max heap in the range [first, last)
  *  - push_heap      -> Inserts the element at the position last-1 into the max heap defined by the range [first, last-1).
  *  - pop_heap       -> Swaps the value in the position first and the value in the position last-1
  *  - sort_heap      -> Converts the max heap [first, last) into a sorted range in ascending order. The resulting range no longer has the heap property.

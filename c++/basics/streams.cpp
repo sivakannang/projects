@@ -1,3 +1,4 @@
+// g++ -std=c++17 streams.cpp -o streams
 
 /******************************* C++ Streams **************************************************************
 *
@@ -25,8 +26,8 @@
 * ios::binary- for binary (raw byte) IO operation, instead of character-based.
 * ios::ate   - position the file pointer "at the end" for input/output.
 *
-* seekg() -> get the input  file pointer address -> get()
-* seekp() -> get the output file pointer address -> put()
+* seekg() / tellg() -> set / get the position for reading ( g = get )
+* seekp() / tellp() -> set / get the position for writing ( p = put )
 *
 * istream & seekg (streampos pos)                         -> absolute position relative to beginning
 * istream & seekg (streamoff offset, ios::seekdir dir)    -> with offset (positive or negative) relative to seekdir
@@ -39,10 +40,6 @@
 * std::ios::beg (offset from the beginning of the stream's buffer).
 * std::ios::cur (offset from the current position in the stream's buffer).
 * std::ios::end (offset from the end of the stream's buffer).
-*
-*
-* - :: → Scope resolution operator, used to access a hidden global variable.
-* - (...) → Ellipsis, allows functions to accept variable number of arguments (type checking disabled).
 *
 ************************************** Interview Questions and Answers ****************************
 *
@@ -75,21 +72,26 @@
 *     - It reads a full line of text (including spaces, excluding new line char).
 *
 *  10. How to write binary data to file?
-*     - Use `ostream.write(char*, size)` and `istream.read(char*, size)`.
+*     - Use `ostream.write(const char*, size)`, and `istream.read(char*, size)` to read it back.
 *
 *
 *-------------------------------------------------------------------------------------------------------------------------*/
 
-#include <iostream>
+#include <cstdio>
 #include <fstream>
-#include <sstream>
 #include <iomanip>
+#include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
 void fileStreamDemo() {
 	// Write to file
 	std::ofstream fout("example.txt");
+	if (!fout) {
+		std::cout << "Couldn't create example.txt" << std::endl;
+		return;
+	}
 	fout << "Value: " << std::setw(5) << std::setfill('0') << 42 << "\n";
 	fout.close();
 
@@ -119,11 +121,14 @@ void fileStreamDemo() {
 	char buffer[4];
 	binin.read(buffer, 4);
 	std::cout << "Binary read: ";
-	for (int i = 0; i < 4; ++i) {
+	for (std::streamsize i = 0; i < binin.gcount(); ++i) {   // gcount is how many bytes were actually read
 		std::cout << buffer[i] << ' ';
 	}
 	std::cout << std::endl;
 	binin.close();
+
+	std::remove("example.txt");
+	std::remove("binary.dat");
 }
 
 void stringStreamDemo() {
@@ -139,12 +144,13 @@ void stringStreamDemo() {
 	std::cout << result << std::endl;
 }
 
-std::vector<std::string> split_str(const std::string& s, char delimeter ) {
+// Both split functions skip empty tokens: "a,,b," gives a and b
+std::vector<std::string> split_str(const std::string& s, char delimiter ) {
 
 	std::vector<std::string> v;
-	int idx = 0, pos = 0;
+	std::string::size_type idx = 0, pos = 0;   // Not int: npos and long strings don't fit in one
 
-	while ( (pos = s.find(delimeter, idx)) != std::string::npos  ) {
+	while ( (pos = s.find(delimiter, idx)) != std::string::npos  ) {
 		if ( pos != idx ) // if token found in the same index, increment pos by 1
 			v.push_back(s.substr(idx, pos-idx));
 		idx = pos + 1;
@@ -157,19 +163,27 @@ std::vector<std::string> split_str(const std::string& s, char delimeter ) {
 }
 
 
-std::vector<std::string> split(const std::string& str, char delimeter)
+std::vector<std::string> split(const std::string& str, char delimiter)
 {
 	std::string token;
 	std::istringstream iss(str);
 	std::vector<std::string> v;
 
-	while ( std::getline(iss, token, delimeter) )
+	while ( std::getline(iss, token, delimiter) )
 		if ( token.length() > 0 )
 			v.push_back(token);
 	return v;
 }
+
 int main() {
 	fileStreamDemo();
 	stringStreamDemo();
+
+	for (const std::string& token : split_str("a,,b,", ','))
+		std::cout << "[" << token << "]";
+	for (const std::string& token : split("a,,b,", ','))
+		std::cout << "[" << token << "]";
+	std::cout << std::endl;
+
 	return 0;
 }
