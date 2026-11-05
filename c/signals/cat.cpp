@@ -1,42 +1,67 @@
-#include "stdio.h"
-#include "stdlib.h"
-#include "signal.h"
+// g++ cat.cpp -o cat
+//
+// A simple cat, to show broken pipe handling:   ./cat bigfile | head -1
+//
+// When head exits, the next write gets SIGPIPE, which terminates the process by default.
+// With SIGPIPE ignored, as here, the write fails with EPIPE instead, and the program must
+// check for that, or it would keep reading the whole file for nothing.
 
-int displayFile(char *filename);
-void sigHandler(int sig);
+#include <errno.h>
+#include <signal.h>
+#include <stdio.h>
+#include <string.h>
+
+int displayFile(const char *filename);
 
 int main(int argc, char *argv[])
 {
 	if ( argc != 2)
 	{
-		printf("\nPass filename as argument");
-		return -1;
+		fprintf(stderr, "usage: %s <filename>\n", argv[0]);
+		return 1;
 	}
 
-	signal(SIGPIPE, sigHandler);
+	signal(SIGPIPE, SIG_IGN);
 
-	displayFile(argv[1]);
+	return (displayFile(argv[1]) == 0) ? 0 : 1;
 }
 
-int displayFile(char *filename)
+int displayFile(const char *filename)
 {
 	int c = 0;
+	int ret = 0;
 	FILE *fp = fopen(filename, "r");
+
 	if ( fp == NULL)
 	{
-		printf("\nFile not found");
+		perror(filename);
 		return -1;
 	}
 
 	while ( (c = fgetc(fp)) != EOF)
-		putc(c, stdout);
+	{
+		if ( putc(c, stdout) == EOF )
+		{
+			fprintf(stderr, "write failed : %s\n", strerror(errno));
+			ret = -1;
+			break;
+		}
+	}
+
+	if ( ferror(fp) )
+	{
+		perror(filename);
+		ret = -1;
+	}
 
 	fclose(fp);
 
-	return 0;
-}
+	// Buffered output can fail here too, for a small file
+	if ( fflush(stdout) == EOF && ret == 0 )
+	{
+		fprintf(stderr, "write failed : %s\n", strerror(errno));
+		ret = -1;
+	}
 
-void sigHandler(int sig)
-{
-	printf("\nReceived signal %d", sig);
+	return ret;
 }

@@ -1,8 +1,8 @@
+// gcc database.c -o database
+
 #include <stdio.h>
-#include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include <unistd.h>
 #include <errno.h>
 
 const char db_name[] = "db.dat";
@@ -101,15 +101,13 @@ Student* db_find(long rollno)
 		return NULL;
 	}
 
-	while ( 1 )
-	{
-		memset(&student, 0, sizeof(student));
-	        ret = fread(&student, sizeof(Student), 1, fp);
-		if ( ret <= 0 || rollno == student.rollno )
-			break;
-	}
+	// Check fread first: comparing after end of file could match leftover or zeroed data
+	while ( (ret = fread(&student, sizeof(Student), 1, fp)) == 1 && rollno != student.rollno )
+		;
+
 	fclose(fp);
-	return (rollno == student.rollno) ? &student : NULL;
+
+	return (ret == 1) ? &student : NULL;
 }
 
 bool db_insert(Student *student) {
@@ -127,8 +125,12 @@ bool db_insert(Student *student) {
 		return false;
 	}
 
-	fwrite(student, sizeof(Student), 1, fp);
-	fclose(fp);
+	// fclose flushes the buffered data, so a full disk can make it fail too
+	if ( fwrite(student, sizeof(Student), 1, fp) != 1 || fclose(fp) != 0 )
+	{
+		printf("\n DB write failed - %s", strerror(errno));
+		return false;
+	}
 
 	printf("\n %s -> rec inserted for rollno %ld ", __func__, student->rollno);
 
@@ -137,8 +139,9 @@ bool db_insert(Student *student) {
 
 bool db_delete(long rollno)
 {
-	int ret = 0;
-	Student student = {0};
+	bool found = false;
+	bool writeFailed = false;
+	Student student;
 
 	FILE *dbFP  = db_open(db_name, "r");
 	if ( dbFP == NULL )
@@ -153,44 +156,51 @@ bool db_delete(long rollno)
 		return false;
 	}
 
-	while ( 1 )
+	while ( fread(&student, sizeof(Student), 1, dbFP) == 1 )
 	{
-		memset(&student, 0, sizeof(student));
-		ret = fread(&student, sizeof(Student), 1, dbFP);
-		if ( ret != 1 )
-		{
-			break;
-		}
 		if ( rollno == student.rollno )
 		{
+			found = true;
 			continue;
 		}
-		ret = fwrite(&student, sizeof(student), 1, tmpFP);
-		if ( ret != 1 )
+		if ( fwrite(&student, sizeof(student), 1, tmpFP) != 1 )
 		{
+			writeFailed = true;
 			break;
 		}
 	}
 
-	db_close(dbFP);
-	db_close(tmpFP);
+	if ( ferror(dbFP) )
+		writeFailed = true;
 
-	ret = rename(db_temp, db_name);
-	if ( ret != 0 )
+	db_close(dbFP);
+
+	if ( fclose(tmpFP) != 0 )
+		writeFailed = true;
+
+	// rename replaces the database in one step, so never do it with an incomplete copy
+	if ( writeFailed )
 	{
-		printf("\n db rename failed , errno = %d , errstr = %s", errno, strerror(errno));
+		printf("\n db delete failed, database left unchanged");
+		remove(db_temp);
 		return false;
 	}
 
-	return true;
+	if ( rename(db_temp, db_name) != 0 )
+	{
+		printf("\n db rename failed , errno = %d , errstr = %s", errno, strerror(errno));
+		remove(db_temp);
+		return false;
+	}
 
+	return found;
 }
 
 
 int main() {
 
-	if ( !db_exists() )
-		db_create();
+	if ( !db_exists() && !db_create() )
+		return 1;
 
 	Student s1 = {1, "sivakannan", 'M'};
 	Student s2 = {2, "sivaganeshan", 'M'};
@@ -205,4 +215,8 @@ int main() {
 	db_delete(1);
 
 	db_list();
+
+	printf("\n");
+
+	return 0;
 }

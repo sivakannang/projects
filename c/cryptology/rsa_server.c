@@ -1,163 +1,136 @@
 // gcc rsa_server.c rsa.c -o rsa_server -lcrypto
+// ./rsa_server <port>
+//
+// Demo of remote key injection: a client sends its RSA public key, and the server
+// returns an IPEK encrypted with that key, so only that client can read the IPEK.
+//
+// Not safe for production: nothing proves who the client is, so anyone can request the
+// key. A real system authenticates the device, for example with a certificate.
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <signal.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <netdb.h>
-#include <sys/types.h> 
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <openssl/pem.h>
-#include <openssl/ssl.h>
-#include <openssl/rsa.h>
-#include <openssl/evp.h>
-#include <openssl/bio.h>
-#include <openssl/err.h>
+#include <sys/time.h>
+#include <unistd.h>
 
-#define BUFSIZE 2048
+#include "rsa.h"
 
-void error(char *msg) {
+#define HEADER_LEN        (1 + 1 + KEY_SET_ID_LEN)   // type, version, key set id
+#define RCV_TIMEOUT_SECS  10
 
-	perror(msg);
-	exit(1);
+// Public ANSI X9.24 test vector: the IPEK for BDK 0123456789ABCDEFFEDCBA9876543210, KSN FFFF9876543210E00000
+static const unsigned char IPEK[IPEK_LEN] = {0x6A, 0xC2, 0x92, 0xFA, 0xA1, 0x31, 0x5B, 0x4D, 0x85, 0x8A, 0xB3, 0xA3, 0xD7, 0xD5, 0x93, 0x3A};
+
+static void handle_client(int fd)
+{
+	unsigned char request[MAX_PAYLOAD];
+	unsigned char response[MAX_PAYLOAD];
+	struct timeval timeout;
+	int len, encryptedLen;
+
+	timeout.tv_sec = RCV_TIMEOUT_SECS;
+	timeout.tv_usec = 0;
+	setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+
+	len = read_frame(fd, request, sizeof(request));
+	if ( len == -1 )
+	{
+		printf("Bad frame, or the client disconnected\n");
+		return;
+	}
+
+	printf("Received %d bytes\n", len);
+
+	if ( len <= HEADER_LEN || request[0] != MSG_IPEK_REQUEST || request[1] != MSG_VERSION )
+	{
+		printf("Not a valid IPEK request\n");
+		return;
+	}
+
+	// Response: type, version, ACK, encrypted IPEK
+	response[0] = MSG_IPEK_RESPONSE;
+	response[1] = MSG_VERSION;
+	response[2] = MSG_ACK;
+
+	encryptedLen = rsa_public_encrypt(IPEK, sizeof(IPEK), (const char *)request + HEADER_LEN, len - HEADER_LEN, response + 3, sizeof(response) - 3);
+	if ( encryptedLen == -1 )
+	{
+		printLastError("Public Encrypt failed");
+		return;
+	}
+
+	printf("Encrypted length = %d\n", encryptedLen);
+
+	if ( write_frame(fd, response, 3 + encryptedLen) == -1 )
+		perror("send");
 }
 
-struct ipek_resp
+int main(int argc, char **argv)
 {
+	int listen_fd;
+	int optval = 1;
+	long port;
+	struct sockaddr_in serveraddr;
 
-	char msg_len[2];
-	char msg_type[1];
-	char msg_version[1];
-	char resp_code[5];
-	char encrypted_ipek[4096];
-};
-
-int main(int argc, char **argv) {
-
-	int parentfd; 
-	int childfd;
-	int portno; 
-	int clientlen; 
-	struct sockaddr_in serveraddr; 
-	struct sockaddr_in clientaddr; 
-	struct hostent *hostp;
-	unsigned char buf[BUFSIZE]; 
-	char *hostaddrp; 
-	int optval; 
-	int n; 
-	int i;
-	struct ipek_resp ipek_r;
-
-
-	if (argc != 2) 
+	if ( argc != 2 )
 	{
-
 		fprintf(stderr, "usage: %s <port>\n", argv[0]);
-		exit(1);
+		return 1;
 	}
-	portno = atoi(argv[1]);
 
+	port = strtol(argv[1], NULL, 10);
+	if ( port < 1 || port > 65535 )
+	{
+		fprintf(stderr, "invalid port: %s\n", argv[1]);
+		return 1;
+	}
 
-	parentfd = socket(AF_INET, SOCK_STREAM, 0);
-	if (parentfd < 0) 
-		error("ERROR opening socket");
+	signal(SIGPIPE, SIG_IGN);   // A client that disconnects must not kill the server
 
+	listen_fd = socket(AF_INET, SOCK_STREAM, 0);
+	if ( listen_fd < 0 )
+	{
+		perror("socket");
+		return 1;
+	}
 
-	optval = 1;
-	setsockopt(parentfd, SOL_SOCKET, SO_REUSEADDR, 
-			(const void *)&optval , sizeof(int));
+	setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 
-	bzero((char *) &serveraddr, sizeof(serveraddr));
-
+	memset(&serveraddr, 0, sizeof(serveraddr));
 	serveraddr.sin_family = AF_INET;
+	serveraddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	serveraddr.sin_port = htons((unsigned short)port);
 
-	serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	if ( bind(listen_fd, (struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0 )
+	{
+		perror("bind");
+		return 1;
+	}
 
-	serveraddr.sin_port = htons((unsigned short)portno);
+	if ( listen(listen_fd, 16) < 0 )
+	{
+		perror("listen");
+		return 1;
+	}
 
-	if (bind(parentfd, (struct sockaddr *) &serveraddr, 
-				sizeof(serveraddr)) < 0) 
-		error("ERROR on binding");
+	printf("Listening on 127.0.0.1:%ld\n", port);
 
-
-	if (listen(parentfd, 5) < 0) /* allow 5 requests to queue up */ 
-		error("ERROR on listen");
-
-	clientlen = sizeof(clientaddr);
-	memset(&ipek_r,'\0',sizeof(ipek_r));
-
-	ipek_r.msg_type[0] = 0x1;
-	ipek_r.msg_version[0] = 0x1;
-	ipek_r.resp_code[0] = 0x6;	
-
-		//childfd = accept(parentfd, (struct sockaddr *) &clientaddr, &clientlen);
-
-	while (1) {
-
-		printf("\n--------- Listening --------------");
-		childfd = accept(parentfd, (struct sockaddr *) &clientaddr, &clientlen);
-		if (childfd < 0) 
-			error("ERROR on accept");
-
-		bzero(buf, BUFSIZE);
-		n = recv(childfd, buf, BUFSIZE, 0);
-		//n = read(childfd, buf, BUFSIZE);
-		if (n < 0) 
-			error("ERROR reading from socket");
-		printf("server received %d bytes: \n", n);
-		for(i=0; i < n; i++)
-			printf("%.2X ",buf[i]);
-
-		
-
-		printf("\n");
-
+	while ( 1 )
+	{
+		int client_fd = accept(listen_fd, NULL, NULL);
+		if ( client_fd < 0 )
 		{
-			int temp_byte1 , temp_byte2 = 0;
-			int len=0;
-			int ipek_len = 16;
-			unsigned char send_buffer[4096];
-
-			//char ipek[16] = {0x83,0xad,0xb6,0x11,0x3f,0x94,0xe9,0x55,0xf6,0x7a,0x0e,0x62,0xaa,0xbd,0xe9,0xa2};
-			char ipek[16] = {0x6a ,0xc2 ,0x92 ,0xfa ,0xa1 ,0x31 ,0x5b ,0x4d ,0x85 ,0x8a ,0xb3 ,0xa3 ,0xd7 ,0xd5 ,0x93 ,0x3a };
-
-
-			unsigned char  encrypted[4098]={};
-			int encrypted_length= public_encrypt(ipek,ipek_len,buf+9+5,encrypted);  // skip 9 bytes for msg type, version and bdk id. skip 5 bytes for header
-			if(encrypted_length == -1)
-			{
-				printLastError("Public Encrypt failed ");
-				exit(0);
-			}
-
-			printf("Encrypted length =%d\n",encrypted_length);
-
-			memcpy(send_buffer+5+5,encrypted,encrypted_length);
-			len = encrypted_length+3+5;
-			temp_byte1 = (len) & 0x00ff;
-			temp_byte2 = (len) & 0xff00;
-			temp_byte2 = temp_byte2 >> 8;
-
-			ipek_r.msg_len[0] = send_buffer[0] = temp_byte2 ;
-			ipek_r.msg_len[1] = send_buffer[1] = temp_byte1;
-			//setting tpdu
-			send_buffer[2] = buf[2], send_buffer[3] = buf[5], send_buffer[4] = buf[6] , send_buffer[5] = buf[3], send_buffer[6] = buf[4];
-			//setting msg type, version and ACK
-			send_buffer[7] = 0x2, send_buffer[8]=0x1, send_buffer[9] = 0x6;
-
-			//n = write(childfd, send_buffer, len+2);
-			n = send(childfd, send_buffer, len+2, 0);
-			if (n < 0) 
-				error("ERROR writing to socket");
-
-			printf("ip header : %02X %02X\n", send_buffer[0], send_buffer[1]);
-			printf("\n %d bytes sent", n);
-
-			close(childfd);
-
+			perror("accept");
+			continue;
 		}
 
+		handle_client(client_fd);
+
+		close(client_fd);
+		fflush(stdout);
 	}
 }

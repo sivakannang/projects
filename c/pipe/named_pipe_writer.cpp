@@ -1,45 +1,48 @@
+// g++ named_pipe_writer.cpp -o named_pipe_writer
+//
+// Run this and named_pipe_reader in two windows, in either order.
+// open() blocks until the other side has opened the FIFO too.
 
-
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
 #include <errno.h>
 #include <fcntl.h>
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 int main()
 {
+	int fd;
+	ssize_t ret;
 
-	int fd = 0;
-	int ret = 0;
+	const char myfifo[] = "/tmp/myfifo";
+	const char msg[] = "Hello ... This is simple data to pipe";
 
-	char myfifo[] = "/tmp/myfifo";
-	char msg[] = "Hello ... This is simple data to pipe";
-
-	mkfifo(myfifo, 0666);
+	// Whichever side starts first creates it, so EEXIST is fine
+	if ( mkfifo(myfifo, 0600) == -1 && errno != EEXIST )
+	{
+		perror("mkfifo");
+		return EXIT_FAILURE;
+	}
 
 	fd = open(myfifo, O_WRONLY);
 	if ( fd < 0 )
 	{
-		printf("\nopen() failed : %d", errno);
+		perror("open");
 		return EXIT_FAILURE;
 	}
 
 	ret = write(fd, msg, strlen(msg));
-	printf("\nWritten %d bytes => %s", ret, msg);
-	fflush(stdout);
+	if ( ret == -1 )
+		perror("write");
+	else
+		printf("Written %zd bytes => %s\n", ret, msg);
 
 	close(fd);
 
-	printf("\npipe unlink() in process");
-	fflush(stdout);
-
+	// This only removes the name. A reader that already has it open can still read the data.
 	unlink(myfifo);
 
-	printf("\npipe unlink() done");
-	fflush(stdout);
-
-	return EXIT_SUCCESS;
+	return (ret == -1) ? EXIT_FAILURE : EXIT_SUCCESS;
 }

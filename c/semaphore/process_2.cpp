@@ -1,53 +1,52 @@
+// See process_1.cpp
 
 #include <stdio.h>
-#include <errno.h>
+#include <unistd.h>
 #include "common.h"
 
+#define READY_WAIT_MS 10000
 
 int main()
 {
-
-	int ret = 0, sval = 0;
-
+	int waited = 0;
 	DATA *data = (DATA *)shmAttach();
 
 	if ( data == NULL)
+		return 1;
+
+	// The segment can exist before process 1 has initialized the semaphores in it
+	while ( __atomic_load_n(&data->ready, __ATOMIC_ACQUIRE) == 0 )
 	{
-		printf("\nShared memory create failed");
-		return -1;
+		if ( waited >= READY_WAIT_MS )
+		{
+			fprintf(stderr, "Timed out waiting for process 1\n");
+			shmDetach(data);
+			return 1;
+		}
+
+		usleep(100 * 1000);
+		waited += 100;
 	}
 
-	/*ret = sem_init(&(data->lock), 1, 1); // second param = 1 , semaphore is between processes
-	if ( ret == -1)
-	{
-		shmDetach((void *)data);
-		return -1;
-	}*/
+	printf("Process 2 waiting for process 1\n");
+	semWait(&data->process1Done);
 
+	semWait(&data->lock);
+	printf("Process 2 acquired lock\n");
 
-	ret = sem_getvalue(&(data->lock), &sval);
+	printf("Name : %s\n", data->name);
 
-	printf("\n1 => Process 2 waiting for lock : %d %d %d", ret, sval, errno);
+	printf("Enter name : ");
 	fflush(stdout);
-	ret = sem_wait(&(data->lock));
-	if ( ret == -1)
-		printf("\n1 => Process 2 lock failed, errno %d", errno);
-	printf("\n1 => Process 2 acquired lock");
-	fflush(stdout);
+	readName(data->name, sizeof(data->name));
 
-	printf("\nName : %s", data->name);
+	sem_post(&data->lock);
+	printf("Process 2 released lock\n");
 
-	printf("\nEnter name : ");
-	gets(data->name);
+	// Last use of the semaphores in this process: after this, process 1 may destroy them
+	sem_post(&data->process2Done);
 
-	ret = sem_post(&(data->lock));
-	printf("\n1 => Process 2 released lock");	
-
-
-	shmDetach( (void *)data);
+	shmDetach(data);
 
 	return 0;
-
-} 
-
-
+}

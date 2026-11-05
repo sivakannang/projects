@@ -1,7 +1,6 @@
 
-#ifndef _DATA_STRUCTURE_H_
-
-	#define _DATA_STRUCTURE_H_
+#ifndef DATA_STRUCTURE_H
+#define DATA_STRUCTURE_H
 
 #define MAX_LEN_NAME 48
 #define SWAP(A,B,TEMP) (TEMP=A, A=B, B=TEMP)

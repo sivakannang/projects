@@ -1,42 +1,45 @@
+// See shm.cpp
 
 #include <stdio.h>
-#include <sys/shm.h>
 #include <sys/ipc.h>
+#include <sys/shm.h>
 
 #include "common.h"
 
 
 int main()
 {
-	int shmid = 0;
-	key_t key = 0;
-	void *shmptr = NULL;
-	int size = sizeof(STUDENT) + sizeof(EMPLOYEE) + sizeof(BOOK);
+	int shmid;
+	key_t key;
+	const SHARED_DATA *data;
 
 	key = ftok("shm.cpp", 'A');
-
-	shmid = shmget(key, size, 0666 );
-	if ( shmid == -1){
-		printf("\nShared memory allocation failed");
+	if ( key == -1 )
+	{
+		perror("ftok(shm.cpp), run this from its own directory");
 		return 1;
 	}
 
-	shmptr = shmat(shmid, NULL, 0);
-	if ( shmptr == (void *)-1) {
-		printf("\nShared memory attach failed");
-		return -1;
+	shmid = shmget(key, sizeof(SHARED_DATA), 0600);
+	if ( shmid == -1 )
+	{
+		perror("shmget (is shm running?)");
+		return 1;
 	}
 
-	STUDENT *student = (STUDENT *)getPtrFromSharedMem(shmptr, T_STUDENT);
-	EMPLOYEE *employee = (EMPLOYEE *)getPtrFromSharedMem(shmptr, T_EMPLOYEE);
-	BOOK *book = (BOOK *)getPtrFromSharedMem(shmptr, T_BOOK);
+	// This program only displays the data, so attach read only
+	data = (const SHARED_DATA *)shmat(shmid, NULL, SHM_RDONLY);
+	if ( data == (void *)-1 )
+	{
+		perror("shmat");
+		return 1;
+	}
 
-	displayStudentInfo(student);
-	displayEmployeeInfo(employee);
-	displayBookInfo(book);
+	displayStudentInfo(&data->student);
+	displayEmployeeInfo(&data->employee);
+	displayBookInfo(&data->book);
 
-
-	shmdt(shmptr);
+	shmdt(data);
 
 	return 0;
 }

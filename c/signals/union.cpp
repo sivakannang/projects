@@ -1,61 +1,51 @@
-#include "stdio.h"
-#include "stdlib.h"
+// g++ union.cpp -o union
+//
+// All members of a union share the same memory, so writing one changes what the others read.
+// The size is that of the largest member, here 4 bytes.
+//
+// Reading a member other than the last one written is allowed in C. In standard C++ it is
+// undefined, though GCC and Clang document that it works as it does in C. The values below
+// depend on the machine's byte order: this output is from a little-endian machine.
+
+#include <stdio.h>
 
 typedef union
 {
 	char gender;
 	short age;
 	int salary;
-}MEMBER;                  // size will be 4 bytes
+}MEMBER;
 
+static void show(const char *title, const MEMBER *employee)
+{
+	printf("%-27s -> Gender : %c, Age : %d, salary : %d\n", title, employee->gender, employee->age, employee->salary);
+}
 
 int main()
-
 {
-
 	MEMBER employee = {0};
-	int fldCount = 3;
-	int fldOffset = 0;
 
-	printf("\nInitial values            ->Gender : %c, Age : %d , salary : %d", employee.gender, employee.age, employee.salary);
+	employee.salary = 0;
+	show("Initial values", &employee);
 
-	for ( fldOffset = 0; fldOffset < fldCount; fldOffset++)
-	{
-		switch(fldOffset)
-		{
-			case 0:
-				employee.gender = 'M';
-				
-				printf("\nafter set gender='M'      ->Gender : %c, Age : %d , salary : %d", employee.gender, employee.age, employee.salary);
-				break;
-			case 1:
-				employee.age = 22;
-				printf("\nafter set age = 22        ->Gender : %c, Age : %d , salary : %d", employee.gender, employee.age, employee.salary);
-				break;
-			case 2:
-				employee.salary =17000;
-				printf("\nafter set salary = 17000  ->Gender : %c, Age : %d , salary : %d", employee.gender, employee.age, employee.salary);
-				break;
+	employee.gender = 'M';
+	show("after set gender = 'M'", &employee);
 
-		}
-	}
+	employee.age = 22;
+	show("after set age = 22", &employee);
+
+	employee.salary = 17000;
+	show("after set salary = 17000", &employee);
 
 	return 0;
-
 }
 
 
 /**************************************** output **************************************
 
-$ g++ union.cpp -o union
-
-$ ./union.exe
-
-Initial values            ->Gender : ,  Age : 0 ,    salary : 0
-after set gender='M'      ->Gender : M, Age : 77 ,   salary : 77
-after set age = 22        ->Gender : ,  Age : 22 ,   salary : 22
-after set salary = 17000  ->Gender : h, Age : 17000, salary : 17000
+Initial values              -> Gender : , Age : 0, salary : 0
+after set gender = 'M'      -> Gender : M, Age : 77, salary : 77
+after set age = 22          -> Gender : , Age : 22, salary : 22
+after set salary = 17000    -> Gender : h, Age : 17000, salary : 17000
 
 ***************************************** output **************************************/
-
-

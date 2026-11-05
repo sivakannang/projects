@@ -1,46 +1,39 @@
 /*
-      g++ client.cpp -lssl -lcrypto -lpthread -o client
+      g++ client.cpp -lssl -lcrypto -lpthread -o client      (Linux)
 */
 
-
+#include <errno.h>
+#include <stdarg.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
-#include <ctype.h>
+#include <string.h>
+#include <time.h>
 
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
-
+#include <signal.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 // OpenSSL
-#include <openssl/ssl.h>
-#include <openssl/bio.h>
 #include <openssl/err.h>
-#include <openssl/rand.h>
+#include <openssl/ssl.h>
 #include <openssl/x509v3.h>
 
 // Socket
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <netdb.h>
-#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 
 // POSIX Threads
 #include <pthread.h>
 
-#define LINUX
-
-#ifdef WINDOWS
-	#include "windows.h"
-#else
-	#include "unistd.h"
-#endif
-
-#define SOCKET_ERROR   -1
-
-typedef int SOCKET;
-
+#define BUFFER_SIZE       1024
+#define RCV_TIMEOUT_SECS  30
+#define MAX_ATTEMPT       1024
+#define MAX_THREADS       128
+#define MAX_CLIENTS       1000
 
 typedef enum
 {
@@ -50,7 +43,7 @@ typedef enum
 
 typedef struct SOCKET_HANDLER
 {
-	SOCKET sock;
+	int sock;
 	SSL_CTX *ctx;
 	SSL *ssl;
 	unsigned short isConnected;
@@ -58,667 +51,503 @@ typedef struct SOCKET_HANDLER
 
 typedef struct SOCKET_INFO
 {
-	char hostIP[25];
+	const char *hostIP;
 	unsigned short hostPort;
 	short isSSL;
-	char certificate[25];
-	char keyfile[25];
-	char password[25];
-	char caCert[25];
-	char commonName[25];
+	const char *certificate;
+	const char *keyfile;
+	const char *password;
+	const char *caCert;
+	const char *commonName;
 }SocketInfo;
 
 
-BIO *bio_err=0;
-
-SOCKET Socket_Open( const char *host, unsigned short port );
-int Socket_Write(SOCKET sock, SSL *ssl, unsigned char *buffer, int len);
-int Socket_Read(SOCKET sock, SSL *ssl, unsigned char *buffer, int maxLen);
-void Socket_Close(SOCKET s);
+int Socket_Open(const char *host, unsigned short port);
+int Socket_Write(int sock, SSL *ssl, const unsigned char *buffer, int len);
+int Socket_Read(int sock, SSL *ssl, unsigned char *buffer, int maxLen);
+void Socket_Close(int s);
 SocketInfo getSocketInfo(void);
 void Socket_Destroy(SocketHandle *Socket);
 
-SSL_CTX *initialize_ctx (char *certfile, char *keyfile, char *CA, char *password);
-void destroy_ctx(SSL_CTX *ctx);
-void check_cert_chain (SSL *ssl, char *host);
-int verify_callback (int ok, X509_STORE_CTX *store);
-static int password_cb(char *buf,int num,int rwflag,void *userdata);
+SSL_CTX *initialize_ctx(const char *certfile, const char *keyfile, const char *CA, const char *password);
+int verify_callback(int ok, X509_STORE_CTX *store);
 
-int Time_Get(char *outField);
-int File_Log(const char* format, ...);
-BOOLEAN set_socket_nonblock(SOCKET sd);
-BOOLEAN set_socket_rcv_timeout(SOCKET sock, int secs);
+int File_Log(const char *format, ...) __attribute__((format(printf, 1, 2)));
+BOOLEAN set_socket_rcv_timeout(int sock, int secs);
 
 SocketHandle Socket_ClientInit(void);
 void *client(void *args);
 
-short client_server();
-short client_server_multiThread();
-short client_server_polling();
-
-static char *pass;
+int client_sequential(void);
+int client_multiThread(void);
+int client_many_open_connections(void);
 
 
 /*****************************************    Socket and SSL Communication     *************************************************/
 
 SocketInfo getSocketInfo(void)
 {
-
 	// Fill the Socket Information here
 
-	SocketInfo sockInfo = {0};
+	SocketInfo sockInfo;
 
-	strcpy(sockInfo.hostIP, "127.0.0.1");
-	sockInfo.hostPort = 8888; 
-	sockInfo.isSSL = _FALSE; 
-	strcpy(sockInfo.certificate, "client.crt");
-	strcpy(sockInfo.keyfile, "client_key.pem");
-	strcpy(sockInfo.caCert, "ca.crt");
-	strcpy(sockInfo.commonName, "unipay");
-	strcpy(sockInfo.password, "");
+	sockInfo.hostIP = "127.0.0.1";
+	sockInfo.hostPort = 13001;
+	sockInfo.isSSL = _FALSE;
+	sockInfo.certificate = "client.crt";
+	sockInfo.keyfile = "client_key.pem";
+	sockInfo.caCert = "ca.crt";
+	sockInfo.commonName = "unipay";
+	sockInfo.password = "";
 
 	return sockInfo;
 }
 
 
-SOCKET Socket_Open( const char *host, unsigned short port )
+// host can be an IP address or a domain name. Returns the connected socket, or -1.
+int Socket_Open(const char *host, unsigned short port)
 {
-	
-	SOCKET sock;
-	struct sockaddr_in host_address;
-	char hostIP[51] = {'\0'};
+	struct addrinfo hints, *result, *addr;
+	char service[16];
+	int ret, sock = -1;
 
-	strcpy(hostIP, host);
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
 
-#ifdef WINDOWS
+	snprintf(service, sizeof(service), "%d", port);
 
-	WSADATA WinSockInitInfo;
-	WSAStartup(MAKEWORD(2,0),&WinSockInitInfo);
-
-#endif
-
-	File_Log("Socket_Open() : %s : %d", host, port);
-
-	host_address.sin_family = AF_INET;
-	host_address.sin_addr.s_addr = inet_addr(host); 
-	host_address.sin_port = htons(port);
-
-	if ( host_address.sin_addr.s_addr == INADDR_NONE)
+	ret = getaddrinfo(host, service, &hints, &result);
+	if ( ret != 0 )
 	{
-		// If host address is Domain Name instead of IP address
-
-		struct hostent *tempAddr = gethostbyname(host);
-		if ( tempAddr == NULL)
-		{
-			File_Log("gethostbyname() fail, %s : %c", host, port);
-			goto ERRORHANDLER;
-		}
-		else
-		{
-			strcpy(hostIP, (char *)inet_ntoa( *( struct in_addr*)( tempAddr -> h_addr_list[0])));	
-			host_address.sin_addr.s_addr = inet_addr(hostIP);
-		}	
+		File_Log("ERROR : getaddrinfo() %s:%d : %s", host, port, gai_strerror(ret));
+		return -1;
 	}
 
-	File_Log("Socket Connecting --> %s:%d", hostIP, port);
-
-
-	sock = socket( AF_INET, SOCK_STREAM, 0 );
-
-	if ( sock == SOCKET_ERROR)
+	for ( addr = result; addr != NULL; addr = addr->ai_next )
 	{
-		File_Log("Socket Initialize Error");
-		goto ERRORHANDLER;
+		sock = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
+		if ( sock == -1 )
+			continue;
+
+		if ( connect(sock, addr->ai_addr, addr->ai_addrlen) == 0 )
+			break;
+
+		Socket_Close(sock);
+		sock = -1;
 	}
 
+	freeaddrinfo(result);
 
-	if ( connect( sock, (struct sockaddr *)&host_address, sizeof(host_address)) == SOCKET_ERROR) 
-	{
-		
-		File_Log("Socket Connection Failed"); 
-		goto ERRORHANDLER;
-	}
-
-	File_Log("Socket Connected --> %s:%d", hostIP, port);
+	if ( sock == -1 )
+		File_Log("ERROR : connect() %s:%d failed : %s", host, port, strerror(errno));
 
 	return sock;
-
-ERRORHANDLER:
-
-#ifdef WINDOWS
-	WSACleanup();
-#endif
-
-	return SOCKET_ERROR;
 }
 
-void Socket_Close(SOCKET s)
+void Socket_Close(int s)
 {
-
-	//File_Log("Socket Closing");
-
-#ifdef WINDOWS
-	closesocket(s);
-	WSACleanup();
-#else
 	close(s);
-#endif
-	
-	//File_Log("Socket Closed");
-
 }
 
-BOOLEAN set_socket_rcv_timeout(SOCKET sock, int secs)
+BOOLEAN set_socket_rcv_timeout(int sock, int secs)
 {
-	short ret = 0;
 	struct timeval tv;
-	tv.tv_sec = secs;     // 30 sec timeout
+	tv.tv_sec = secs;
 	tv.tv_usec = 0;
 
-	ret = setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *) &tv, sizeof(tv));
-
-	if ( ret )
-		File_Log("ERROR : SET SOCKET RECEIVE TIMEOUT");
-
-	return ret ? _FALSE : _TRUE;
-
-}
-
-BOOLEAN set_socket_nonblock(SOCKET sd)
-{
-	int flags;
-
-	flags = fcntl( sd, F_GETFL, 0);
-	if ( flags == -1)
+	if ( setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) == -1 )
 	{
-		File_Log("ERROR : fcntl F_GETFL");
-		return _FALSE;
-	}
-
-	flags |= O_NONBLOCK;
-	
-	flags = fcntl( sd, F_SETFL, flags);
-	if ( flags == -1)
-	{
-		File_Log("ERROR : fcntl F_SETFL");
+		File_Log("ERROR : SET SOCKET RECEIVE TIMEOUT : %s", strerror(errno));
 		return _FALSE;
 	}
 
 	return _TRUE;
-
 }
 
-int Socket_Read(SOCKET sock, SSL *ssl, unsigned char *buffer, int maxLen)
+// Returns bytes read, 0 if the peer closed, or a negative value on error
+int Socket_Read(int sock, SSL *ssl, unsigned char *buffer, int maxLen)
 {
-	int bytesRead = 0;
-	
-	set_socket_rcv_timeout(sock, 30); // 30 secs
+	int bytesRead;
 
-	//File_Log("Socket Receiving...");
+	if ( ssl )
+		return SSL_read(ssl, buffer, maxLen);
 
-	bytesRead = ssl ?  SSL_read(ssl, buffer, maxLen) : recv(sock, (char *)buffer, maxLen, 0) ;
+	do
+	{
+		bytesRead = recv(sock, buffer, maxLen, 0);
+	} while ( bytesRead == -1 && errno == EINTR );
 
 	return bytesRead;
 }
 
-int Socket_Write(SOCKET sock, SSL *ssl, unsigned char *buffer, int len)
+// Writes the whole buffer, handling partial writes. Returns len, or -1 on error.
+int Socket_Write(int sock, SSL *ssl, const unsigned char *buffer, int len)
 {
-	int bytesWritten = 0;
+	int total = 0;
 
-	//File_Log("Socket Sending...");
+	while ( total < len )
+	{
+		int written = ssl ? SSL_write(ssl, buffer + total, len - total) : send(sock, buffer + total, len - total, 0);
 
-	bytesWritten = ssl ?  SSL_write(ssl, buffer, len) : send(sock, (char *)buffer, len, 0) ;
+		if ( written > 0 )
+			total += written;
+		else if ( ssl || written == 0 || errno != EINTR )
+			return -1;
+	}
 
-	return bytesWritten;
+	return total;
 }
 
 void Socket_Destroy(SocketHandle *Socket)
 {
-
-	//File_Log("Socket_Destroy() -> Destroying Socket...");
-
-	if ( Socket->ssl)
+	if ( Socket->ssl )
+	{
+		SSL_shutdown(Socket->ssl);
 		SSL_free(Socket->ssl);
+	}
 
 	Socket_Close(Socket->sock);
 
-	if ( Socket->ctx)
-		destroy_ctx(Socket->ctx);
-	
-	//File_Log("Socket_Destroy() -> Destroyed");
-
+	if ( Socket->ctx )
+		SSL_CTX_free(Socket->ctx);
 }
 
 
-SSL_CTX *initialize_ctx (char *certfile, char *keyfile, char *CA, char *password)
+static void log_ssl_error(const char *what)
 {
-	int ret = 0;
-	SSL_METHOD *meth;
-	SSL_CTX *ctx;
+	char details[256];
 
+	ERR_error_string_n(ERR_get_error(), details, sizeof(details));
+	File_Log("%s : %s", what, details);
+}
 
+static int password_cb(char *buf, int size, int, void *userdata)
+{
+	const char *password = (const char *)userdata;
+	int len = strlen(password);
 
-	//File_Log("SSL CTX Initializing");
+	if ( len >= size )
+		return 0;
 
-	if (!bio_err) 
+	memcpy(buf, password, len + 1);
+
+	return len;
+}
+
+SSL_CTX *initialize_ctx(const char *certfile, const char *keyfile, const char *CA, const char *password)
+{
+	SSL_CTX *ctx = SSL_CTX_new(TLS_client_method());
+
+	if ( ctx == NULL )
 	{
-		/* Global system initialization*/
-		ret = SSL_library_init ();
-		if ( ret != 1){
-			File_Log("SSL LIB INIT FAIL");
-			return NULL;
-		}
-		SSL_load_error_strings ();
-		/* An error write context */
-		bio_err = BIO_new_fp (stderr, BIO_NOCLOSE);
-	}
-
-	/* Create our context*/
-	meth = (SSL_METHOD *)SSLv23_method ();
-	ctx = SSL_CTX_new (meth);
-	
-	
-	/* Load our keys and certificates*/
-	ret = SSL_CTX_use_certificate_file ( ctx, certfile, SSL_FILETYPE_PEM);
-	if ( ret != 1)
-	{
-		File_Log("CERTIFICATE FILE LOAD FAIL");
-		destroy_ctx(ctx);
-		return NULL;
-	}
-	pass = password;
-	SSL_CTX_set_default_passwd_cb (ctx, password_cb);
-	
-	
-	ret = SSL_CTX_use_PrivateKey_file (ctx, keyfile, SSL_FILETYPE_PEM);
-	if ( ret != 1)
-	{
-		File_Log("KEY FILE LOAD FAIL");
-		destroy_ctx(ctx);
-		return NULL;
-	}
-	
-	/* Load the CAs we trust*/
-	SSL_CTX_load_verify_locations (ctx, CA,0);
-	if ( ret != 1)
-	{
-		File_Log("CA LOAD FAIL");
-		destroy_ctx(ctx);
+		log_ssl_error("SSL CTX CREATE FAIL");
 		return NULL;
 	}
 
-	SSL_CTX_set_verify_depth (ctx,2);
-	SSL_CTX_set_verify (ctx, SSL_VERIFY_PEER, verify_callback);
+	SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION);
+	SSL_CTX_set_default_passwd_cb(ctx, password_cb);
+	SSL_CTX_set_default_passwd_cb_userdata(ctx, (void *)password);
 
-	//File_Log("SSL CTX Initialization OK");
+	/* Load our keys and certificates */
+	if ( SSL_CTX_use_certificate_file(ctx, certfile, SSL_FILETYPE_PEM) != 1 )
+	{
+		log_ssl_error("CERTIFICATE FILE LOAD FAIL");
+		SSL_CTX_free(ctx);
+		return NULL;
+	}
+
+	if ( SSL_CTX_use_PrivateKey_file(ctx, keyfile, SSL_FILETYPE_PEM) != 1 )
+	{
+		log_ssl_error("KEY FILE LOAD FAIL");
+		SSL_CTX_free(ctx);
+		return NULL;
+	}
+
+	/* Load the CAs we trust */
+	if ( SSL_CTX_load_verify_locations(ctx, CA, NULL) != 1 )
+	{
+		log_ssl_error("CA LOAD FAIL");
+		SSL_CTX_free(ctx);
+		return NULL;
+	}
+
+	SSL_CTX_set_verify_depth(ctx, 2);
+	SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, verify_callback);
 
 	return ctx;
 }
 
-void destroy_ctx(SSL_CTX *ctx)
-{
-	SSL_CTX_free(ctx);
-}
 
-
-int verify_callback (int ok, X509_STORE_CTX *store)
+int verify_callback(int ok, X509_STORE_CTX *store)
 {
-	char data[256];
-	
-	if (!ok)
+	if ( !ok )
 	{
-		
+		char data[256];
 		X509 *cert = X509_STORE_CTX_get_current_cert(store);
-		int depth = X509_STORE_CTX_get_error_depth(store);
 		int err = X509_STORE_CTX_get_error(store);
-		File_Log("Error with certificate at depth: %i", depth);
-		X509_NAME_oneline(X509_get_issuer_name(cert), data, 256);
-		File_Log("Issuer = %s", data);
-		X509_NAME_oneline(X509_get_subject_name(cert), data, 256);
-		File_Log("Subject = %s", data);
-		File_Log("Err %i:%s", err, X509_verify_cert_error_string(err) );
+
+		File_Log("Error with certificate at depth: %d", X509_STORE_CTX_get_error_depth(store));
+		if ( cert )
+		{
+			X509_NAME_oneline(X509_get_issuer_name(cert), data, sizeof(data));
+			File_Log("Issuer = %s", data);
+			X509_NAME_oneline(X509_get_subject_name(cert), data, sizeof(data));
+			File_Log("Subject = %s", data);
+		}
+		File_Log("Err %d:%s", err, X509_verify_cert_error_string(err));
 	}
 
 	return ok;
 }
 
 
-/* Check that the common name matches the host name*/
-void check_cert_chain (SSL *ssl, char *host)
+int File_Log(const char *format, ...)
 {
-	X509 *peer;
-	char peer_CN[256];
-
-	
-	if ( SSL_get_verify_result (ssl) != X509_V_OK )
-		File_Log("Certificate doesn't verify");
-	/*Check the common name*/
-	peer = SSL_get_peer_certificate (ssl);
-	X509_NAME_get_text_by_NID (X509_get_subject_name (peer), NID_commonName, peer_CN, 256);
-	if (strcmp(peer_CN, host)){
-		File_Log("Common name not matched");
-		File_Log("%s : %s", peer_CN, host);
-	}
-	
-}
-
-static int password_cb(char *buf,int num,int rwflag,void *userdata)
-{
-	if(num < (signed int)strlen(pass)+1)
-	{
-		return(0);
-	}
-
-	strcpy(buf, pass);
-
-	return(strlen(pass));
-}
-
-
-
-
-
-int File_Log(const char* format, ...)
-{
-	int ret=0;
-	int month = 0;
-	int fp = 0;
-	char buffer[15001] = {'\0'};
-	char logfile[30] = {'\0'};	
-
+	char buffer[4096];
+	char logfile[30];
+	time_t t = time(NULL);
+	struct tm lt;
 	va_list args;
+	int fd, ret, len;
 
-	month = Time_Get(buffer);
+	localtime_r(&t, &lt);
+
+	len = snprintf(buffer, sizeof(buffer), "\n%02d%02d%02d: %02d/%02d/%02d: => ", lt.tm_hour, lt.tm_min, lt.tm_sec, lt.tm_mon + 1, lt.tm_mday, lt.tm_year - 100);
 
 	va_start(args, format);
-	vsprintf (&buffer[strlen(buffer)], format, args );
-	va_end(args);	
+	ret = vsnprintf(buffer + len, sizeof(buffer) - len, format, args);
+	va_end(args);
 
-	sprintf(logfile, "log_c_%02d.txt", month);
+	if ( ret > 0 )
+		len = ((size_t)(len + ret) < sizeof(buffer)) ? len + ret : (int)sizeof(buffer) - 1;
 
 	printf("%s", buffer);
 
+	snprintf(logfile, sizeof(logfile), "log_c_%02d.txt", lt.tm_mon + 1);
 
-	fp = open (logfile, O_WRONLY|O_APPEND|O_CREAT, S_IWRITE | S_IREAD); // S_IWRITE - Open or Create with write permission 
-	
-	if(fp<0)
-	{
-		switch(errno)
-		{
-			case EACCES: //return _ERR_FILE_ACCESS; 
-			case EMFILE: //return _ERR_FILE_TOO_MANY_HANDLERS;
-			default: //return _ERR_FILE_UNKNOWN;
-				return -1;
-		}
-	}
+	fd = open(logfile, O_WRONLY | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR);
+	if ( fd < 0 )
+		return -1;
 
-	ret = write(fp, (const char *)buffer,strlen(buffer));
+	ret = write(fd, buffer, len);
 
-	close(fp);
+	close(fd);
 
 	return ret;
-	
-
 }
-
-
-int Time_Get(char *outField)
-{
-
-	time_t t = time(0);
-	struct tm* lt = localtime(&t);
- 	char time_str[128] = {0};
-
-    sprintf(time_str, "\n%02d%02d%02d: %02d/%02d/%02d: => ", lt->tm_hour, lt->tm_min, lt->tm_sec, lt->tm_mon + 1, lt->tm_mday, lt->tm_year - 100);
-
-	strncat(outField, time_str, strlen(time_str));
-	return lt->tm_mon + 1;
-}
-
 
 
 SocketHandle Socket_ClientInit(void)
 {
-	BIO *sbio;
-
-	SocketHandle Client= {0};
+	SocketHandle Client;
 	SocketInfo sockInfo = getSocketInfo();
 
+	memset(&Client, 0, sizeof(Client));
 
 	Client.sock = Socket_Open(sockInfo.hostIP, sockInfo.hostPort);
-	if ( Client.sock == SOCKET_ERROR)
+	if ( Client.sock == -1 )
 		return Client;
 
+	// Also limits how long a silent server can hold the TLS handshake open
+	set_socket_rcv_timeout(Client.sock, RCV_TIMEOUT_SECS);
 
-	if ( sockInfo.isSSL)
+	if ( sockInfo.isSSL )
 	{
-
 		Client.ctx = initialize_ctx(sockInfo.certificate, sockInfo.keyfile, sockInfo.caCert, sockInfo.password);
-		if ( Client.ctx == NULL)
+		if ( Client.ctx == NULL )
 		{
 			Socket_Close(Client.sock);
 			return Client;
 		}
 
-		File_Log("SSL Connecting");
+		Client.ssl = SSL_new(Client.ctx);
 
-		Client.ssl = SSL_new (Client.ctx);
-		sbio = BIO_new_socket (Client.sock, BIO_NOCLOSE);
-		SSL_set_bio (Client.ssl, sbio, sbio);
-
-		if ( SSL_connect (Client.ssl) < 0){
+		// SSL_set1_host makes the handshake fail unless the server certificate matches this name
+		if ( Client.ssl == NULL || SSL_set_fd(Client.ssl, Client.sock) != 1 || SSL_set1_host(Client.ssl, sockInfo.commonName) != 1 || SSL_connect(Client.ssl) <= 0 )
+		{
+			log_ssl_error("SSL_connect() FAIL");
+			if ( Client.ssl )
+				SSL_free(Client.ssl);
+			SSL_CTX_free(Client.ctx);
 			Socket_Close(Client.sock);
-			destroy_ctx(Client.ctx);
-			File_Log("SSL Connection Error");
+			Client.ssl = NULL;
+			Client.ctx = NULL;
 			return Client;
 		}
-
-		check_cert_chain (Client.ssl, sockInfo.commonName);
 	}
 
 	Client.isConnected = _TRUE;
 
 	return Client;
+}
 
+
+// Sends message and waits for the full echo, which TCP may deliver in several pieces. Returns _FALSE on failure.
+static BOOLEAN send_and_check_echo(SocketHandle *Client, int id, const char *message)
+{
+	unsigned char buffer[BUFFER_SIZE];
+	int len = strlen(message);
+	int received = 0;
+	int ret;
+
+	ret = Socket_Write(Client->sock, Client->ssl, (const unsigned char *)message, len);
+	File_Log("CLIENT %d => SND => %d => %s", id, ret, message);
+
+	if ( ret != len )
+		return _FALSE;
+
+	while ( received < len && received < (int)sizeof(buffer) - 1 )
+	{
+		ret = Socket_Read(Client->sock, Client->ssl, buffer + received, sizeof(buffer) - 1 - received);
+		if ( ret <= 0 )
+			break;
+
+		received += ret;
+	}
+
+	buffer[received] = '\0';
+	File_Log("CLIENT %d => RCV => %d => %s", id, received, buffer);
+
+	return (received == len) ? _TRUE : _FALSE;
 }
 
 
 void *client(void *args)
 {
-	
-	short ret = 0;
-	unsigned char buffer[101] = {0};
-	SocketHandle Client= {0};
+	int id = *(int *)args;
+	char message[BUFFER_SIZE];
+	SocketHandle Client = Socket_ClientInit();
 
-	sprintf((char *)buffer, "Hello Server.... I'm from thread number %d", *(int *)args);
-
-	Client = Socket_ClientInit();
-	if ( !Client.isConnected){
-		File_Log("Thread %d : Socket Connect Failed", *(int *)args);
-		return (void *)"FAIL";
+	if ( !Client.isConnected )
+	{
+		File_Log("CLIENT %d => CONNECT FAILED", id);
+		return NULL;
 	}
 
+	snprintf(message, sizeof(message), "Hello Server.... I'm from thread number %d", id);
 
-	File_Log("Thread %d => SOCKET CONNECTED", *(int *)args);
-	ret = Socket_Write(Client.sock, Client.ssl, buffer, strlen((char *)buffer));
-	File_Log("Thread %d => SND => %d => %s", *(int *)args, ret, (ret > 0) ? (char *)buffer : " ");
-
-	memset(buffer, 0, sizeof(buffer));
-	ret = Socket_Read (Client.sock, Client.ssl, buffer, sizeof(buffer));
-	File_Log("Thread %d => RCV => %d => %s", *(int *)args, ret, (char *)buffer);
+	send_and_check_echo(&Client, id, message);
 
 	Socket_Destroy(&Client);
-	File_Log("Thread %d => SOCKET DISCONNECT", *(int *)args);
 
-	return (void *)"SUCCESS";
-	
+	return NULL;
 }
 
 
-
-
-short client_server()
+// Connects, exchanges one message and disconnects, MAX_ATTEMPT times. Works with every server.
+int client_sequential(void)
 {
+	int i;
+	char message[BUFFER_SIZE];
 
-	#define MAX_ATTEMPT 1024
-
-	int ret = 0, i = 0;
-	SOCKET sock = 0;
-	SocketInfo sockInfo = getSocketInfo();
-	unsigned char buffer[1024] = {0};
-
-	for ( i = 0; i < MAX_ATTEMPT; i++)
+	for ( i = 0; i < MAX_ATTEMPT; i++ )
 	{
-		memset(buffer, 0, sizeof(buffer));
-		sprintf((char *)buffer, "I'm from client %d", i+1);
+		BOOLEAN ok;
+		SocketHandle Client = Socket_ClientInit();
 
-		sock = Socket_Open(sockInfo.hostIP, sockInfo.hostPort);
-		if ( sock == SOCKET_ERROR )
+		if ( !Client.isConnected )
+			return 1;
+
+		snprintf(message, sizeof(message), "I'm from client %d", i + 1);
+
+		ok = send_and_check_echo(&Client, i, message);
+
+		Socket_Destroy(&Client);
+
+		if ( !ok )
+			return 1;
+	}
+
+	return 0;
+}
+
+// MAX_THREADS clients at the same time, each in its own thread
+int client_multiThread(void)
+{
+	int i, ret;
+	int count = 0;
+	pthread_t threadID[MAX_THREADS];
+	int id[MAX_THREADS];
+
+	for ( i = 0; i < MAX_THREADS; i++ )
+	{
+		id[i] = i;
+
+		ret = pthread_create(&threadID[i], NULL, client, &id[i]);
+		if ( ret != 0 )
 		{
-			File_Log("ERROR : Socket Open");
-			exit(EXIT_FAILURE);
-		}
-
-		ret = Socket_Write(sock, NULL, buffer, strlen((char *)buffer));
-                File_Log("CLIENT %d => SND => %d => %s", i, ret, buffer);
-
-		memset(buffer, 0, sizeof(buffer));
-		ret = Socket_Read(sock, NULL, buffer, sizeof(buffer));
-                File_Log("CLIENT %d => RCV => %d => %s", i, ret, buffer);
-
-		Socket_Close(sock);
-
-		if ( ret < 0)
+			File_Log("Thread %d : pthread_create() : %s", i, strerror(ret));
 			break;
+		}
+
+		count++;
 	}
 
-	return 0;
-
-	
-}
-
-short client_server_multiThread()
-{
-
-	#define MAX_THREADS 128 
-	short ret = 0;
-	void *status;
-	int i = 0;
-	int count = MAX_THREADS;
-	pthread_t threadID[MAX_THREADS] = {0}; 
-	int id[MAX_THREADS] = {0};
-	unsigned char buffer[1024] = {0};
-
-//start:
-
-	for ( i = 0; i < count ; i++){
-		
-		id[i] = i;	
-		
-		ret = pthread_create(&threadID[i], NULL, client, (void *)&id[i]);
-		
-		if ( ret != 0){
-			File_Log("Thread %d : Thread creation failed", i);
-			count = i;
-		}
-		else{
-			File_Log("Thread %d : Thread created", i);
-		}
-	}
-	
-	
-	for ( i = 0; i < count ; i++){
-	
-		File_Log("Thread %d : thread joining", i);
-
+	for ( i = 0; i < count; i++ )
+	{
 		ret = pthread_join(threadID[i], NULL);
-		if ( ret != 0)
-			File_Log("Thread %d : thread join failed", i);
-		else
-			File_Log("Thread %d : thread joined", i);
-
+		if ( ret != 0 )
+			File_Log("Thread %d : pthread_join() : %s", i, strerror(ret));
 	}
 
-	//goto start;
+	return 0;
+}
+
+// Opens MAX_CLIENTS connections first, and then uses each in turn, keeping them all open.
+// Needs a concurrent server. The one-client-at-a-time server would stay blocked on the first connection.
+int client_many_open_connections(void)
+{
+	int i, count = 0;
+	char message[BUFFER_SIZE];
+	static SocketHandle Clients[MAX_CLIENTS];
+
+	for ( i = 0; i < MAX_CLIENTS; i++ )
+	{
+		Clients[i] = Socket_ClientInit();
+		if ( !Clients[i].isConnected )
+			break;
+
+		count++;
+	}
+
+	File_Log("Opened %d connections", count);
+
+	for ( i = 0; i < count; i++ )
+	{
+		snprintf(message, sizeof(message), "I'm from client %d", i + 1);
+
+		// One failed connection shouldn't stop the others
+		send_and_check_echo(&Clients[i], i, message);
+	}
+
+	for ( i = 0; i < count; i++ )
+		Socket_Destroy(&Clients[i]);
 
 	return 0;
 }
 
-short client_server_polling()
+
+int main(void)
 {
+	int choice = 0;
 
-	#define MAX_CLIENTS 1000 
+	signal(SIGPIPE, SIG_IGN);   // A write to a closed server must return an error, not kill the client
 
-	int ret = 0, i = 0, count = MAX_CLIENTS;
-	SocketInfo sockInfo = getSocketInfo();
-	unsigned char buffer[1024] = {0};
+	printf("\n\n\n---------------- Choose the client you want to run -------------------------\n");
+	printf("\n 1. Sequential clients (works with any server)");
+	printf("\n 2. Multi-thread clients (works with any server)");
+	printf("\n 3. Many open connections (needs server option 2 to 7)");
 
-	SOCKET sock[MAX_CLIENTS];
+	printf("\n\n Enter your choice : ");
+	if ( scanf("%d", &choice) != 1 )
+		choice = 0;
 
-	for ( i = 0; i < count; i++)
+	switch ( choice )
 	{
-		sock[i] = Socket_Open(sockInfo.hostIP, sockInfo.hostPort);
-		if ( sock[i] == SOCKET_ERROR )
-		{
-			File_Log("ERROR : Socket Open");
-			break;	
-		}
+		case 1: return client_sequential();
+		case 2: return client_multiThread();
+		case 3: return client_many_open_connections();
+		default: printf("\n Sorry !!!! , You have entered an invalid choice\n"); return 1;
 	}
-
-	count = i;
-	for ( i = 0; i < count; i++)
-	{
-		memset(buffer, 0, sizeof(buffer));
-		sprintf((char *)buffer, "I'm from client %d", i+1);
-
-		ret = Socket_Write(sock[i], NULL, buffer, strlen((char *)buffer));
-                File_Log("CLIENT %d => SND => %d => %s", i, ret, buffer);
-	
-		memset(buffer, 0, sizeof(buffer));
-		ret = Socket_Read(sock[i], NULL, buffer, sizeof(buffer));
-                File_Log("CLIENT %d => RCV => %d => %s", i, ret, buffer);
-	}
-	
-	for ( i = 0; i < count; i++)
-	{
-		Socket_Close(sock[i]);
-	}
-
-	return 0;
-
 }
-
-
-int main()
-{
-
-        int choice = 0;
-
-        printf("\n\n\n---------------- Choose the client you want to run-------------------------\n");
-        printf("\n 1. Client-Server");
-        printf("\n 2. Client-Server-Multi-Process");
-        printf("\n 3. Client-Server-Multi-Thread");
-        printf("\n 4. Client-Server-Select");
-        printf("\n 5. Client-Server-Poll");
-        printf("\n 6. Client-Server-Epoll");
-
-        printf("\n\n Enter your choice : ");
-        scanf("%d", &choice);
-
-        switch(choice)
-        {
-                case 1: client_server(); break;
-                case 2: client_server_multiThread(); break;
-                case 3: client_server_multiThread(); break;
-                case 4: client_server_polling(); break;
-                case 5: client_server_polling(); break;
-                case 6: client_server_polling(); break;
-                case 7: break;
-                default: printf("\n Sorry !!!! , You have entered in invalid choice\n"); break;
-        }
-
-        return 0;
-
-}
-
-

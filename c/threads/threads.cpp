@@ -1,52 +1,76 @@
-/***************************** Signals *****************************************
+// g++ threads.cpp -pthread -o threads
+
+/***************************** Threads *****************************************
  *
- * What is threads?
- * Why thread is required ?
- * Drawbacks of thread ?
- * process vs thread ?
- * fork vs thread ?
- * order of thread execution ?
+ * What is a thread?
+ *   -> A separate flow of execution inside a process, with its own stack and registers.
+ *      Threads share the process's memory, open files and signal handlers.
+ *
+ * Why use threads?
+ *   -> To use several CPU cores, and to keep waiting for one thing from blocking everything else.
+ *      Creating one and switching between them is cheaper than for processes, and sharing data is easy.
+ *
+ * Drawbacks
+ *   -> Shared memory needs synchronization, or you get race conditions and deadlocks.
+ *   -> A crash in one thread kills the whole process.
+ *   -> Bugs depend on timing, so they are hard to reproduce.
+ *
+ * Process vs thread, or fork vs pthread_create
+ *   -> fork creates a process with its own copy of memory. It is isolated, so a crash
+ *      stays in that process, but sharing data needs IPC (pipes, shared memory...).
+ *   -> pthread_create adds a thread in the same memory, so sharing is direct and unprotected.
+ *
+ * Order of thread execution
+ *   -> Not guaranteed. The scheduler decides, and the order can change on every run.
+ *      Only synchronization (join, mutex, condition variable...) can force an order.
+ *
+ * Race condition   -> the result depends on timing, because threads use shared data unsynchronized
+ * Mutual exclusion -> only one thread at a time may run a critical section
+ * Deadlock         -> threads wait on each other forever, for example by taking two locks in opposite orders
  *
 *******************************************************************************/
 
 /***************************** API Definition **********************************
  *
  * pthread_create()           -> create a new thread
- * pthread_cancel()           -> send a cancellation request to a thread ( 1.pthread_cleanup_push(), 2.pthread_key_create(), 3.pthread_exit() )
- * pthread_setcancelstate()   -> Enbale / Disable thread cancel state
- *                            -> By default thread cancel state enabled ( PTHREAD_CANCEL_DISABLE, PTHREAD_CANCEL_ENABLE)
- * pthread_exit()             -> terminates the calling thread
- *                            -> returns a value via it's argument retval that (if the thread is joinable) in the same process that calls pthread_join
- * pthread_join()             -> suspends execution of calling thread until target threads completes execution
- * pthread_detach()           -> detach a thread
- *                            -> Every thread gets allocated thread resources when it get created.
- *                            -> By default the all the threads are joinable and thread_join() will reclaim the thread resources.
- *                            -> In some situations we may don't want to call thread_join().
- *                            -> In those cases we should use thread_detach() for inform that reclaim the thread resources at end of the thread task.
+ * pthread_cancel()           -> send a cancellation request to a thread
+ *                            -> by default it takes effect at the next cancellation point, such as sleep or read
+ *                            -> the thread then runs pthread_cleanup_push handlers, thread-specific data destructors, and ends
+ * pthread_setcancelstate()   -> enable or disable cancellation for this thread ( PTHREAD_CANCEL_DISABLE, PTHREAD_CANCEL_ENABLE )
+ *                            -> enabled by default. While disabled, requests wait until it is enabled again
+ * pthread_exit()             -> terminates the calling thread, passing retval to pthread_join
+ *                            -> retval must not point to the thread's own stack, which is gone by then
+ * pthread_join()             -> suspends the calling thread until the target thread ends, and frees its resources
+ * pthread_detach()           -> frees the thread's resources automatically when it ends
+ *                            -> threads are joinable by default. Every thread must be either joined or detached, or its resources leak.
  * pthread_self()             -> obtain ID of the calling thread
- * pthread_equal()            -> compare thread IDs
- * pthread_kill()             -> send a signal to a thread, it doesn't kill the thread, its just send signal to the specified thread
- * pthread_attr_init()        ->
- * pthread_attr_destroy()     ->
+ * pthread_equal()            -> compare thread IDs. pthread_t may not be a number, so don't compare with ==
+ * pthread_kill()             -> send a signal to a thread. Despite the name, it doesn't have to kill it
+ * pthread_attr_init()        -> initialize thread attributes, such as stack size and detached state
+ * pthread_attr_destroy()     -> destroy thread attributes
  *
- * pthread_mutex_init()       ->
- * pthread_mutex_lock()       ->
- * pthread_mutex_trylock()    ->
- * pthread_mutex_unlock()     ->
- * pthread_mutex_destroy()    ->
- * pthread_mutexattr_init()   ->
- * pthread_mutexattr_destroy()->
+ * pthread_mutex_init()       -> initialize a mutex
+ * pthread_mutex_lock()       -> lock, blocking if another thread holds it
+ * pthread_mutex_trylock()    -> lock, failing with EBUSY instead of blocking
+ * pthread_mutex_unlock()     -> unlock. Must be the thread that locked it
+ * pthread_mutex_destroy()    -> destroy an unlocked mutex
+ * pthread_mutexattr_init()   -> initialize mutex attributes, such as recursive or process-shared
+ * pthread_mutexattr_destroy()-> destroy mutex attributes
  *
- * pthread_rwlock_init()      ->
- * pthread_rwlock_rdlock()    ->
- * pthread_rwlock_tryrdlock() ->
- * pthread_rwlock_wrlock()    ->
- * pthread_rwlock_trywrlock() ->
- * pthread_rwlock_unlock()    ->
- * pthread_rwlock_destroy()   ->
- * pthread_rwlockattr_init()  ->
- * pthread_rwlockattr_destroy()->
+ * A read-write lock allows many readers at once, or one writer. It helps when reads greatly outnumber writes.
  *
+ * pthread_rwlock_init()      -> initialize a read-write lock
+ * pthread_rwlock_rdlock()    -> lock for reading, blocking if a writer holds it
+ * pthread_rwlock_tryrdlock() -> lock for reading, failing with EBUSY instead of blocking
+ * pthread_rwlock_wrlock()    -> lock for writing, blocking if anyone holds it
+ * pthread_rwlock_trywrlock() -> lock for writing, failing with EBUSY instead of blocking
+ * pthread_rwlock_unlock()    -> unlock, for readers and writers
+ * pthread_rwlock_destroy()   -> destroy a read-write lock
+ * pthread_rwlockattr_init()  -> initialize read-write lock attributes
+ * pthread_rwlockattr_destroy()-> destroy read-write lock attributes
+ *
+ * All of these return 0, or the error number itself. They don't set errno, so
+ * print strerror(ret) rather than strerror(errno). pthread_self and pthread_equal always succeed.
  *
  * int pthread_create(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine) (void *), void *arg)
  * void pthread_exit(void *retval)
@@ -77,62 +101,20 @@
  * int pthread_rwlockattr_init(pthread_rwlockattr_t *attr)
  * int pthread_rwlockattr_destroy(pthread_rwlockattr_t *attr)
  *
- *
- * HANDLE WINAPI CreateThread(
- *   _In_opt_  LPSECURITY_ATTRIBUTES  lpThreadAttributes,
- *   _In_      SIZE_T                 dwStackSize,
- *   _In_      LPTHREAD_START_ROUTINE lpStartAddress,
- *   _In_opt_  LPVOID                 lpParameter,
- *   _In_      DWORD                  dwCreationFlags,
- *   _Out_opt_ LPDWORD                lpThreadId)
- *
- *   DWORD WINAPI WaitForSingleObject(
- *   _In_ 	HANDLE hHandle,
- *   _In_ 	DWORD  dwMilliseconds)
- *
- *   DWORD WINAPI WaitForMultipleObjects(
- *   _In_       DWORD  nCount,
- *   _In_       const HANDLE *lpHandles,
- *   _In_       BOOL   bWaitAll,
- *   _In_       DWORD  dwMilliseconds)
- *
- *
- * HANDLE WINAPI CreateMutex(
- * _In_opt_ LPSECURITY_ATTRIBUTES lpMutexAttributes,
- * _In_     BOOL                  bInitialOwner,
- * _In_opt_ LPCTSTR               lpName)
- *
- * BOOL WINAPI ReleaseMutex( _In_ HANDLE hMutex)
- *
- *
 *******************************************************************************/
 
 
-
-/*
- * http://www.thegeekstuff.com/2012/04/terminate-c-thread/
- * fork() and thread() differences
- * processes and threads difference
- * synchronization, race condition, mutually exclusive, deadlocks
- */
-
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-#include <time.h>
-#include <sys/time.h>
-#include <math.h>
+#include <pthread.h>
 #include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/time.h>
+#include <time.h>
+#include <unistd.h>
 
-#ifdef _WIN32
-	#include <windows.h>
-#else
-	#include <unistd.h>
-	#include <pthread.h>
-#endif
 
+#define THREAD_COUNT 2
+#define WORK_SECONDS 1
 
 typedef enum
 {
@@ -147,15 +129,19 @@ int thread_wait();
 int thread_exit();
 int thread_cancel();
 
-void *doSomething_1(void *arg);
-void *doSomething_2(void *arg);
-void *doSomething_3(void *arg);
+void *doWork(void *arg);
+void *doWorkAndReturnValue(void *arg);
+void *doWorkWithCancelDisabled(void *arg);
 
-void DBG_PRINT(const char* format, ...);
+void DBG_PRINT(const char* format, ...) __attribute__((format(printf, 1, 2)));
 
+// Each thread gets a pointer to its own number. A thread can't work this out by comparing
+// pthread_self() with a global pthread_t array: it may start running before pthread_create has stored its ID.
+static int threadNumber[THREAD_COUNT] = {1, 2};
 
-pthread_t tid[2];
-int ret1, ret2;
+// Not on a thread's stack, so these are still valid after the thread ends
+static int threadResult[THREAD_COUNT];
+
 
 int main()
 {
@@ -167,7 +153,10 @@ int main()
 	printf("\n%d. Thread exit", TEST_THREAD_EXIT);
 	printf("\n%d. Thread cancel", TEST_THREAD_CANCEL);
 	printf("\nEnter choice : ");
-	scanf("%d", &choice);
+
+	if ( scanf("%d", &choice) != 1 )
+		choice = 0;
+
 	switch(choice)
 	{
 		case TEST_THREAD_CREATE:
@@ -185,224 +174,204 @@ int main()
 		default:
 			printf("\nInvalid choice !!!");
 			break;
-
 	}
-	DBG_PRINT("Main thread exits here");
 
+	DBG_PRINT("Main thread exits here");
+	printf("\n");
 
 	return 0;
 }
 
-int thread_create()
+// Returns how many threads started. A failed slot must not be joined later.
+static int createThreads(pthread_t tid[], bool created[], void *(*routine)(void *))
 {
-	int i=0, ret = 0;
+	int count = 0;
 
-	while ( i < 2 )
+	for ( int i = 0; i < THREAD_COUNT; i++ )
 	{
-		ret = pthread_create(&tid[i], NULL, &doSomething_1, NULL);
-		if ( ret == 0)
+		// pthread functions return the error number, and don't set errno
+		int ret = pthread_create(&tid[i], NULL, routine, &threadNumber[i]);
+
+		created[i] = (ret == 0);
+
+		if ( ret == 0 )
+		{
 			DBG_PRINT("Thread %d created successfully", i+1);
+			count++;
+		}
 		else
-			DBG_PRINT("Thread %d creation failed : %s", i+1, strerror(errno));
-		i++;
+		{
+			DBG_PRINT("Thread %d creation failed : %s", i+1, strerror(ret));
+		}
 	}
 
-	return 0;
+	return count;
+}
 
+// Shows what happens without a join: when main returns, the process
+// ends and takes the threads with it, so "ends" is never printed.
+int thread_create()
+{
+	pthread_t tid[THREAD_COUNT];
+	bool created[THREAD_COUNT];
+
+	createThreads(tid, created, doWork);
+
+	usleep(200 * 1000);   // Long enough for them to start, but not to finish
+
+	return 0;
 }
 
 int thread_wait()
 {
-	int i=0, ret = 0;
+	pthread_t tid[THREAD_COUNT];
+	bool created[THREAD_COUNT];
 
-	while ( i < 2 )
-	{
-		ret = pthread_create(&tid[i], NULL, &doSomething_1, NULL);
-		if ( ret == 0)
-			DBG_PRINT("Thread %d created successfully", i+1);
-		else
-			DBG_PRINT("Thread %d creation failed : %s", i+1, strerror(errno));
-		i++;
-	}
+	createThreads(tid, created, doWork);
 
-	i = 0;
-	while( i < 2)
+	for ( int i = 0; i < THREAD_COUNT; i++ )
 	{
-		ret = pthread_join(tid[i], NULL);
-		DBG_PRINT("Thread %d join %s", i+1, ret ? "FAIL" : "SUCCESS");
-		i++;
+		if ( created[i] )
+		{
+			int ret = pthread_join(tid[i], NULL);
+			DBG_PRINT("Thread %d join %s", i+1, ret ? strerror(ret) : "SUCCESS");
+		}
 	}
 
 	return 0;
-
 }
 
 int thread_exit()
 {
-	int i=0, ret = 0;
-	int *ptr[2] = {0};
+	pthread_t tid[THREAD_COUNT];
+	bool created[THREAD_COUNT];
 
-	while ( i < 2 )
-	{
-		ret = pthread_create(&tid[i], NULL, &doSomething_2, NULL);
-		if ( ret == 0)
-			DBG_PRINT("Thread %d created successfully", i+1);
-		else
-			DBG_PRINT("Thread %d creation failed : %s", i+1, strerror(errno));
-		i++;
-	}
+	createThreads(tid, created, doWorkAndReturnValue);
 
-	i = 0;
-	while( i < 2)
+	for ( int i = 0; i < THREAD_COUNT; i++ )
 	{
-		ret = pthread_join(tid[i], (void **)&ptr[i]);
-		DBG_PRINT("Thread %d join %s, returned %d", i+1, ret ? "FAIL" : "SUCCESS", *ptr[i]);
-		i++;
+		if ( created[i] )
+		{
+			void *result = NULL;
+			int ret = pthread_join(tid[i], &result);
+
+			if ( ret == 0 )
+				DBG_PRINT("Thread %d join SUCCESS, returned %d", i+1, *(int *)result);
+			else
+				DBG_PRINT("Thread %d join failed : %s", i+1, strerror(ret));
+		}
 	}
 
 	return 0;
-
 }
 
 int thread_cancel()
 {
-	int ret  = 0;
 	void *res = NULL;
 	pthread_t tid;
-		
-	ret = pthread_create(&tid, NULL, &doSomething_3, NULL);
-	if ( ret == 0)
-		DBG_PRINT("Thread created successfully");
-	else
-		DBG_PRINT("Thread creation failed : %s", strerror(errno));
+	int ret = pthread_create(&tid, NULL, doWorkWithCancelDisabled, NULL);
 
-	sleep(2);   // Give thread a chance to get started
+	if ( ret != 0 )
+	{
+		DBG_PRINT("Thread creation failed : %s", strerror(ret));
+		return -1;
+	}
 
-	DBG_PRINT("Thread sending cancellation request");
+	DBG_PRINT("Thread created successfully");
+
+	sleep(1);   // Give thread a chance to get started
+
+	DBG_PRINT("Sending cancellation request");
 	ret = pthread_cancel(tid);
 	if ( ret != 0 )
-		DBG_PRINT("\nThread cancel request failed");
+		DBG_PRINT("Thread cancel request failed : %s", strerror(ret));
 
 	ret = pthread_join(tid, &res);
-	DBG_PRINT("Thread join %s", ret ? "FAIL" : "SUCCESS");
-	
-	if ( res == PTHREAD_CANCELED)
+	DBG_PRINT("Thread join %s", ret ? strerror(ret) : "SUCCESS");
+
+	if ( res == PTHREAD_CANCELED )
 		DBG_PRINT("Thread status cancelled");
 	else
 		DBG_PRINT("Oops !!!!! Thread was not cancelled and we shouldn't be here");
+
 	return 0;
-
 }
 
-void *doSomething_3(void *arg)
+void *doWorkWithCancelDisabled(void *)
 {
-	int ret = 0;
+	int ret;
 
-	// Disable cancellation for a while, so that we don't immediately react to a cancellation request
+	// Disable cancellation for a while, so the request waits instead of acting immediately
 	ret = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
-	if ( ret != 0)
-		DBG_PRINT("Thread set cancel state to disable failed");
+	if ( ret != 0 )
+		DBG_PRINT("Thread set cancel state to disable failed : %s", strerror(ret));
+
 	DBG_PRINT("Thread cancel disabled");
-	sleep(5);
+	sleep(2);
 
-	// Enable cancellation
-	DBG_PRINT("Thread cancel enabling"); 
+	DBG_PRINT("Thread cancel enabling");
 	ret = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-	if ( ret != 0)
-		DBG_PRINT("Thread set cancel state to enable failed");
+	if ( ret != 0 )
+		DBG_PRINT("Thread set cancel state to enable failed : %s", strerror(ret));
 
-	DBG_PRINT("Thread cancel enabled"); 
+	DBG_PRINT("Thread cancel enabled");
 
-	sleep(20);
+	sleep(20);   // A cancellation point: the waiting request acts here
 	DBG_PRINT("Oops !!!!! we shouldn't be here");
-	return NULL;
-}
-
-
-void *doSomething_1(void *arg)
-{
-	unsigned long i = 0;
-	pthread_t id = pthread_self();
-
-	if ( pthread_equal(id, tid[0]) )
-		DBG_PRINT("Thread 1 processing");
-	else
-		DBG_PRINT("Thread 2 processing");
-
-	for ( i = 0; i < 0xFFFFFFFF; i++);
-
-	if ( pthread_equal(id, tid[0]) )
-		DBG_PRINT("Thread 1 ends");
-	else
-		DBG_PRINT("Thread 2 ends");
-
-	return NULL;
-}
-
-void *doSomething_2(void *arg)
-{
-	unsigned long i = 0;
-	pthread_t id = pthread_self();
-
-	if ( pthread_equal(id, tid[0]) )
-		DBG_PRINT("Thread 1 processing");
-	else
-		DBG_PRINT("Thread 2 processing");
-
-	for ( i = 0; i < 0xFFFFFFFF; i++);
-
-	if ( pthread_equal(id, tid[0]) )
-	{
-		DBG_PRINT("Thread 1 ends");
-		ret1 = 100;
-		pthread_exit((void *)&ret1);
-	}
-	else
-	{
-		DBG_PRINT("Thread 2 ends");
-		ret2 = 200;
-		pthread_exit((void *)&ret2);
-	}
 
 	return NULL;
 }
 
 
-int Time_Get(char *outField)
+void *doWork(void *arg)
 {
+	int number = *(int *)arg;
 
-	time_t t = time(0);
-	struct tm* lt = localtime(&t);
- 	char time_str[128] = {0};
-	struct timeval now = {0};
-	long long milliSeconds = 0;
-	gettimeofday(&now, NULL);
-	//struct timespec spec;
-	//clock_gettime(CLOCK_REALTIME, &spec);
-	//milliSeconds = round(spec.tv_nsec / 1.0e6); // Convert nanoseconds to milliseconds
+	DBG_PRINT("Thread %d processing", number);
 
-	milliSeconds = now.tv_usec/1000;
-	
-	sprintf(time_str, "\n%02d/%02d/%02d %02d%02d%02d:%04lld => ", lt->tm_mon + 1, lt->tm_mday, lt->tm_year - 100, lt->tm_hour, lt->tm_min, lt->tm_sec, milliSeconds);
+	sleep(WORK_SECONDS);   // Stands in for real work
 
-	strncat(outField, time_str, strlen(time_str));
-	return lt->tm_mon + 1;
+	DBG_PRINT("Thread %d ends", number);
+
+	return NULL;
 }
 
+void *doWorkAndReturnValue(void *arg)
+{
+	int number = *(int *)arg;
+
+	DBG_PRINT("Thread %d processing", number);
+
+	sleep(WORK_SECONDS);
+
+	DBG_PRINT("Thread %d ends", number);
+
+	threadResult[number - 1] = number * 100;
+
+	// The same as: return &threadResult[number - 1];
+	pthread_exit(&threadResult[number - 1]);
+}
+
+
+// Threads call this at the same time, so everything here must be thread-safe: localtime_r rather
+// than localtime, a local buffer, and a single printf so that the lines don't get mixed together.
 void DBG_PRINT(const char* format, ...)
 {
-	char buffer[1024] = {'\0'};
-
+	char buffer[1024];
+	struct timeval now;
+	struct tm lt;
 	va_list args;
+	int len;
 
-	Time_Get(buffer);
+	gettimeofday(&now, NULL);
+	localtime_r(&now.tv_sec, &lt);
+
+	len = snprintf(buffer, sizeof(buffer), "\n%02d/%02d/%02d %02d%02d%02d:%03d => ", lt.tm_mon + 1, lt.tm_mday, lt.tm_year - 100, lt.tm_hour, lt.tm_min, lt.tm_sec, (int)(now.tv_usec / 1000));
 
 	va_start(args, format);
-	vsprintf (&buffer[strlen(buffer)], format, args );
-	va_end(args);	
+	vsnprintf(buffer + len, sizeof(buffer) - len, format, args);
+	va_end(args);
 
 	printf("%s", buffer);
-
+	fflush(stdout);
 }
-
-

@@ -1,74 +1,77 @@
+// g++ pipe.cpp -o pipe
 
 /***************************** pipe ********************************************
  *
- * Pipes and FIFOs (also known as named pipes) provide a unidirectional interprocess communication channel.
- * A pipe has a read end and a write end.
- * Data written to the write end of a pipe can be read from the read end of the pipe
- * Data written to the write end of the pipe is buffered by the kernel until it is read from the read end of the pipe.
+ * Pipes and FIFOs (named pipes) provide a one-way channel between processes.
+ * Data written to the write end is buffered by the kernel until it is read from the read end.
+ * The data is a stream of bytes, read in first in, first out order, with no message boundaries.
  *
- * int pipe(int pipefd[2])            // use _pipe for windows
+ * int pipe(int pipefd[2])
  *
  * pipefd[0]   -> for reading
  * pipefd[1]   -> for writing
  *
- * return      -> pipe() = 0
+ * return      -> pipe() = 0, or -1 on error
  *
  * header      -> unistd.h          ( pipe(), fork() )
  *             -> sys/wait.h        ( wait(), waitpid())
  *
- * reference   -> https://www.cs.rutgers.edu/~pxk/416/notes/c-tutorials/pipe.html
+ * read() returns 0 (end of file) only when every copy of the write end is closed.
+ * A process that forgets to close its copy can leave the reader waiting forever.
  *
 *******************************************************************************/
 
 /***************************** Pipe Capacity ***********************************
  *
- * A pipe has a limited capacity.
- * If the pipe is full, then a write() will block or fail
- * An application should be designed so that a reading process consumes data as soon as it is available, so that a writing process does not remain blocked. 
- * In linux pipe buffer size is PIPE_BUF = 4096
+ * When the pipe is full, write() blocks, or fails with EAGAIN on a nonblocking pipe.
+ * When the pipe is empty, read() blocks.
+ *
+ * Capacity  -> 65536 bytes by default on Linux. fcntl(fd, F_SETPIPE_SZ, size) can change it.
+ * PIPE_BUF  -> 4096 bytes on Linux. Not the capacity: writes up to this size are atomic, so
+ *              data from several writers can't get mixed together within them.
  *
 *******************************************************************************/
 
 /***************************** Named pipe **************************************
  *
- *  A traditional pipe is "unnamed" and lasts only as long as the process.
- *  A named pipe, however, can last as long as the system is up, beyond the life of the process.
- *  It can be deleted if no longer used.
- *  Usually a named pipe appears as a file, and generally processes attach to it for inter-process communication.
+ * An ordinary pipe has no name, so only related processes (through fork) can share it,
+ * and it is gone when the last process closes it.
+ * A named pipe appears as a file, so unrelated processes can open it by path.
+ * The file stays until it is unlinked, but the data in it is only kept while it is open.
  *
  * int mkfifo(const char *pathname, mode_t mode)         -> make a FIFO special file (a named pipe)
- * int unlink(const char *path)                          -> remove a link to a file
+ * int unlink(const char *path)                          -> remove the name
  *
- * return      -> mkfifo() = unlink() = 
- * 
+ * return      -> mkfifo() = unlink() = 0, or -1 on error
+ *
+ * open() on a FIFO blocks until the other end is opened too. See named_pipe_reader.cpp and named_pipe_writer.cpp.
+ *
 *******************************************************************************/
 
 /***************************** Linux *******************************************
  *
- * fork()           -> fork() causes a process to duplicate. The child process is an almost-exact duplicate of the original parent process.
- *                  -> it inherits a copy of its parent's code, data, stack, open file descriptors, and signal table.
- *                  -> However, the parent and child have different process id numbers and parent process id numbers
- *                  -> http://www.cs.cityu.edu.hk/~lwang/fork
- *
+ * fork()           -> duplicates the process. The child gets a copy of the parent's memory,
+ *                     open file descriptors and signal handlers, with its own process id.
  * getpid           -> Returns the process ID of the calling process
  * getppid          -> Returns the parent's process ID of the calling process
- * wait()           -> It suspends execution of the calling process until one of its children terminates
- * waitpid()        -> It suspends execution of the calling process until a child specified by pid argument has changed state 
+ * wait()           -> suspends the caller until one of its children terminates
+ * waitpid()        -> suspends the caller until a specific child changes state
  *
- * atexit()         -> Register a function to be called at normal process termination
- * exit()           -> The exit() function causes normal process termination and the value of status & 0377 is returned to the parent and atexit() wil be invoked
- * _exit()          -> Same as exit() but _exit() will not invoke atexit() and SIGCHLD signal will be send it to parent, child processes should use _exit()
- * 
- * abort()          -> terminate the current process, atexit() will not be called
- *                  -> SIGABRT signal will be raised and the signal handler will be invoked but signal handler will not return and process will be terminate.
- *                  -> Use abort() if your program is in a possibly corrupt state and you consider it too dangerous to try to do anything further.
- *                  -> exit() will cause any atexit functions, and in C++ destructors of static objects, to be called.
- *                  -> This is usually what you want for a clean exit, but it could be catastrophic if, for example, they overwrite a file with corrupt data
+ * atexit()         -> Registers a function to be called at normal process termination
+ * exit()           -> Runs atexit functions and C++ static destructors, flushes stdio, then terminates
+ * _exit()          -> Terminates immediately: no atexit functions and no stdio flush.
+ *                     Use it in a forked child that isn't going to exec, so the child can't
+ *                     flush a second copy of the parent's buffered output.
+ *                     Both exit() and _exit() send SIGCHLD to the parent.
+ *
+ * abort()          -> Raises SIGABRT. atexit functions are not called. The process still
+ *                     terminates even if a handler returns.
+ *                  -> For a corrupt state, where running cleanup code could make things worse.
  *
  *
- * pid_t fork(void)                                     ( -1 fork failed || 0 to child process || pid of the new child process to parent process)
+ * pid_t fork(void)                                     ( -1 failed || 0 in the child || pid of the child in the parent )
  *
- * pid_t wait(int *status)                              ( -1 'no / no more' child processes || pid of the exited child process)
+ * pid_t wait(int *status)                              ( -1 no more children || pid of the exited child )
  * pid_t waitpid(pid_t pid, int *status, int options)
  *
  * int atexit(void (*function)(void))
@@ -78,90 +81,49 @@
  * pid_t getpid(void)
  * pid_t getppid(void)
  *
- * wait (&status) is equal to waitpid(-1, &status, 0)
- *  
- * in waitpid()  -> pid can be  < -1  meaning wait for any child process whose process group ID is equal to the absolute value of pid
- *                              -1    meaning wait for any child process
- *                              0     meaning wait for any child process whose process group ID is equal to that of the calling process
- *                              > 0   meaning wait for the child whose process ID is equal to the value of pid
+ * wait(&status) is the same as waitpid(-1, &status, 0)
  *
- * exec() - https://stackoverflow.com/questions/20823371/what-is-the-difference-between-the-functions-of-the-exec-family-of-system-calls
+ * in waitpid()  -> pid can be  < -1  wait for any child whose process group ID is the absolute value of pid
+ *                              -1    wait for any child
+ *                              0     wait for any child in the caller's process group
+ *                              > 0   wait for the child with this process ID
  *
  * --------------------------------- zombie ------------------------------------
- * 
- * A child that terminates, but has not been waited for becomes a "zombie".
  *
- * The kernel maintains a minimal set of information about the zombie process (PID, termination status, resource usage information) in order to allow the parent to later perform a wait to obtain information about the child.
+ * A child that has terminated, but hasn't been waited for, is a zombie.
+ * The kernel keeps its PID and exit status so that the parent can collect them with wait().
+ * Each zombie uses a slot in the process table, and if the table fills up, no new processes can start.
+ * If the parent terminates, init adopts the zombies and waits for them.
  *
- * As long as a zombie is not removed from the system via a wait(), it will consume a slot in the kernel process table, and if this table fills, it will not be possible to create further processes.
- *
- * If a parent process terminates, then its "zombie" children (if any) are adopted by init(1), which automatically performs a wait to remove the zombies
- *
- *
- * # ps -eaf  ( Now check the output of this command (within 2 minute) in another window )
- *
- * The child process is marked as <defunct>, and its status code is Z, for zombie
- *
- * When the program exits, the child process is inherited by init. This process should cleans up the zombie proces automatically.
- *
- *
+ * Run option 6, and within 2 minutes run this in another window:  ps -eaf | grep defunct
+ * The child is shown as <defunct>, with status Z in ps -el.
  *
  * --------------------------------- POSIX -------------------------------------
  *
- * POSIX  -> Portable operating system interface
- *
- * POSIX is a family of standards specified by the IEEE Computer Society for maintaining compatibility between operating systems.
- *
- * POSIX defines the API, along with command line shells and utility interfaces, for software compatibility with variants of Unix and other operating systems
- *
- * Many systems follow POSIX closely, but few are actually certified by the Open Group which maintains the standard. Notable certified ones include
- *
- *   -> AIX (IBM)
- *   -> HP-UX (HP) 
- *   -> Solaris (Oracle)
- *   -> OSX (Apple)
- *
- *   Most Linux distros are very compliant, but not certified because they don't want to pay the compliance check 
-
-*******************************************************************************/
-
-/***************************** Neccessity of piping ****************************
- *
- * You are writing into the pipe and reading from it. That one can do even from a file.
- * Now lets see another scenario. If we add more writes before read anything and then start reading, first read call will fetch the first written message and so on
- * pipe() is helpful in Implementing a QUEUE strategy(First in First out)
- * FIFO: the message which was written first will be available for the first read, then the message which came second, for the second read
+ * POSIX (Portable Operating System Interface) is the IEEE family of standards that defines the
+ * API and shell utilities that Unix-like systems share. Certified systems include AIX, HP-UX,
+ * Solaris and macOS. Most Linux distributions follow it closely but aren't certified.
  *
 *******************************************************************************/
 
 /***************************** Broken pipe *************************************
  *
- * A broken pipe is one, where the reader end has been closed and the writer end is being written into, for example
+ * Writing to a pipe whose read end is closed by every process is a broken pipe, for example:
  *
- * # cat foo | less
+ * # cat foo | less          ( quit less while cat is still writing )
  *
- * The cat process holds the writing end of the pipe, and the less process the reading one.
- * If the reader process closes the pipe, the pipe is broken (and therefore useless).
- * The writer process will receive the broken pipe error ( SIGPIPE signal ) from the operating system
+ * The writer receives SIGPIPE, which terminates it by default.
+ * If SIGPIPE is ignored or handled, write() fails with EPIPE instead.
  *
 *******************************************************************************/
 
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
-#include <limits.h>
-#include <fcntl.h>
-
-
-#ifdef _WIN32
-	#include <io.h>
-	#include <process.h>
-#else
-	#include <unistd.h>
-	#include <sys/wait.h>
-#endif
+#include <sys/wait.h>
+#include <unistd.h>
 
 typedef enum
 {
@@ -169,301 +131,291 @@ typedef enum
 	SUCCESS = 0
 }STATUS;
 
-int pipe_within_same_process();
+STATUS pipe_within_same_process();
 STATUS pipe_between_parent_child_process();
 STATUS pipe_between_processes();
 STATUS pipe_between_two_child_processes();
 STATUS pipe_run_cmd();
 
-
-void run_pipe(int fd[]);
-void run_source(int fd[]);
-void rundest(int fd[]);
+pid_t run_source(int fd[], const char *const cmd[]);
+pid_t run_dest(int fd[], const char *const cmd[]);
+STATUS run_pipeline(const char *const source[], const char *const dest[]);
 void zombie();
 void cleanup();
+
+static const char *const CMD_LS[]   = { "ls", "-al", NULL };
+static const char *const CMD_TR[]   = { "tr", "a-z", "A-Z", NULL };
+static const char *const CMD_LSH[]  = { "ls", "-lh", NULL };
+static const char *const CMD_GREP[] = { "grep", "pipe.cpp", NULL };
 
 int main()
 {
 	int choice = 0;
-	//printf("\nPipe buffer size : %d\n", PIPE_BUF );
+	STATUS status = SUCCESS;
 
 	atexit(cleanup);
 
 	printf("\n\n\n --------- Select your choice -----------");
 	printf("\n1. pipe within same process");
-#ifndef _WIN32
-	printf("\n2. pipe between client and parent process");
-	printf("\n3. pipe between processes with cmds");
-	printf("\n4. Pipe between two child processes");
-	printf("\n5. Pipe run cmd - 'ls -lh | grep pipe.cpp");
+	printf("\n2. pipe between parent and child process");
+	printf("\n3. pipe between a child and a grandchild, running cmds");
+	printf("\n4. pipe between two child processes, running cmds");
+	printf("\n5. pipe run cmd - 'ls -lh | grep pipe.cpp'");
 	printf("\n6. zombie");
-#endif
 	printf("\n7. Exit");
-	printf("\nEnter your choice : ");	
-	scanf("%d", &choice);
+	printf("\nEnter your choice : ");
+
+	if ( scanf("%d", &choice) != 1 )
+		choice = 0;
 
 	switch(choice)
 	{
-		case 1: pipe_within_same_process(); break;
-#ifndef _WIN32
-		case 2: pipe_between_parent_child_process(); break;
-		case 3: pipe_between_processes(); break;
-		case 4: pipe_between_two_child_processes(); break;
-		case 5: pipe_run_cmd(); 
+		case 1: status = pipe_within_same_process(); break;
+		case 2: status = pipe_between_parent_child_process(); break;
+		case 3: status = pipe_between_processes(); break;
+		case 4: status = pipe_between_two_child_processes(); break;
+		case 5: status = pipe_run_cmd(); break;
 		case 6: zombie(); break;
-#endif
 		case 7: printf("\nExiting"); break;
 		default: printf("\nEntered an invalid choice !! Try again"); break;
 	}
 
-	return 0;
+	return (status == SUCCESS) ? 0 : 1;
 }
 
 
-int pipe_within_same_process()
+STATUS pipe_within_same_process()
 {
-	int ret = 0;
-	int fd[2] = {0};
+	int fd[2];
 	char data[] = "Hello ...., this is the simple example of pipe within the same process";
 	char rcv[1024] = {0};
+	ssize_t ret;
 
-#ifdef _WIN32
-	ret = _pipe(fd, 128, O_BINARY);
-#else
-	ret = pipe(fd);
-#endif
-	if ( ret == -1)
+	if ( pipe(fd) == -1 )
 	{
-		printf("\npipe() failed : %d", errno);
+		perror("pipe");
 		return FAIL;
 	}
 
+	if ( write(fd[1], data, strlen(data)) == -1 )
+		perror("write");
 
-	ret = write(fd[1], data, strlen(data));
+	ret = read(fd[0], rcv, sizeof(rcv) - 1);   // Leave room for the NUL
 
-	ret = read(fd[0], rcv, sizeof(rcv));
+	printf("\nRCVED %zd bytes: %s", ret, rcv);
 
-	printf("\nRCVED %d bytes: %s", ret, rcv);
+	close(fd[0]);
+	close(fd[1]);
 
 	return SUCCESS;
-
 }
 
-#ifndef _WIN32
 
 STATUS pipe_between_parent_child_process()
 {
-	int ret = 0, status = 0;
-	pid_t pid = 0;
-	int fd[2] = {0};
+	int fd[2];
+	pid_t pid;
 	char data[] = "Hello ...., this is the simple example of pipe_between_parent_child_process";
-	char rcv[1024] = {0};
 
-	ret = pipe(fd);
-	if ( ret == -1)
+	if ( pipe(fd) == -1 )
 	{
-		printf("\npipe() failed : %d", errno);
+		perror("pipe");
 		return FAIL;
 	}
+
+	fflush(stdout);   // So the child doesn't inherit a copy of unprinted output
 
 	pid = fork();
 
-	if ( pid == -1)
+	if ( pid == -1 )
 	{
-		printf("\nfork() failed : %d", errno);
+		perror("fork");
+		close(fd[0]);
+		close(fd[1]);
 		return FAIL;
 	}
-	else if ( pid == 0)
+
+	if ( pid == 0 )   // Child: reads
 	{
+		char rcv[1024] = {0};
+		ssize_t ret;
+
 		close(fd[1]);
-		ret = read(fd[0], rcv, sizeof(rcv));
-		printf("\nRCVED %d bytes: %s", ret, rcv);
-		puts(" ");
-		_exit(EXIT_SUCCESS); // very important, if we not give exit() caller will get return value from child also, along with parent process return
+		ret = read(fd[0], rcv, sizeof(rcv) - 1);
+		printf("\nRCVED %zd bytes: %s\n", ret, rcv);
+		fflush(stdout);   // _exit doesn't flush
+
+		// Without this, the child would return from this function and carry on running the parent's code
+		_exit(EXIT_SUCCESS);
 	}
-	else
-	{
-		close(fd[0]);
-		write(fd[1], data, strlen(data));
-	        waitpid(pid, &status, 0);
-	}
+
+	// Parent: writes
+	close(fd[0]);
+
+	if ( write(fd[1], data, strlen(data)) == -1 )
+		perror("write");
+
+	close(fd[1]);
+	waitpid(pid, NULL, 0);
 
 	return SUCCESS;
 }
 
-STATUS pipe_between_processes()
-{
-	int ret = 0;
-	pid_t pid = 0, status = 0;
-	int fd[2] = {0};
 
-	ret = pipe(fd);
-	if ( ret == -1)
+static void exec_or_die(const char *const cmd[])
+{
+	// execvp takes char *const[] for historical reasons, but doesn't change the strings
+	execvp(cmd[0], const_cast<char *const *>(cmd));
+	perror(cmd[0]);       // Only reached if exec failed
+	_exit(127);           // The shell's exit code for "command not found"
+}
+
+// First part of a pipeline: the command's stdout goes into the pipe
+pid_t run_source(int fd[], const char *const cmd[])
+{
+	pid_t pid = fork();
+
+	if ( pid == 0 )
 	{
-		printf("\npipe() failed : %d", errno);
+		dup2(fd[1], STDOUT_FILENO);   // The write end becomes stdout
+		close(fd[0]);                 // The command must only hold the end it uses
+		close(fd[1]);
+		exec_or_die(cmd);
+	}
+
+	return pid;
+}
+
+// Second part of a pipeline: the command's stdin comes from the pipe
+pid_t run_dest(int fd[], const char *const cmd[])
+{
+	pid_t pid = fork();
+
+	if ( pid == 0 )
+	{
+		dup2(fd[0], STDIN_FILENO);    // The read end becomes stdin
+		close(fd[0]);
+		close(fd[1]);                 // Otherwise this command would never see end of file
+		exec_or_die(cmd);
+	}
+
+	return pid;
+}
+
+// Runs "source | dest" the way a shell does, and returns when both have finished.
+// The two must run at the same time: waiting for source first would deadlock
+// whenever it writes more than the pipe holds, because nobody is reading yet.
+STATUS run_pipeline(const char *const source[], const char *const dest[])
+{
+	int fd[2];
+	pid_t sourcePid, destPid;
+
+	if ( pipe(fd) == -1 )
+	{
+		perror("pipe");
 		return FAIL;
 	}
 
-	switch ( pid = fork() )
+	fflush(stdout);
+
+	sourcePid = run_source(fd, source);
+	destPid = (sourcePid == -1) ? -1 : run_dest(fd, dest);
+
+	// The parent must close both ends, or dest would never see end of file
+	close(fd[0]);
+	close(fd[1]);
+
+	if ( sourcePid == -1 || destPid == -1 )
+		perror("fork");
+
+	if ( sourcePid != -1 )
+		waitpid(sourcePid, NULL, 0);
+
+	if ( destPid != -1 )
+		waitpid(destPid, NULL, 0);
+
+	return (sourcePid == -1 || destPid == -1) ? FAIL : SUCCESS;
+}
+
+// The parent forks a child, and the child forks a grandchild, with the pipe between those two.
+// The child becomes the last command, so when the parent's wait returns, all the output has been written.
+STATUS pipe_between_processes()
+{
+	int fd[2];
+	int status = 0;
+	pid_t pid;
+
+	if ( pipe(fd) == -1 )
 	{
-		case 0:   // child
-			run_pipe(fd);
-			_exit(EXIT_SUCCESS);
-			break;
-		default:  // parent
-			while ( (pid = wait( &status)) != -1)
-				fprintf(stderr, "\nprocess %d exits with %d", pid, WEXITSTATUS(status));
-			break;
-		case -1:
-			printf("\nfork() failed");
-			break;
+		perror("pipe");
+		return FAIL;
 	}
 
-        return SUCCESS;	
+	fflush(stdout);
+
+	pid = fork();
+
+	if ( pid == -1 )
+	{
+		perror("fork");
+		close(fd[0]);
+		close(fd[1]);
+		return FAIL;
+	}
+
+	if ( pid == 0 )
+	{
+		if ( run_source(fd, CMD_LS) == -1 )
+		{
+			perror("fork");
+			_exit(EXIT_FAILURE);
+		}
+
+		dup2(fd[0], STDIN_FILENO);
+		close(fd[0]);
+		close(fd[1]);
+		exec_or_die(CMD_TR);
+	}
+
+	close(fd[0]);
+	close(fd[1]);
+
+	if ( waitpid(pid, &status, 0) != -1 )
+		fprintf(stderr, "\nprocess %d exits with %d", pid, WEXITSTATUS(status));
+
+	return SUCCESS;
 }
 
 STATUS pipe_between_two_child_processes()
 {
-	int ret = 0;
-	pid_t pid = 0, status = 0;
-	int fd[2] = {0};
-
-	ret = pipe(fd);
-	if ( ret == -1)
-	{
-		printf("\npipe() failed : %d", errno);
-		return FAIL;
-	}
-
-	switch ( pid = fork() )
-	{
-		case 0:   // child
-			run_pipe(fd);
-			_exit(EXIT_SUCCESS);
-		default:  // parent
-			while ( (pid = wait( &status)) != -1)
-				fprintf(stderr, "\nprocess %d exits with %d", pid, WEXITSTATUS(status));
-			break;
-		case -1:
-			printf("\nfork() failed");
-			break;
-	}
-
-        return SUCCESS;	
+	return run_pipeline(CMD_LS, CMD_TR);
 }
 
 STATUS pipe_run_cmd()
 {
-	int fd[2];
-	
-	pipe(fd);
-
-	if ( !fork() )
-	{
-		close(STDOUT_FILENO);
-		dup(fd[1]);
-		close(fd[0]);
-		execlp("ls", "ls", "-lh", NULL);
-	}
-	else
-	{
-		close(STDIN_FILENO);
-		dup(fd[0]);
-		close(fd[1]);
-		execlp("grep", "grep", "pipe.cpp", NULL);
-	}
+	return run_pipeline(CMD_LSH, CMD_GREP);
 }
 
-char *cmd1[] = { "/bin/ls", "-al",  NULL };
-char *cmd2[] = { "/usr/bin/tr", "a-z", "A-Z", NULL };
-
-void run_pipe(int fd[])
-{
-	pid_t pid = 0;
-
-	switch ( pid = fork() )
-	{
-		case 0: //child
-			close(fd[1]);                 // the child does not need this end of the pipe
-			dup2(fd[0], STDIN_FILENO);    // this end of the pipe becomes the standard output
-			execvp(cmd2[0], cmd2);        // run the command
-			perror(cmd2[0]);              // print error if failed
-			_exit(EXIT_SUCCESS);
-		default: //parent
-			close(fd[0]);                 // the parent does not need this end of the pipe
-			dup2(fd[1], STDOUT_FILENO);   // this end of the pipe becomes the standard output
-			execvp(cmd1[0], cmd1);        // run the command
-			perror(cmd1[0]);              // print error if failed
-			wait(NULL);
-			break;
-		case -1:
-			printf("\nfork() failed");
-			break;
-	}
-}
-
-
-void run_source(int fd[])                             // run the first part of the pipeline, cmd1 
-{
-	pid_t pid = 0;
-
-	switch ( pid = fork() )
-	{
-		case 0:                               // child
-			close(fd[0]);                 // this process don't need the other end
-			dup2(fd[1], STDOUT_FILENO);   // this end of the pipe becomes the standard output 
-			execvp(cmd1[0], cmd1);        // run the command
-			perror(cmd1[0]);              // print error if failed
-			_exit(EXIT_SUCCESS);
-		default:                              //parent
-			wait(NULL);
-			break;
-		case -1:
-			printf("\nfork() failed");
-			break;
-	}
-}
-
-
-void rundest(int fd[])                               // run the second part of the pipeline, cmd2
-{
-	pid_t pid = 0;
-
-	switch ( pid = fork() )
-	{
-		case 0:                               // child
-			close(fd[1]);                 // this process don't need the other end
-			dup2(fd[0], STDIN_FILENO);    // this end of the pipe becomes the standard output 
-			execvp(cmd2[0], cmd2);        // run the command
-			perror(cmd2[0]);              // print error if failed
-			_exit(EXIT_SUCCESS);
-		default:                              // parent
-			wait(NULL);
-			break;
-		case -1:
-			printf("\nfork() failed");
-			break;
-	}
-}
 
 void zombie()
 {
-	pid_t pid = 0;
+	pid_t pid;
+
+	fflush(stdout);
 
 	pid = fork();
 
-	if ( pid > 0 )      // parent process
-		sleep(120);
+	if ( pid == -1 )
+		perror("fork");
+	else if ( pid == 0 )
+		_exit(EXIT_SUCCESS);     // The child ends here, and stays a zombie until the parent waits
 	else
-		exit(0);
-
+		sleep(120);              // The parent never calls wait: check with ps in another window
 }
 
-#endif
 
 void cleanup()
 {
 	printf("\nHi buddy, all set for exit !!!!!!!!");
-	printf("\nI'm exiting now");
+	printf("\nI'm exiting now\n");
 }
-

@@ -1,100 +1,88 @@
 /*
-      g++ server.cpp -lssl -lpthread -o server
+      g++ server.cpp -lssl -lcrypto -lpthread -o server      (Linux only: uses epoll)
+
+      TLS (isSSL in getSocketInfo) works in the iterative, multi-process and multi-thread servers.
+      The select, poll and epoll servers are plain TCP and refuse to start with TLS turned on.
 */
 
 /****************************************************************************
+ * TCP server : socket -> setsockopt -> bind -> listen -> accept -> recv/send -> close
+ * TCP client : socket -> connect -> send/recv -> close
+ * UDP        : socket -> bind (server only) -> sendto/recvfrom -> close
  *
  * int socket(int domain, int type, int protocol);
- *
- * int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
+ * int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
  * int listen(int sockfd, int backlog);
- * int accept(int sockfd, struct sockaddr *addr, socklen_t addrlen);
- *
+ * int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
  * int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
- *
- * ssize_t send(int sockfd, const void buf[.size], size_t size, int flags);
- * ssize_t recv(int sockfd, void buf[.size], size_t size, int flags);
- *
- * ssize_t read(int fd, void buf[.count], size_t count);
- * ssize_t write(int fd, const void buf[.count], size_t count);
- *
  * int close(int fd);
  *
- * ssize_t sendto(int sockfd, const void buf[.size], size_t size, int flags, const struct sockaddr *dest_addr, socklen_t addrlen);
- * ssize_t recvfrom(int sockfd, void buf[restrict .size], size_t size, int flags, struct sockaddr *src_addr, socklen_t *addrlen);
+ * ssize_t send(int sockfd, const void *buf, size_t len, int flags);
+ * ssize_t recv(int sockfd, void *buf, size_t len, int flags);
+ * ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen);
+ * ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen);
+ *   recv returns 0 when the peer closed, and -1 on error. It does not NUL-terminate.
+ *   send and recv may transfer fewer bytes than requested.
  *
- * int setsockopt(int socket, int level, int option_name, const void *option_value, socklen_t option_len);
- * int getsockopt(int socket, int level, int option_name, void *option_value, socklen_t *option_len);
- * int fcntl(int fd, int op, ... );
- * int ioctl(int fd, unsigned long op, ...);
+ * int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
+ * int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen);
+ * int fcntl(int fd, int op, ...);                 // F_GETFL / F_SETFL with O_NONBLOCK
+ *   SO_REUSEADDR  : rebind the port while old connections are in TIME_WAIT
+ *   backlog       : pending-connection queue, capped by somaxconn. Not a client limit.
  *
- * int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *excepfds, struct timeval *timeout);
- * void FD_CLR(int fd, fd_set *set);
- * int  FD_ISSET(int fd, fd_set *set);
- * void FD_SET(int fd, fd_set *set);
- * void FD_ZERO(fd_set *set);
+ * I/O multiplexing
+ * int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout);
+ *   FD_ZERO, FD_SET, FD_CLR, FD_ISSET. nfds = highest fd + 1. select modifies the sets.
+ *   Every fd value must be below FD_SETSIZE (usually 1024). Scans all fds on each call.
  *
  * int poll(struct pollfd *fds, nfds_t nfds, int timeout);
- * struct pollfd {
- * 	int   fd;         // file descriptor
- * 	short events;     // requested events
- * 	short revents;    // returned events
- * };
+ *   struct pollfd { int fd; short events; short revents; };
+ *   No FD_SETSIZE limit, and negative fds are ignored. Still scans the whole array.
  *
- *
- * int epoll_create(int size);
+ * int epoll_create1(int flags);                   // epoll_create(size) ignores size
  * int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event);
- * int epoll_wait(int epfd, struct epoll_event events[.maxevents], int maxevents, int timeout);
- *
- *
- *
- *
- *
- *
- * *************************************************************************/
+ * int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout);
+ *   Linux only. Returns only the ready fds. Level-triggered by default.
+ *   EPOLLET reports changes only: use nonblocking fds and read until EAGAIN.
+ ****************************************************************************/
+#include <errno.h>
+#include <stdarg.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
-#include <ctype.h>
+#include <string.h>
+#include <time.h>
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/ioctl.h>
 #include <fcntl.h>
-
 #include <signal.h>
+#include <sys/select.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 // OpenSSL
-#include <openssl/ssl.h>
-#include <openssl/bio.h>
 #include <openssl/err.h>
-#include <openssl/rand.h>
+#include <openssl/ssl.h>
 #include <openssl/x509v3.h>
 
 // Socket
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 #include <poll.h>
 #include <sys/epoll.h>
+#include <sys/socket.h>
 
 // POSIX Threads
 #include <pthread.h>
 
-#define LINUX
-
-#ifdef WINDOWS
-	#include "windows.h"
-#else
-	#include "unistd.h"
-#endif
-
-#define SOCKET_ERROR   -1
-
-typedef int SOCKET;
-
+#define BUFFER_SIZE       1024
+#define LISTEN_BACKLOG    1024
+#define RCV_TIMEOUT_SECS  30
+#define SEND_WAIT_MS      5000
+#define POLL_SIZE         2048
+#define MAX_EVENTS        1024
+#define PEER_NAME_SIZE    (INET_ADDRSTRLEN + 8)
 
 typedef enum
 {
@@ -104,7 +92,7 @@ typedef enum
 
 typedef struct SOCKET_HANDLER
 {
-	SOCKET sock;
+	int sock;
 	SSL_CTX *ctx;
 	SSL *ssl;
 	unsigned short isConnected;
@@ -112,1587 +100,1112 @@ typedef struct SOCKET_HANDLER
 
 typedef struct SOCKET_INFO
 {
-	char hostIP[25];
+	const char *hostIP;
 	unsigned short hostPort;
 	short isSSL;
-	char certificate[25];
-	char keyfile[25];
-	char password[25];
-	char caCert[25];
-	char commonName[25];
+	const char *certificate;
+	const char *keyfile;
+	const char *password;
+	const char *caCert;
+	const char *commonName;
 }SocketInfo;
 
 typedef struct
 {
-	SOCKET clientSock;
-	SocketHandle *server;
-	SocketInfo *sockInfo;
+	int clientSock;
+	SSL_CTX *ctx;
+	int id;
 }ClientContext;
 
 
-BIO *bio_err=0;
-
-SOCKET Socket_Open( const char *host, unsigned short port );
-int Socket_Write(SOCKET sock, SSL *ssl, unsigned char *buffer, int len);
-int Socket_Read(SOCKET sock, SSL *ssl, unsigned char *buffer, int maxLen);
-void Socket_Close(SOCKET s);
+int Socket_Write(int sock, SSL *ssl, const unsigned char *buffer, int len);
+int Socket_Read(int sock, SSL *ssl, unsigned char *buffer, int maxLen);
+void Socket_Close(int s);
 SocketInfo getSocketInfo(void);
 void Socket_Destroy(SocketHandle *Socket);
 
-SSL_CTX *initialize_ctx (char *certfile, char *keyfile, char *CA, char *password);
-void destroy_ctx(SSL_CTX *ctx);
-void check_cert_chain (SSL *ssl, char *host);
-int verify_callback (int ok, X509_STORE_CTX *store);
-static int password_cb(char *buf,int num,int rwflag,void *userdata);
-void generate_eph_rsa_key(SSL_CTX *ctx);
-void load_dh_params(SSL_CTX *ctx, char *file);
+SSL_CTX *initialize_ctx(const char *certfile, const char *keyfile, const char *CA, const char *password);
+int verify_callback(int ok, X509_STORE_CTX *store);
 
-int Time_Get(char *outField);
-int File_Log(const char* format, ...);
-BOOLEAN set_socket_nonblock(SOCKET sd);
-BOOLEAN set_socket_rcv_timeout(SOCKET sock, int secs);
+int File_Log(const char *format, ...) __attribute__((format(printf, 1, 2)));
+BOOLEAN set_socket_nonblock(int sd);
+BOOLEAN set_socket_rcv_timeout(int sock, int secs);
 
 SocketHandle Socket_ServerInit(void);
-SOCKET Socket_Init(const char *host, unsigned short port, unsigned short maxQueue);
+int Socket_Init(const char *host, unsigned short port, int maxQueue);
 void *handleClient_mThread(void *args);
-void printEventPoll(unsigned long event);
-void printEventEpoll(unsigned long event);
 
-short server();
-short server_multiProcess();
-short server_multiThread(void);
-short server_select(void);
-short server_select_with_client_array();
-short server_poll();
-short server_epoll();
-
-pthread_mutex_t lock;
-static char *pass;
+int server(void);
+int server_multiProcess(void);
+int server_multiThread(void);
+int server_select(void);
+int server_select_with_client_array(void);
+int server_poll(void);
+int server_epoll(void);
 
 
 /*****************************************    Socket and SSL Communication     *************************************************/
 
 SocketInfo getSocketInfo(void)
 {
-
 	// Fill the Socket Information here
 
-	SocketInfo sockInfo = {0};
+	SocketInfo sockInfo;
 
-	strcpy(sockInfo.hostIP, "10.200.3.45");
-	sockInfo.hostPort = 13001; 
-	sockInfo.isSSL = _FALSE; 
-	strcpy(sockInfo.certificate, "server.crt");
-	strcpy(sockInfo.keyfile, "server_key.pem");
-	strcpy(sockInfo.caCert, "ca.crt");
-	strcpy(sockInfo.commonName, "unipay");
-	strcpy(sockInfo.password, "");
+	sockInfo.hostIP = "127.0.0.1";
+	sockInfo.hostPort = 13001;
+	sockInfo.isSSL = _FALSE;
+	sockInfo.certificate = "server.crt";
+	sockInfo.keyfile = "server_key.pem";
+	sockInfo.caCert = "ca.crt";
+	sockInfo.commonName = "unipay";
+	sockInfo.password = "";
 
 	return sockInfo;
 }
 
 
-SOCKET Socket_Open( const char *host, unsigned short port )
+void Socket_Close(int s)
 {
-	
-	SOCKET sock;
-	struct sockaddr_in host_address;
-	char hostIP[51] = {'\0'};
-
-	strcpy(hostIP, host);
-
-#ifdef WINDOWS
-
-	WSADATA WinSockInitInfo;
-	WSAStartup(MAKEWORD(2,0),&WinSockInitInfo);
-
-#endif
-
-	File_Log("Socket_Open() : %s : %d", host, port);
-
-	host_address.sin_family = AF_INET;
-	host_address.sin_addr.s_addr = inet_addr(host); 
-	host_address.sin_port = htons(port);
-
-	if ( host_address.sin_addr.s_addr == INADDR_NONE)
-	{
-		// If host address is Domain Name instead of IP address
-
-		struct hostent *tempAddr = gethostbyname(host);
-		if ( tempAddr == NULL)
-		{
-			File_Log("gethostbyname() fail, %s : %c", host, port);
-			goto ERRORHANDLER;
-		}
-		else
-		{
-			strcpy(hostIP, (char *)inet_ntoa( *( struct in_addr*)( tempAddr -> h_addr_list[0])));	
-			host_address.sin_addr.s_addr = inet_addr(hostIP);
-		}	
-	}
-
-	File_Log("Socket Connecting --> %s:%d", hostIP, port);
-
-
-	sock = socket( AF_INET, SOCK_STREAM, 0 );
-
-	if ( sock == SOCKET_ERROR)
-	{
-		File_Log("Socket Initialize Error");
-		goto ERRORHANDLER;
-	}
-
-
-	if ( connect( sock, (struct sockaddr *)&host_address, sizeof(host_address)) == SOCKET_ERROR) 
-	{
-		
-		File_Log("Socket Connection Failed"); 
-		goto ERRORHANDLER;
-	}
-
-	File_Log("Socket Connected --> %s:%d", hostIP, port);
-
-	return sock;
-
-ERRORHANDLER:
-
-#ifdef WINDOWS
-	WSACleanup();
-#endif
-
-	return SOCKET_ERROR;
-}
-
-void Socket_Close(SOCKET s)
-{
-
-	//File_Log("Socket Closing");
-
-#ifdef WINDOWS
-	closesocket(s);
-	WSACleanup();
-#else
 	close(s);
-#endif
-	
-	//File_Log("Socket Closed");
-
 }
 
-BOOLEAN set_socket_rcv_timeout(SOCKET sock, int secs)
+BOOLEAN set_socket_rcv_timeout(int sock, int secs)
 {
-	short ret = 0;
 	struct timeval tv;
-	tv.tv_sec = secs;     // 30 sec timeout
+	tv.tv_sec = secs;
 	tv.tv_usec = 0;
 
-	ret = setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *) &tv, sizeof(tv));
-
-	if ( ret )
-		File_Log("ERROR : SET SOCKET RECEIVE TIMEOUT");
-
-	return ret ? _FALSE : _TRUE;
-
-}
-
-BOOLEAN set_socket_nonblock(SOCKET sd)
-{
-	int flags;
-
-	flags = fcntl( sd, F_GETFL, 0);
-	if ( flags == -1)
+	if ( setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) == -1 )
 	{
-		File_Log("ERROR : fcntl F_GETFL");
-		return _FALSE;
-	}
-
-	flags |= O_NONBLOCK;
-	
-	flags = fcntl( sd, F_SETFL, flags);
-	if ( flags == -1)
-	{
-		File_Log("ERROR : fcntl F_SETFL");
+		File_Log("ERROR : SET SOCKET RECEIVE TIMEOUT : %s", strerror(errno));
 		return _FALSE;
 	}
 
 	return _TRUE;
-
 }
 
-int Socket_Read(SOCKET sock, SSL *ssl, unsigned char *buffer, int maxLen)
+BOOLEAN set_socket_nonblock(int sd)
 {
-	int bytesRead = 0;
-	
-	//File_Log("Socket Receiving...");
+	int flags = fcntl(sd, F_GETFL, 0);
+	if ( flags == -1 )
+	{
+		File_Log("ERROR : fcntl F_GETFL : %s", strerror(errno));
+		return _FALSE;
+	}
 
-	bytesRead = ssl ?  SSL_read(ssl, buffer, maxLen) : recv(sock, (char *)buffer, maxLen, 0) ;
+	if ( fcntl(sd, F_SETFL, flags | O_NONBLOCK) == -1 )
+	{
+		File_Log("ERROR : fcntl F_SETFL : %s", strerror(errno));
+		return _FALSE;
+	}
+
+	return _TRUE;
+}
+
+// Returns bytes read, 0 if the peer closed, or a negative value on error (check errno for plain sockets)
+int Socket_Read(int sock, SSL *ssl, unsigned char *buffer, int maxLen)
+{
+	int bytesRead;
+
+	if ( ssl )
+		return SSL_read(ssl, buffer, maxLen);
+
+	do
+	{
+		bytesRead = recv(sock, buffer, maxLen, 0);
+	} while ( bytesRead == -1 && errno == EINTR );
 
 	return bytesRead;
 }
 
-int Socket_Write(SOCKET sock, SSL *ssl, unsigned char *buffer, int len)
+// Writes the whole buffer, handling partial writes. Returns len, or -1 on error.
+// A nonblocking socket with a full send buffer waits up to SEND_WAIT_MS. This is simple,
+// but one slow reader stalls an event loop. A production server would queue the data and wait for POLLOUT.
+int Socket_Write(int sock, SSL *ssl, const unsigned char *buffer, int len)
 {
-	int bytesWritten = 0;
+	int total = 0;
 
-	//File_Log("Socket Sending...");
+	while ( total < len )
+	{
+		int written = ssl ? SSL_write(ssl, buffer + total, len - total) : send(sock, buffer + total, len - total, 0);
 
-	bytesWritten = ssl ?  SSL_write(ssl, buffer, len) : send(sock, (char *)buffer, len, 0) ;
+		if ( written > 0 )
+		{
+			total += written;
+			continue;
+		}
 
-	return bytesWritten;
+		if ( ssl || written == 0 )
+			return -1;
+
+		if ( errno == EINTR )
+			continue;
+
+		if ( errno == EAGAIN || errno == EWOULDBLOCK )
+		{
+			struct pollfd pfd;
+			int ready;
+
+			pfd.fd = sock;
+			pfd.events = POLLOUT;
+			pfd.revents = 0;
+
+			ready = poll(&pfd, 1, SEND_WAIT_MS);
+			if ( ready > 0 || (ready == -1 && errno == EINTR) )
+				continue;
+		}
+
+		return -1;
+	}
+
+	return total;
 }
 
 void Socket_Destroy(SocketHandle *Socket)
 {
-
-	//File_Log("Socket_Destroy() -> Destroying Socket...");
-
-	if ( Socket->ssl)
+	if ( Socket->ssl )
+	{
+		SSL_shutdown(Socket->ssl);
 		SSL_free(Socket->ssl);
+	}
 
 	Socket_Close(Socket->sock);
 
-	if ( Socket->ctx)
-		destroy_ctx(Socket->ctx);
-	
-	//File_Log("Socket_Destroy() -> Destroyed");
-
+	if ( Socket->ctx )
+		SSL_CTX_free(Socket->ctx);
 }
 
 
-SSL_CTX *initialize_ctx (char *certfile, char *keyfile, char *CA, char *password)
+static void log_ssl_error(const char *what)
 {
-	int ret = 0;
-	SSL_METHOD *meth;
-	SSL_CTX *ctx;
+	char details[256];
 
+	ERR_error_string_n(ERR_get_error(), details, sizeof(details));
+	File_Log("%s : %s", what, details);
+}
 
+static int password_cb(char *buf, int size, int, void *userdata)
+{
+	const char *password = (const char *)userdata;
+	int len = strlen(password);
 
-	//File_Log("SSL CTX Initializing");
+	if ( len >= size )
+		return 0;
 
-	if (!bio_err) 
+	memcpy(buf, password, len + 1);
+
+	return len;
+}
+
+SSL_CTX *initialize_ctx(const char *certfile, const char *keyfile, const char *CA, const char *password)
+{
+	SSL_CTX *ctx = SSL_CTX_new(TLS_server_method());
+
+	if ( ctx == NULL )
 	{
-		/* Global system initialization*/
-		ret = SSL_library_init ();
-		if ( ret != 1){
-			File_Log("SSL LIB INIT FAIL");
-			return NULL;
-		}
-		SSL_load_error_strings ();
-		/* An error write context */
-		bio_err = BIO_new_fp (stderr, BIO_NOCLOSE);
-	}
-
-	/* Create our context*/
-	meth = (SSL_METHOD *)SSLv23_method ();
-	//meth = (SSL_METHOD *)TLS_method ();
-	ctx = SSL_CTX_new (meth);
-	
-	
-	/* Load our keys and certificates*/
-	ret = SSL_CTX_use_certificate_file ( ctx, certfile, SSL_FILETYPE_PEM);
-	if ( ret != 1)
-	{
-		File_Log("CERTIFICATE FILE LOAD FAIL");
-		destroy_ctx(ctx);
-		return NULL;
-	}
-	pass = password;
-	SSL_CTX_set_default_passwd_cb (ctx, password_cb);
-	
-	
-	ret = SSL_CTX_use_PrivateKey_file (ctx, keyfile, SSL_FILETYPE_PEM);
-	if ( ret != 1)
-	{
-		File_Log("KEY FILE LOAD FAIL");
-		destroy_ctx(ctx);
-		return NULL;
-	}
-	
-	/* Load the CAs we trust*/
-	SSL_CTX_load_verify_locations (ctx, CA,0);
-	if ( ret != 1)
-	{
-		File_Log("CA LOAD FAIL");
-		destroy_ctx(ctx);
+		log_ssl_error("SSL CTX CREATE FAIL");
 		return NULL;
 	}
 
-	SSL_CTX_set_verify_depth (ctx,2);
-	SSL_CTX_set_verify (ctx, SSL_VERIFY_PEER, verify_callback);
+	SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION);
+	SSL_CTX_set_default_passwd_cb(ctx, password_cb);
+	SSL_CTX_set_default_passwd_cb_userdata(ctx, (void *)password);
 
-	//File_Log("SSL CTX Initialization OK");
+	/* Load our keys and certificates */
+	if ( SSL_CTX_use_certificate_file(ctx, certfile, SSL_FILETYPE_PEM) != 1 )
+	{
+		log_ssl_error("CERTIFICATE FILE LOAD FAIL");
+		SSL_CTX_free(ctx);
+		return NULL;
+	}
+
+	if ( SSL_CTX_use_PrivateKey_file(ctx, keyfile, SSL_FILETYPE_PEM) != 1 )
+	{
+		log_ssl_error("KEY FILE LOAD FAIL");
+		SSL_CTX_free(ctx);
+		return NULL;
+	}
+
+	/* Load the CAs we trust */
+	if ( SSL_CTX_load_verify_locations(ctx, CA, NULL) != 1 )
+	{
+		log_ssl_error("CA LOAD FAIL");
+		SSL_CTX_free(ctx);
+		return NULL;
+	}
+
+	/* Mutual TLS: a client without a valid certificate fails the handshake */
+	SSL_CTX_set_verify_depth(ctx, 2);
+	SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, verify_callback);
 
 	return ctx;
 }
 
-void destroy_ctx(SSL_CTX *ctx)
-{
-	SSL_CTX_free(ctx);
-}
 
-
-int verify_callback (int ok, X509_STORE_CTX *store)
+int verify_callback(int ok, X509_STORE_CTX *store)
 {
-	char data[256];
-	
-	if (!ok)
+	if ( !ok )
 	{
-		
+		char data[256];
 		X509 *cert = X509_STORE_CTX_get_current_cert(store);
-		int depth = X509_STORE_CTX_get_error_depth(store);
 		int err = X509_STORE_CTX_get_error(store);
-		File_Log("Error with certificate at depth: %i", depth);
-		X509_NAME_oneline(X509_get_issuer_name(cert), data, 256);
-		File_Log("Issuer = %s", data);
-		X509_NAME_oneline(X509_get_subject_name(cert), data, 256);
-		File_Log("Subject = %s", data);
-		File_Log("Err %i:%s", err, X509_verify_cert_error_string(err) );
+
+		File_Log("Error with certificate at depth: %d", X509_STORE_CTX_get_error_depth(store));
+		if ( cert )
+		{
+			X509_NAME_oneline(X509_get_issuer_name(cert), data, sizeof(data));
+			File_Log("Issuer = %s", data);
+			X509_NAME_oneline(X509_get_subject_name(cert), data, sizeof(data));
+			File_Log("Subject = %s", data);
+		}
+		File_Log("Err %d:%s", err, X509_verify_cert_error_string(err));
 	}
 
 	return ok;
 }
 
 
-/* Check that the common name matches the host name*/
-void check_cert_chain (SSL *ssl, char *host)
+// Returns a connected SSL object, or NULL if the handshake or certificate check failed
+static SSL *tls_accept(int sock, SSL_CTX *ctx)
 {
-	X509 *peer;
-	char peer_CN[256];
+	SSL *ssl = SSL_new(ctx);
 
-	
-	if ( SSL_get_verify_result (ssl) != X509_V_OK )
-		File_Log("Certificate doesn't verify");
-	/*Check the common name*/
-	peer = SSL_get_peer_certificate (ssl);
-	X509_NAME_get_text_by_NID (X509_get_subject_name (peer), NID_commonName, peer_CN, 256);
-	if (strcmp(peer_CN, host)){
-		File_Log("Common name not matched");
-		File_Log("%s : %s", peer_CN, host);
-	}
-	
-}
-
-static int password_cb(char *buf,int num,int rwflag,void *userdata)
-{
-	if(num < (signed int)strlen(pass)+1)
+	if ( ssl == NULL )
 	{
-		return(0);
+		log_ssl_error("SSL_new() FAIL");
+		return NULL;
 	}
 
-	strcpy(buf, pass);
+	// SSL_set1_host makes the handshake fail unless the peer certificate matches this name
+	if ( SSL_set_fd(ssl, sock) != 1 || SSL_set1_host(ssl, getSocketInfo().commonName) != 1 || SSL_accept(ssl) <= 0 )
+	{
+		log_ssl_error("SSL_accept() FAIL");
+		SSL_free(ssl);
+		return NULL;
+	}
 
-	return(strlen(pass));
+	return ssl;
 }
 
 
-
-
-void load_dh_params(SSL_CTX *ctx, char *file)
+int File_Log(const char *format, ...)
 {
-	DH *ret = 0;
-	BIO *bio;
-
-	bio = BIO_new_file(file, "r");
-	ret = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
-	BIO_free(bio);
-	SSL_CTX_set_tmp_dh(ctx, ret);
-}
-
-void generate_eph_rsa_key(SSL_CTX *ctx)
-{
-	RSA *rsa;
-	//RSA *rsa = RSA_new();
-	//BIGNUM *bn = BN_new();
-    //BN_set_word(bn, RSA_F4);
-
-	rsa = RSA_generate_key(512, RSA_F4, NULL, NULL);
-	//RSA_generate_key_ex(rsa, 2048, bn, NULL );
-	SSL_CTX_set_tmp_rsa(ctx, rsa);
-	RSA_free(rsa);
-}
-
-int File_Log(const char* format, ...)
-{
-	int ret=0;
-	int month = 0;
-	int fp = 0;
-	char buffer[15001] = {'\0'};
-	char logfile[30] = {'\0'};	
-
+	char buffer[4096];
+	char logfile[30];
+	time_t t = time(NULL);
+	struct tm lt;
 	va_list args;
+	int fd, ret, len;
 
-	month = Time_Get(buffer);
+	localtime_r(&t, &lt);
+
+	len = snprintf(buffer, sizeof(buffer), "\n%02d%02d%02d: %02d/%02d/%02d: => ", lt.tm_hour, lt.tm_min, lt.tm_sec, lt.tm_mon + 1, lt.tm_mday, lt.tm_year - 100);
 
 	va_start(args, format);
-	vsprintf (&buffer[strlen(buffer)], format, args );
-	va_end(args);	
+	ret = vsnprintf(buffer + len, sizeof(buffer) - len, format, args);
+	va_end(args);
 
-	sprintf(logfile, "log_s_%02d.txt", month);
+	if ( ret > 0 )
+		len = ((size_t)(len + ret) < sizeof(buffer)) ? len + ret : (int)sizeof(buffer) - 1;
 
 	printf("%s", buffer);
 
+	snprintf(logfile, sizeof(logfile), "log_s_%02d.txt", lt.tm_mon + 1);
 
-	fp = open (logfile, O_WRONLY|O_APPEND|O_CREAT, S_IWRITE | S_IREAD); // S_IWRITE - Open or Create with write permission 
-	
-	if(fp<0)
-	{
-		switch(errno)
-		{
-			case EACCES: //return _ERR_FILE_ACCESS; 
-			case EMFILE: //return _ERR_FILE_TOO_MANY_HANDLERS;
-			default: //return _ERR_FILE_UNKNOWN;
-				return -1;
-		}
-	}
+	fd = open(logfile, O_WRONLY | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR);
+	if ( fd < 0 )
+		return -1;
 
-	ret = write(fp, (const char *)buffer,strlen(buffer));
+	ret = write(fd, buffer, len);
 
-	close(fp);
+	close(fd);
 
 	return ret;
-	
-
 }
 
 
-int Time_Get(char *outField)
+// inet_ntoa returns a shared static buffer, so it is unsafe in the multi-thread server
+static void get_peer_name(int sock, char *out, size_t size)
 {
+	struct sockaddr_in address;
+	socklen_t addr_len = sizeof(address);
+	char ip[INET_ADDRSTRLEN];
 
-	time_t t = time(0);
-	struct tm* lt = localtime(&t);
- 	char time_str[128] = {0};
-	
-	sprintf(time_str, "\n%02d%02d%02d: %02d/%02d/%02d: => ", lt->tm_hour, lt->tm_min, lt->tm_sec, lt->tm_mon + 1, lt->tm_mday, lt->tm_year - 100);
+	if ( getpeername(sock, (struct sockaddr *)&address, &addr_len) == -1 || inet_ntop(AF_INET, &address.sin_addr, ip, sizeof(ip)) == NULL )
+	{
+		snprintf(out, size, "unknown");
+		return;
+	}
 
-	strncat(outField, time_str, strlen(time_str));
-	return lt->tm_mon + 1;
+	snprintf(out, size, "%s:%d", ip, ntohs(address.sin_port));
 }
 
 
-
-void printEventPoll(unsigned long event)
+// Returns _FALSE if the listener itself is broken and the server must stop
+static BOOLEAN accept_error_is_transient(void)
 {
-	if ( event & POLLIN )
-		File_Log("EVENT : POLLIN");
-	
-	if ( event & POLLOUT)
-		File_Log("EVENT : POLLOUT");
+	int err = errno;
 
-	if ( event & POLLRDHUP )
-		File_Log("EVENT : POLLRDHUP");
+	switch ( err )
+	{
+		case EBADF:
+		case EINVAL:
+		case ENOTSOCK:
+			File_Log("ERROR : accept() : %s", strerror(err));
+			return _FALSE;
 
-	if ( event & POLLHUP )
-		File_Log("EVENT : POLLHUP");
+		case EMFILE:
+		case ENFILE:
+		case ENOBUFS:
+		case ENOMEM:
+			File_Log("ERROR : accept() : %s", strerror(err));
+			sleep(1);  // Out of resources: the pending connection stays queued, so avoid a busy loop
+			return _TRUE;
 
-	if ( event & POLLERR )
-		File_Log("EVENT : POLLERR");
-
-	if ( event & POLLPRI )
-		File_Log("EVENT & POLLPRI");
-
-	if ( event & POLLNVAL )
-		File_Log("EVENT : POLLNVAL");
-
-	if ( event & POLLRDNORM )
-		File_Log("EVENT : POLLRDNORM");
-
-	if ( event & POLLRDBAND )
-		File_Log("EVENT & POLLRDBAND");
-
-	if ( event & POLLWRNORM )
-		File_Log("EVENT : POLLWRNORM");
-
-	if ( event & POLLWRBAND)
-		File_Log("EVENT : POLLWRBAND");
-
-	if ( event == 0)
-		File_Log("EVENT : NOTHING OCCURED");
+		default:       // EINTR, ECONNABORTED and network errors affect one connection only
+			return _TRUE;
+	}
 }
 
 
-void printEventEpoll(unsigned long event)
+int Socket_Init(const char *host, unsigned short port, int maxQueue)
 {
-	if ( event & EPOLLIN )
-		File_Log("EVENT : EPOLLIN");
-	
-	if ( event & EPOLLOUT)
-		File_Log("EVENT : EPOLLOUT");
-
-	if ( event & EPOLLRDHUP )
-		File_Log("EVENT : EPOLLRDHUP");
-
-	if ( event & EPOLLHUP )
-		File_Log("EVENT : EPOLLHUP");
-
-	if ( event & EPOLLERR )
-		File_Log("EVENT : EPOLLERR");
-
-	if ( event & EPOLLPRI )
-		File_Log("EVENT & EPOLLPRI");
-
-	if ( event & EPOLLONESHOT )
-		File_Log("EVENT : EPOLLONESHOT");
-}
-
-
-SOCKET Socket_Init(const char *host, unsigned short port, unsigned short maxQueue)
-{
-
-	int ret = 0;
- 	SOCKET server = 0;
+	int server_sock;
+	int reuse = 1;
 	struct sockaddr_in server_address;
-	int reuse = _TRUE;
-	
-#ifdef WINDOWS
 
-	WSADATA WinSockInitInfo;
-	WSAStartup(MAKEWORD(2,0),&WinSockInitInfo);
-
-#endif
-
-
+	memset(&server_address, 0, sizeof(server_address));
 	server_address.sin_family = AF_INET;
-	server_address.sin_addr.s_addr = inet_addr(host); 
 	server_address.sin_port = htons(port);
 
-	File_Log("Server Socket Initializing");
-
-
-	server = socket( AF_INET, SOCK_STREAM, 0 );
-	if ( server == SOCKET_ERROR)
+	if ( inet_pton(AF_INET, host, &server_address.sin_addr) != 1 )
 	{
-		File_Log("Socket Initialize Error");
-		goto ERRORHANDLER;
+		File_Log("ERROR : invalid IP address %s", host);
+		return -1;
 	}
 
-	setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
-
-	
-	// bind server address to socket
-
-	ret = bind(server, (struct sockaddr *)&server_address, sizeof(server_address));
-	if ( ret == SOCKET_ERROR)
+	server_sock = socket(AF_INET, SOCK_STREAM, 0);
+	if ( server_sock == -1 )
 	{
-		File_Log("bind() failed %d", ret);
-		goto ERRORHANDLER;
+		File_Log("ERROR : socket() : %s", strerror(errno));
+		return -1;
 	}
-	File_Log("bind OK");
 
+	// Allow rebinding the port while old connections are in TIME_WAIT
+	if ( setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) == -1 )
+		File_Log("ERROR : SO_REUSEADDR : %s", strerror(errno));
 
-
-	// listen on the socket, with 5 max connection requests queued
-
-	ret = listen(server, maxQueue);
-	if ( ret == SOCKET_ERROR)
+	if ( bind(server_sock, (struct sockaddr *)&server_address, sizeof(server_address)) == -1 )
 	{
-		File_Log("listen() failed %d", ret);
-		goto ERRORHANDLER;
+		File_Log("ERROR : bind() %s:%d : %s", host, port, strerror(errno));
+		Socket_Close(server_sock);
+		return -1;
 	}
-	File_Log("listen OK");
 
-	return server;
+	// maxQueue is the pending-connection backlog, not a client limit
+	if ( listen(server_sock, maxQueue) == -1 )
+	{
+		File_Log("ERROR : listen() : %s", strerror(errno));
+		Socket_Close(server_sock);
+		return -1;
+	}
 
-ERRORHANDLER:
+	File_Log("Listening on %s:%d, SD %d", host, port, server_sock);
 
-#ifdef WINDOWS
-	WSACleanup();
-#endif
-
-	return SOCKET_ERROR;
-
+	return server_sock;
 }
 
 
 SocketHandle Socket_ServerInit(void)
 {
-	SocketHandle Server= {0};
-	
+	SocketHandle Server;
 	SocketInfo sockInfo = getSocketInfo();
 
-	Server.sock = Socket_Init(sockInfo.hostIP, sockInfo.hostPort, 1024);
-	if ( Server.sock == SOCKET_ERROR )
-		return Server;
+	memset(&Server, 0, sizeof(Server));
 
+	Server.sock = Socket_Init(sockInfo.hostIP, sockInfo.hostPort, LISTEN_BACKLOG);
+	if ( Server.sock == -1 )
+		return Server;
 
 	if ( sockInfo.isSSL )
 	{
 		Server.ctx = initialize_ctx(sockInfo.certificate, sockInfo.keyfile, sockInfo.caCert, sockInfo.password);
-		if ( Server.ctx == NULL)
+		if ( Server.ctx == NULL )
 		{
 			Socket_Close(Server.sock);
+			Server.sock = -1;
 			return Server;
 		}
-
-		//load_dh_params(Server.ctx, "DHFILE");
-		generate_eph_rsa_key(Server.ctx);
-
 	}
 
 	Server.isConnected = _TRUE;
 
 	return Server;
-	
+}
+
+
+// Nonblocking listener for the select, poll and epoll servers. Returns -1 on failure.
+static int open_event_loop_listener(void)
+{
+	SocketInfo sockInfo = getSocketInfo();
+	int listener_sock;
+
+	if ( sockInfo.isSSL )
+	{
+		File_Log("ERROR : TLS is not supported by the select, poll and epoll servers. Use option 1, 2 or 3.");
+		return -1;
+	}
+
+	listener_sock = Socket_Init(sockInfo.hostIP, sockInfo.hostPort, LISTEN_BACKLOG);
+	if ( listener_sock == -1 )
+		return -1;
+
+	// If a client aborts between the readiness event and accept(), a blocking accept() would hang the whole loop
+	if ( !set_socket_nonblock(listener_sock) )
+	{
+		Socket_Close(listener_sock);
+		return -1;
+	}
+
+	return listener_sock;
+}
+
+
+// Echo loop for one blocking connection: used by the iterative, multi-process and multi-thread servers
+static void serve_client(int sock, SSL_CTX *ctx, int id)
+{
+	char peer[PEER_NAME_SIZE];
+	unsigned char buffer[BUFFER_SIZE];
+	SSL *ssl = NULL;
+	int bytesRead, bytesSent = 0;
+
+	get_peer_name(sock, peer, sizeof(peer));
+	File_Log("SD %4d => %s => Client %d => CONNECT", sock, peer, id);
+
+	// Also limits how long a silent client can hold the TLS handshake open
+	set_socket_rcv_timeout(sock, RCV_TIMEOUT_SECS);
+
+	if ( ctx )
+	{
+		ssl = tls_accept(sock, ctx);
+		if ( ssl == NULL )
+		{
+			Socket_Close(sock);
+			File_Log("SD %4d => %s => Client %d => DISCONNECT, TLS HANDSHAKE FAILED", sock, peer, id);
+			return;
+		}
+	}
+
+	// Leave room for the NUL, because recv doesn't add one and the data gets logged with %s
+	while ( (bytesRead = Socket_Read(sock, ssl, buffer, sizeof(buffer) - 1)) > 0 )
+	{
+		buffer[bytesRead] = '\0';
+		File_Log("SD %4d => %s => Client %d => RCV => %d => %s", sock, peer, id, bytesRead, buffer);
+
+		bytesSent = Socket_Write(sock, ssl, buffer, bytesRead);
+		File_Log("SD %4d => %s => Client %d => SND => %d", sock, peer, id, bytesSent);
+
+		if ( bytesSent != bytesRead )
+			break;
+	}
+
+	if ( ssl )
+	{
+		SSL_shutdown(ssl);
+		SSL_free(ssl);
+	}
+
+	Socket_Close(sock);
+
+	File_Log("SD %4d => %s => Client %d => DISCONNECT%s", sock, peer, id, (bytesRead == 0) ? "" : " ON ERROR OR TIMEOUT");
+}
+
+
+// Echoes everything readable on a nonblocking socket, until EAGAIN. Returns _FALSE if the caller must close it.
+// Reading until EAGAIN is required with EPOLLET. It also means a client's last message is
+// echoed before its disconnect is handled, because recv returns the data first and then 0.
+static BOOLEAN echo_until_eagain(int sd)
+{
+	char peer[PEER_NAME_SIZE];
+	unsigned char buffer[BUFFER_SIZE];
+
+	get_peer_name(sd, peer, sizeof(peer));
+
+	while ( _TRUE )
+	{
+		int bytesRead = Socket_Read(sd, NULL, buffer, sizeof(buffer) - 1);
+
+		if ( bytesRead > 0 )
+		{
+			int bytesSent;
+
+			buffer[bytesRead] = '\0';
+			File_Log("SD %4d => %s => RCV => %d => %s", sd, peer, bytesRead, buffer);
+
+			bytesSent = Socket_Write(sd, NULL, buffer, bytesRead);
+			File_Log("SD %4d => %s => SND => %d", sd, peer, bytesSent);
+
+			if ( bytesSent != bytesRead )
+			{
+				File_Log("SD %4d => %s => DISCONNECT ON SEND ERROR", sd, peer);
+				return _FALSE;
+			}
+		}
+		else if ( bytesRead == -1 && (errno == EAGAIN || errno == EWOULDBLOCK) )
+		{
+			return _TRUE;
+		}
+		else
+		{
+			File_Log("SD %4d => %s => DISCONNECT%s", sd, peer, (bytesRead == 0) ? "" : " ON RCV ERROR");
+			return _FALSE;
+		}
+	}
 }
 
 
 void *handleClient_mThread(void *args)
 {
+	ClientContext *context = (ClientContext *)args;
 
-	int ret = 0;
-	ClientContext clientContext = *(ClientContext *)args;
-	
-	ret = pthread_mutex_unlock(&lock);
-	if ( ret != 0){
-		File_Log("ERROR : Mutex Unlock Failed");
-	}
-	
-	struct sockaddr_in address;
-	socklen_t addr_len = sizeof(address);
+	serve_client(context->clientSock, context->ctx, context->id);
 
-	static int counter ;
-	BIO *sbio = NULL;
-	SSL *ssl = NULL;
-	unsigned char buffer[128] = {0};
-	int count = ++counter;
-	SOCKET peer_sock = clientContext.clientSock;
+	free(context);
 
-	getpeername(peer_sock, (struct sockaddr*)&address, (socklen_t *)&addr_len);
-	File_Log("SD %4d => %s:%d => Client %d => CONNECT", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port), count);
-
-
-	if ( clientContext.sockInfo->isSSL )
-	{
-		sbio = BIO_new_socket(peer_sock, BIO_NOCLOSE);
-		ssl = SSL_new(clientContext.server->ctx);
-		if ( ssl == NULL)
-		{
-			Socket_Close(peer_sock);
-			File_Log("SD %4d => %s:%d => Client %d => DISCONNECT ERROR SSL_new()", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port), count);
-			return (void *)"FAIL";
-		}
-
-		SSL_set_bio(ssl, sbio, sbio);
-		ret = SSL_accept(ssl);
-		check_cert_chain(ssl, clientContext.sockInfo->commonName);
-	    	if ( ret < 0)
-		{
-			SSL_free(ssl);
-			Socket_Close(peer_sock);
-			File_Log("SD %4d => %s:%d => Client %d => DISCONNECT ERROR SSL_accept()", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port), count);
-			return (void *)"FAIL";
-		}	
-	}
-
-	
-	ret = Socket_Read (peer_sock, ssl, buffer, sizeof(buffer));
-	File_Log("SD %4d => %s:%d => Client %d => RCV => %d => %s", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port), count, ret, buffer);
-
-	if ( ret > 0 )
-	{
-		ret = Socket_Write(peer_sock, ssl, buffer, ret); 
-		File_Log("SD %4d => %s:%d => Client %d => SND => %d => %s", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port), count, ret, (ret > 0) ? (char *)buffer : " ");
-	}
-
-
-
-	if ( ssl)
-		SSL_free(ssl);
-
-	Socket_Close(peer_sock);
-	
-	File_Log("SD %4d => %s:%d => Client %d => DISCONNECT", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port), count);
-
-	return (void *)"OK";
-
-
+	return NULL;
 }
 
 
 /* Signal handler to reap zombie processes */
-static void wait_for_child(int sig)
+static void wait_for_child(int)
 {
-    while (waitpid(-1, NULL, WNOHANG) > 0);
+	int saved_errno = errno;   // waitpid can change errno, which the interrupted code may be about to read
+
+	while ( waitpid(-1, NULL, WNOHANG) > 0 );
+
+	errno = saved_errno;
 }
 
 
-short server()
+int server(void)
 {
-	#define MAX_QUEUE 1024 
+	int peer_sock, id = 0;
+	SocketHandle Server = Socket_ServerInit();
 
-	int i, ret, reuseAddr = _TRUE;
-	SOCKET listener_sock, peer_sock;
-	struct sockaddr_in address;
-	socklen_t addr_len = sizeof(address);
-	unsigned char buffer[1024] = {0};
+	if ( !Server.isConnected )
+		return 1;
 
-	SocketInfo sockInfo = getSocketInfo();
-	
-	listener_sock = socket(AF_INET, SOCK_STREAM, 0);
-	if ( listener_sock == SOCKET_ERROR)
+	while ( _TRUE )
 	{
-		File_Log("Socket Initialize Error");
-		exit(EXIT_FAILURE);
-	}
-
-	// Set listener socket to allow multiple connections	
-	ret = setsockopt(listener_sock, SOL_SOCKET, SO_REUSEADDR, &reuseAddr, sizeof(reuseAddr));
-
-	address.sin_family = AF_INET;
-	address.sin_addr.s_addr = inet_addr(sockInfo.hostIP); 
-	address.sin_port = htons(sockInfo.hostPort);
-
-	ret = bind(listener_sock, (struct sockaddr *)&address, sizeof(address));
-	if ( ret < 0)
-	{
-		File_Log("Bind failed");
-		exit(EXIT_FAILURE);
-	}
-
-	ret = listen(listener_sock, MAX_QUEUE);   
-	if ( ret < 0 )
-	{
-		File_Log("listen() failed");
-		exit(EXIT_FAILURE);
-	}
-
-	File_Log("SOCK ID : %d", listener_sock);
-
-
-
-	while(_TRUE)
-	{
-
-		File_Log("--------------------------- Listening ------------------");
-
-		peer_sock = accept(listener_sock, (struct sockaddr *)&address, (socklen_t *)&addr_len);
-		if ( peer_sock < 0)
+		peer_sock = accept(Server.sock, NULL, NULL);
+		if ( peer_sock == -1 )
 		{
-			File_Log("ERROR : accept()");
-			exit(EXIT_FAILURE);
+			if ( accept_error_is_transient() )
+				continue;
+			break;
 		}
 
-		getpeername(peer_sock, (struct sockaddr*)&address, (socklen_t *)&addr_len);
-		File_Log("SD %4d => %s:%d => CONNECT", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
-
-		memset(buffer, 0, sizeof(buffer));
-		set_socket_rcv_timeout(peer_sock, 30);
-
-		ret = Socket_Read(peer_sock, NULL, buffer, sizeof(buffer));
-		
-		File_Log("SD %4d => %s:%d => RCV => %d => %s", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port), ret, buffer);
-		
-		if ( ret > 0 )
-		{
-			ret = Socket_Write(peer_sock, NULL, buffer, strlen((char *)buffer));
-			File_Log("SD %4d => %s:%d => SND => %d => %s", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port), ret, buffer);
-		}
-
-		Socket_Close(peer_sock);
-
-		File_Log("SD %4d => %s:%d => DISCONNECT", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+		serve_client(peer_sock, Server.ctx, ++id);
 	}
 
-	return 0;
+	Socket_Destroy(&Server);
 
-}	
+	return 1;
+}
 
 
-short server_multiProcess()
+int server_multiProcess(void)
 {
-	int ret = 0;
-	SOCKET listener_sock, peer_sock ;
-	SocketHandle Server = {0};
-	unsigned char buffer[128] = {0};
-	int pid;
-	struct sockaddr_in address;
-        socklen_t addr_len = sizeof(address);
+	int peer_sock, id = 0;
+	pid_t pid;
 	struct sigaction sa;
+	SocketHandle Server = Socket_ServerInit();
 
-	Server = Socket_ServerInit();
-	if ( !Server.isConnected)
-		return 0;
+	if ( !Server.isConnected )
+		return 1;
 
 	/* Set up the signal handler */
+	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = wait_for_child;
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = SA_RESTART;
-	if (sigaction(SIGCHLD, &sa, NULL) == -1) {
-		File_Log("ERROR : sigaction");
+	if ( sigaction(SIGCHLD, &sa, NULL) == -1 )
+	{
+		File_Log("ERROR : sigaction : %s", strerror(errno));
+		Socket_Destroy(&Server);
 		return 1;
 	}
 
-	listener_sock = Server.sock;
-
-
-	
-	while ( _TRUE)
+	while ( _TRUE )
 	{
-
-		File_Log("----------------- Listening -------------------------");
-		peer_sock  = accept(listener_sock, NULL, NULL);
-		if ( peer_sock == SOCKET_ERROR)
+		peer_sock = accept(Server.sock, NULL, NULL);
+		if ( peer_sock == -1 )
 		{
-			File_Log("ERROR : accept() failed %d");
-			exit(EXIT_FAILURE);
+			if ( accept_error_is_transient() )
+				continue;
+			break;
 		}
-		
+
+		id++;
+
+		fflush(stdout);   // Otherwise the child inherits and prints a second copy of buffered output
 
 		pid = fork();
 
-		if ( pid == 0) // Child Process
+		if ( pid == 0 )   // Child: close the duplicate listener and serve this client
 		{
-			Socket_Close(listener_sock);  // close the duplicate listener_sock
-
-
-			getpeername(peer_sock, (struct sockaddr*)&address, (socklen_t *)&addr_len);
-			File_Log("SD %4d => %s:%d => CONNECT", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
-
-			memset(buffer, 0, sizeof(buffer));
-			set_socket_rcv_timeout(peer_sock, 25);
-
-			ret = Socket_Read(peer_sock, NULL, buffer, sizeof(buffer));
-
-			File_Log("SD %4d => %s:%d => RCV => %d => %s", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port), ret, buffer);
-
-			if ( ret > 0 )
-			{
-				ret = Socket_Write(peer_sock, NULL, buffer, strlen((char *)buffer));
-				File_Log("SD %4d => %s:%d => SND => %d => %s", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port), ret, ( ret > 0 ) ? (char *)buffer : " ");
-			}
-
-			Socket_Close(peer_sock);
-
-			File_Log("SD %4d => %s:%d => DISCONNECT", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
-
-			return 0;
-
-		}
-		else           // Parent process , close the duplicated peer_sock descriptor, go for accept() again for accept the next client
-		{
-			if ( pid == -1)
-			{
-				File_Log("ERROR : fork()");
-				return -1;
-			}
-
-			Socket_Close(peer_sock);
-		} 
-	}
-
-	return 0;
-}
-
-
-short server_multiThread(void)
-{
-
-	SocketHandle Server= {0};
-	SOCKET client = 0;
-	SocketInfo sockInfo = getSocketInfo();
-	struct sockaddr client_address = {0};
-	socklen_t client_address_len = sizeof(client_address);
-	ClientContext clientContext = {0};
-	pthread_t tid;
-	short ret = 0;
-
-	ret = pthread_mutex_init(&lock, NULL);
-	if ( ret != 0)
-	{
-		File_Log("ERROR : Mutex Init Failed");
-		return -1;
-	}
-
-
-
-	Server = Socket_ServerInit();
-	if ( !Server.isConnected)
-		return 0;
-
-
-	clientContext.server = &Server;
-	clientContext.sockInfo = &sockInfo;
-
-
-	while(1)
-	{
-		ret = pthread_mutex_lock(&lock);
-		if ( ret != 0){
-			File_Log("ERROR : Mutex Lock Failed");
+			Socket_Close(Server.sock);
+			serve_client(peer_sock, Server.ctx, id);
+			exit(EXIT_SUCCESS);
 		}
 
-		File_Log("----------------- Listening -------------------------");
-		client = accept(Server.sock, &client_address, &client_address_len);
-		if ( client == SOCKET_ERROR)
-		{
-			File_Log("ERROR : accept() failed %d");
-			break;
-		}
+		if ( pid == -1 )
+			File_Log("ERROR : fork() : %s", strerror(errno));
 
-		clientContext.clientSock = client;
-
-
-		ret = pthread_create(&tid, NULL, handleClient_mThread, (void *)&clientContext);
-		if ( ret != 0){
-			printf("ERROR : pthread_create() failed");
-			break;
-		}
-
+		Socket_Close(peer_sock);   // Parent: the child owns the connection now
 	}
 
-	
-	ret = pthread_mutex_unlock(&lock);
-	if ( ret != 0){
-		File_Log("ERROR : Mutex Unlock Failed");
-	}
-	
 	Socket_Destroy(&Server);
 
-	return 0;
-	
+	return 1;
 }
 
 
-
-short server_select_with_client_array()
+int server_multiThread(void)
 {
-	int i, ret, addr_len, reuseAddr = _TRUE, max_clients = 1024;
-	SOCKET listener_sock, peer_sock, max_sd, sd, client_sock[1024];
-	struct sockaddr_in address;
-	char buffer[1024] = {0};
+	int peer_sock, ret, id = 0;
+	pthread_t tid;
+	SocketHandle Server = Socket_ServerInit();
 
-	fd_set readfds;           // Set of socket descriptors
+	if ( !Server.isConnected )
+		return 1;
 
-	SocketInfo sockInfo = getSocketInfo();
-
-	listener_sock = socket(AF_INET, SOCK_STREAM, 0);
-	if ( listener_sock == SOCKET_ERROR)
+	while ( _TRUE )
 	{
-		File_Log("Socket Initialize Error");
-		exit(EXIT_FAILURE);
+		ClientContext *context;
+
+		peer_sock = accept(Server.sock, NULL, NULL);
+		if ( peer_sock == -1 )
+		{
+			if ( accept_error_is_transient() )
+				continue;
+			break;
+		}
+
+		// Each thread owns its context, so the main thread can't overwrite it during the next accept
+		context = (ClientContext *)malloc(sizeof(*context));
+		if ( context == NULL )
+		{
+			File_Log("ERROR : malloc() failed");
+			Socket_Close(peer_sock);
+			continue;
+		}
+
+		context->clientSock = peer_sock;
+		context->ctx = Server.ctx;
+		context->id = ++id;
+
+		ret = pthread_create(&tid, NULL, handleClient_mThread, context);
+		if ( ret != 0 )
+		{
+			File_Log("ERROR : pthread_create() : %s", strerror(ret));
+			Socket_Close(peer_sock);
+			free(context);
+			continue;
+		}
+
+		pthread_detach(tid);   // Nobody joins these threads, so release their resources on exit
 	}
 
-	// Set listener socket to allow multiple connections	
-	ret = setsockopt(listener_sock, SOL_SOCKET, SO_REUSEADDR, &reuseAddr, sizeof(reuseAddr));
+	Socket_Destroy(&Server);
 
-	address.sin_family = AF_INET;
-	address.sin_addr.s_addr = inet_addr(sockInfo.hostIP); 
-	address.sin_port = htons(sockInfo.hostPort);
+	return 1;
+}
 
-	ret = bind(listener_sock, (struct sockaddr *)&address, sizeof(address));
-	if ( ret < 0)
+
+int server_select_with_client_array(void)
+{
+	int i, ret, peer_sock, max_sd;
+	int client_sock[FD_SETSIZE];
+	fd_set readfds;
+	int listener_sock = open_event_loop_listener();
+
+	if ( listener_sock == -1 )
+		return 1;
+
+	for ( i = 0; i < FD_SETSIZE; i++ )
+		client_sock[i] = -1;
+
+	while ( _TRUE )
 	{
-		File_Log("Bind failed");
-		exit(EXIT_FAILURE);
-	}
-
-	ret = listen(listener_sock, 1024);
-	if ( ret < 0 )
-	{
-		File_Log("listen() failed");
-		exit(EXIT_FAILURE);
-	}
-
-	addr_len = sizeof(address);
-	for( i = 0; i < max_clients; i++)
-	{
-		client_sock[i] = 0;
-	}
-
-	File_Log("SOCK ID : %d", listener_sock);
-
-	while(_TRUE)
-	{
-		// Clear the socket set
-		FD_ZERO(&readfds);               
-
-		// Add listener socket to set
-		FD_SET(listener_sock, &readfds);   
+		// select modifies the set, so rebuild it from the array on every pass
+		FD_ZERO(&readfds);
+		FD_SET(listener_sock, &readfds);
 		max_sd = listener_sock;
 
-		// add child sockets to set
-		for( i = 0; i < max_clients; i++)
+		for ( i = 0; i < FD_SETSIZE; i++ )
 		{
-			// socket descriptor
-			sd = client_sock[i];     
-
-			// If valid socket descriptor then add to read list
-			if ( sd > 0 )
+			if ( client_sock[i] != -1 )
 			{
-				FD_SET(sd, &readfds);
-				// highest file descriptor number, need it for the select function
-				if ( sd > max_sd )
-					max_sd = sd;
+				FD_SET(client_sock[i], &readfds);
+				if ( client_sock[i] > max_sd )
+					max_sd = client_sock[i];
 			}
-
-
 		}
 
 		ret = select(max_sd + 1, &readfds, NULL, NULL, NULL);
-		if ( (ret < 0) && (errno != EINTR) )
+		if ( ret == -1 )
 		{
-			File_Log("ERROR : select()");
+			if ( errno == EINTR )    // The sets are undefined after an error, so don't read them
+				continue;
+
+			File_Log("ERROR : select() : %s", strerror(errno));
+			break;
 		}
 
+		// Check the client sockets for data or a disconnect
+		for ( i = 0; i < FD_SETSIZE; i++ )
+		{
+			if ( client_sock[i] != -1 && FD_ISSET(client_sock[i], &readfds) && !echo_until_eagain(client_sock[i]) )
+			{
+				Socket_Close(client_sock[i]);
+				client_sock[i] = -1;
+			}
+		}
 
 		// If something happened on the listener socket, then it's an incoming connection
 		if ( FD_ISSET(listener_sock, &readfds) )
 		{
-			peer_sock = accept(listener_sock, (struct sockaddr *)&address, (socklen_t *)&addr_len);
-			if ( peer_sock < 0)
+			// Accept every queued connection before going back to select
+			while ( _TRUE )
 			{
-				File_Log("ERROR : accept()");
-			}
-			else
-			{
-				// Somebody connected, get its details and print
-				getpeername(sd, (struct sockaddr*)&address, (socklen_t *)&addr_len);
-				File_Log("%s:%d => CONNECT", inet_ntoa(address.sin_addr), ntohs(address.sin_port));
-				
-				
-				File_Log("SOCK ID : %d", peer_sock);
-				// add new socket to array of sockets
-				for ( i = 0; i < max_clients; i++)
+				peer_sock = accept(listener_sock, NULL, NULL);
+				if ( peer_sock == -1 )
 				{
-					if ( client_sock[i] == 0)
-					{
-						client_sock[i] = peer_sock;
-						break;
-					}
-
+					if ( errno != EAGAIN && errno != EWOULDBLOCK && !accept_error_is_transient() )
+						goto END;
+					break;
 				}
-			}
-		}
 
+				for ( i = 0; i < FD_SETSIZE && client_sock[i] != -1; i++ );
 
-		// else its some IO operation on some other socket
-		for ( i = 0; i < max_clients; i++)
-		{
-			sd = client_sock[i];
-
-			if ( FD_ISSET(sd, &readfds) )
-			{
-				getpeername(sd, (struct sockaddr*)&address, (socklen_t *)&addr_len);
-
-				memset(buffer, 0, sizeof(buffer));
-				ret = recv(sd, buffer, 1024, 0);
-				if ( ret == 0)  // check if it was for closing
+				// FD_SET on an fd at or above FD_SETSIZE would corrupt memory
+				if ( peer_sock >= FD_SETSIZE || i == FD_SETSIZE || !set_socket_nonblock(peer_sock) )
 				{
-					// Somebody disconnected, get its details and print
-					File_Log("%s:%d => DISCONNECT", inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+					File_Log("SD %4d => REJECTED, NO CAPACITY", peer_sock);
+					Socket_Close(peer_sock);
+					continue;
+				}
 
-					// Close the socket and mark as 0 in the list for reuse
-					close(sd);
-					client_sock[i] = 0;
-				}
-				else  // Received something, echo it
-				{
-					File_Log("%s:%d => RCV : %d %s", inet_ntoa(address.sin_addr), ntohs(address.sin_port), ret, buffer);
-					ret = (ret > 0) ? ret : 1;
-					buffer[ret] = '\0';
-					ret = send(sd, buffer, ret, 0);
-					File_Log("%s:%d => SND : %d %s", inet_ntoa(address.sin_addr), ntohs(address.sin_port), ret, buffer);
-				}
+				client_sock[i] = peer_sock;
+				File_Log("SD %4d => CONNECT", peer_sock);
 			}
 		}
 	}
 
-	return 0;
+END:
+	for ( i = 0; i < FD_SETSIZE; i++ )
+	{
+		if ( client_sock[i] != -1 )
+			Socket_Close(client_sock[i]);
+	}
 
+	Socket_Close(listener_sock);
+
+	return 1;
 }
 
-short server_select()
+
+int server_select(void)
 {
-	int i, ret, reuseAddr = _TRUE;
-	SOCKET listener_sock, peer_sock, max_sd;
-	struct sockaddr_in address;
-	socklen_t addr_len = sizeof(address);
-	unsigned char buffer[1024] = {0};
+	int ret, sd, peer_sock, max_sd;
+	fd_set masterfds, tempfds;
+	int listener_sock = open_event_loop_listener();
 
-	fd_set readfds,tempfds;           // Set of socket descriptors
+	if ( listener_sock == -1 )
+		return 1;
 
-	SocketInfo sockInfo = getSocketInfo();
-
-	listener_sock = socket(AF_INET, SOCK_STREAM, 0);
-	if ( listener_sock == SOCKET_ERROR)
-	{
-		File_Log("Socket Initialize Error");
-		exit(EXIT_FAILURE);
-	}
-
-	// Set listener socket to allow multiple connections	
-	ret = setsockopt(listener_sock, SOL_SOCKET, SO_REUSEADDR, &reuseAddr, sizeof(reuseAddr));
-
-	address.sin_family = AF_INET;
-	address.sin_addr.s_addr = inet_addr(sockInfo.hostIP); 
-	address.sin_port = htons(sockInfo.hostPort);
-
-	ret = bind(listener_sock, (struct sockaddr *)&address, sizeof(address));
-	if ( ret < 0)
-	{
-		File_Log("Bind failed");
-		exit(EXIT_FAILURE);
-	}
-
-	ret = listen(listener_sock, FD_SETSIZE);   // select allows only 1024 connections which is defined as FD_SETSIZE
-	if ( ret < 0 )
-	{
-		File_Log("listen() failed");
-		exit(EXIT_FAILURE);
-	}
-
-	File_Log("SOCK ID : %d", listener_sock);
-		
-	// Clear the socket set
-	FD_ZERO(&readfds);               
-
-	// Add listener socket to set
-	FD_SET(listener_sock, &readfds);   
+	FD_ZERO(&masterfds);
+	FD_SET(listener_sock, &masterfds);
 	max_sd = listener_sock;
 
-	while(_TRUE)
+	while ( _TRUE )
 	{
-
-
-		tempfds = readfds;   // copy file descriptors to a temp file descriptors, because select modifies the passed file descriptors
+		tempfds = masterfds;   // select modifies the set it is given, so pass a copy
 
 		ret = select(max_sd + 1, &tempfds, NULL, NULL, NULL);
-		if ( (ret < 0) && (errno != EINTR) )
+		if ( ret == -1 )
 		{
-			File_Log("ERROR : select()");
-		}
+			if ( errno == EINTR )    // The sets are undefined after an error, so don't read them
+				continue;
 
+			File_Log("ERROR : select() : %s", strerror(errno));
+			break;
+		}
 
 		// If something happened on the listener socket, then it's an incoming connection
 		if ( FD_ISSET(listener_sock, &tempfds) )
 		{
-			peer_sock = accept(listener_sock, (struct sockaddr *)&address, (socklen_t *)&addr_len);
-			if ( peer_sock < 0)
+			// Accept every queued connection before going back to select
+			while ( _TRUE )
 			{
-				File_Log("ERROR : accept()");
-			}
-			else
-			{
-				// Somebody connected, get its details and print
-				getpeername(peer_sock, (struct sockaddr*)&address, (socklen_t *)&addr_len);
-				set_socket_nonblock(peer_sock);
+				peer_sock = accept(listener_sock, NULL, NULL);
+				if ( peer_sock == -1 )
+				{
+					if ( errno != EAGAIN && errno != EWOULDBLOCK && !accept_error_is_transient() )
+						goto END;
+					break;
+				}
 
-				File_Log("SD %4d => %s:%d => CONNECT", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port));	
-				
-				// add new socket to array of sockets
-				FD_SET(peer_sock, &readfds);
-				FD_CLR(listener_sock, &tempfds);
-				max_sd = (peer_sock > max_sd) ? peer_sock : max_sd;
+				// FD_SET on an fd at or above FD_SETSIZE would corrupt memory
+				if ( peer_sock >= FD_SETSIZE || !set_socket_nonblock(peer_sock) )
+				{
+					File_Log("SD %4d => REJECTED, NO CAPACITY", peer_sock);
+					Socket_Close(peer_sock);
+					continue;
+				}
 
+				File_Log("SD %4d => CONNECT", peer_sock);
+				FD_SET(peer_sock, &masterfds);
+				if ( peer_sock > max_sd )
+					max_sd = peer_sock;
 			}
 		}
 
-
-		// else its some IO operation on some other socket
-		for ( peer_sock = 0; peer_sock < max_sd+1; peer_sock++)
+		// Check the client sockets for data or a disconnect
+		for ( sd = 0; sd <= max_sd; sd++ )
 		{
-
-			if ( FD_ISSET(peer_sock, &tempfds) )
+			if ( sd != listener_sock && FD_ISSET(sd, &tempfds) && !echo_until_eagain(sd) )
 			{
-				getpeername(peer_sock, (struct sockaddr*)&address, (socklen_t *)&addr_len);
-
-				memset(buffer, 0, sizeof(buffer));
-				ret = Socket_Read(peer_sock, NULL, buffer, sizeof(buffer));
-				if ( ret <= 0)  // check if it was for closing
-				{
-					// Somebody disconnected, get its details and print
-					File_Log("SD %4d => %s:%d => DISCONNECT %s", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port), (ret == 0) ? " " : "FOR RCV ERROR" );
-
-					// Close the socket and mark as 0 in the list for reuse
-					Socket_Close(peer_sock);
-					FD_CLR(peer_sock, &readfds);
-				}
-				
-				
-
-				if ( ret > 0 )
-				{
-					File_Log("SD %4d => %s:%d => RCV => %d => %s", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port), ret, buffer);
-					ret = Socket_Write(peer_sock, NULL, buffer, strlen((char *)buffer));
-					File_Log("SD %4d => %s:%d => SND => %d => %s", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port), ret, buffer);
-				}
+				FD_CLR(sd, &masterfds);
+				Socket_Close(sd);
 			}
 		}
 	}
 
-	return 0;
+END:
+	for ( sd = 0; sd <= max_sd; sd++ )
+	{
+		if ( FD_ISSET(sd, &masterfds) )
+			Socket_Close(sd);
+	}
 
+	return 1;
 }
 
-short server_poll()
+
+int server_poll(void)
 {
-
-	#define POLL_SIZE 2048
-
-	int i, ret, reuseAddr = _TRUE, current_size, nfds = 1, on = 1 ;
-	SOCKET listener_sock, peer_sock;
-	struct sockaddr_in address;
-	unsigned char buffer[1024] = {0};
-	socklen_t addr_len = sizeof(address);
+	int i, j, ret, peer_sock, current_size, nfds = 1;
 	BOOLEAN compress_fd_array;
-
-	SocketInfo sockInfo = getSocketInfo();
-	
 	struct pollfd fds[POLL_SIZE];
+	int listener_sock = open_event_loop_listener();
 
-	listener_sock = socket(AF_INET, SOCK_STREAM, 0);
-	if ( listener_sock == SOCKET_ERROR)
-	{
-		File_Log("Socket Initialize Error");
-		exit(EXIT_FAILURE);
-	}
+	if ( listener_sock == -1 )
+		return 1;
 
-	// Set listener socket to allow multiple connections	
-	ret = setsockopt(listener_sock, SOL_SOCKET, SO_REUSEADDR, &reuseAddr, sizeof(reuseAddr));
-
-	ret = ioctl(listener_sock, FIONBIO, (char *)&on);
-	if (ret < 0)
-	{
-		File_Log("ioctl() failed");
-		Socket_Close(listener_sock);
-		exit(EXIT_FAILURE);
-	}
-
-	address.sin_family = AF_INET;
-	address.sin_addr.s_addr = inet_addr(sockInfo.hostIP); 
-	address.sin_port = htons(sockInfo.hostPort);
-
-	ret = bind(listener_sock, (struct sockaddr *)&address, sizeof(address));
-	if ( ret < 0)
-	{
-		File_Log("Bind failed");
-		exit(EXIT_FAILURE);
-	}
-
-	ret = listen(listener_sock, POLL_SIZE);
-	if ( ret < 0 )
-	{
-		File_Log("listen() failed");
-		exit(EXIT_FAILURE);
-	}
-
-	File_Log("SOCK ID : %d", listener_sock);
-
-
-	
-	// Setup initial listening socket
-	
 	memset(fds, 0, sizeof(fds));
 	fds[0].fd = listener_sock;
-	fds[0].events = POLLIN;	
+	fds[0].events = POLLIN;
 
-		
-
-
-	while(_TRUE)
+	while ( _TRUE )
 	{
-
-		//File_Log("--------------------------- Listening ------------------");
-
 		ret = poll(fds, nfds, -1);
-		if ( ret < 0 )
+		if ( ret == -1 )
 		{
-			File_Log("ERROR : POLL");
-			exit(EXIT_FAILURE);
-		}
+			if ( errno == EINTR )
+				continue;
 
+			File_Log("ERROR : poll() : %s", strerror(errno));
+			break;
+		}
 
 		current_size = nfds;
 		compress_fd_array = _FALSE;
 
-
-
-		if ( fds[0].revents )                // bits set on listener socket's returned event
+		if ( fds[0].revents )
 		{
-			//Accept all incoming connections that are queued up on the listening socket before we loop back and call poll again
-
-		       do
-		       {
-			       peer_sock = accept(listener_sock, (struct sockaddr *)&address, (socklen_t *)&addr_len);
-			       if ( peer_sock < 0)
-			       {
-				       if ( current_size == nfds )
-					       File_Log("ERROR : accept()");
-			       }
-			       else
-			       {
-				       File_Log("SD %4d => %s:%d => CONNECT", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
-
-				       set_socket_nonblock(peer_sock);
-
-				       fds[nfds].events  = POLLIN | POLLRDHUP ;
-				       fds[nfds].fd      = peer_sock;
-				       nfds++;
-
+			// Accept every queued connection before going back to poll
+			while ( _TRUE )
+			{
+				peer_sock = accept(listener_sock, NULL, NULL);
+				if ( peer_sock == -1 )
+				{
+					if ( errno != EAGAIN && errno != EWOULDBLOCK && !accept_error_is_transient() )
+						goto END;
+					break;
 				}
 
-		       }while( peer_sock > 0);	       
-		}
-		fds[0].revents = 0;
-
-
-		
-		
-
-		for ( i = 1; i < current_size; i++)
-		{
-
-			if ( fds[i].revents == 0)
-				continue;
-
-			peer_sock = fds[i].fd;
-			getpeername(peer_sock, (struct sockaddr*)&address, (socklen_t *)&addr_len);
-
-
-			if ( fds[i].revents & POLLRDHUP )      // Remote host closed connection
-			{
-
-				fds[i].fd = -1;
-				fds[i].revents = 0;
-				compress_fd_array = _TRUE;
-				Socket_Close(peer_sock);
-				File_Log("SD %4d => %s:%d => DISCONNECT", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
-				
-			}
-			else if ( fds[i].revents & POLLIN )
-			{
-				memset(buffer, 0, sizeof(buffer));
-				ret = Socket_Read(peer_sock, NULL, buffer, sizeof(buffer));
-				File_Log("SD %4d => %s:%d => RCV => %d => %s", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port), ret, buffer);
-				if ( ret > 0 )
+				if ( nfds >= POLL_SIZE || !set_socket_nonblock(peer_sock) )
 				{
-					ret = Socket_Write(peer_sock, NULL, buffer, strlen((char *)buffer));
-					File_Log("SD %4d => %s:%d => SND => %d => %s", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port), ret, buffer);
-				}
-				else
-				{
-					fds[i].fd = -1;
-					compress_fd_array = _TRUE;
+					File_Log("SD %4d => REJECTED, NO CAPACITY", peer_sock);
 					Socket_Close(peer_sock);
-					File_Log("SD %4d => %s:%d => DISCONNECT %s", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port), (ret == 0) ? " " : "FOR RCV ERROR" );
+					continue;
 				}
-				fds[i].revents = 0;
 
+				File_Log("SD %4d => CONNECT", peer_sock);
+
+				fds[nfds].fd = peer_sock;
+				fds[nfds].events = POLLIN;
+				fds[nfds].revents = 0;
+				nfds++;
 			}
-			else         				// Error Case
-			{
-				printEventPoll(fds[i].revents);
-				fds[i].fd = -1;
-				fds[i].revents = 0;
-				compress_fd_array = _TRUE;
-				Socket_Close(peer_sock);
-				File_Log("SD %4d => %s:%d => DISCONNECT FOR UNKNOWN ERROR", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
-
-			}
-
 		}
 
-
+		for ( i = 1; i < current_size; i++ )
+		{
+			// A disconnect or an error makes the socket readable, and recv reports it after any remaining data
+			if ( fds[i].revents && !echo_until_eagain(fds[i].fd) )
+			{
+				Socket_Close(fds[i].fd);
+				fds[i].fd = -1;
+				compress_fd_array = _TRUE;
+			}
+		}
 
 		if ( compress_fd_array )
 		{
-			int j = 0;
-
-			for (i = 0; i < nfds; i++)
+			// Slide the remaining entries down in one pass
+			for ( i = 1, j = 1; i < nfds; i++ )
 			{
-				if (fds[i].fd == -1)
-				{
-					for(j = i; j < nfds; j++)
-					{
-						fds[j].fd = fds[j+1].fd;
-					}
-					nfds--;
-				}
+				if ( fds[i].fd != -1 )
+					fds[j++] = fds[i];
 			}
+			nfds = j;
 		}
-
 	}
 
-	return 0;
+END:
+	for ( i = 0; i < nfds; i++ )
+	{
+		if ( fds[i].fd != -1 )
+			Socket_Close(fds[i].fd);
+	}
 
+	return 1;
 }
 
-short server_epoll()
+
+int server_epoll(void)
 {
-	#define EPOLL_SIZE 2048
-	#define MAX_EVENTS EPOLL_SIZE
-
-	int i, ret, reuseAddr = _TRUE, event_count;
-	SOCKET listener_sock, peer_sock;
-	struct sockaddr_in address;
-	unsigned char buffer[1024] = {0};
-	socklen_t addr_len = sizeof(address);
-
-
-	SocketInfo sockInfo = getSocketInfo();
-	
-	SOCKET epoll_fd;
+	int i, event_count, peer_sock, epoll_fd;
 	struct epoll_event ev;
-	struct epoll_event events[EPOLL_SIZE];
-	unsigned long event = 0;
+	struct epoll_event events[MAX_EVENTS];
+	int listener_sock = open_event_loop_listener();
 
-	listener_sock = socket(AF_INET, SOCK_STREAM, 0);
-	if ( listener_sock == SOCKET_ERROR)
+	if ( listener_sock == -1 )
+		return 1;
+
+	epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+	if ( epoll_fd == -1 )
 	{
-		File_Log("Socket Initialize Error");
-		exit(EXIT_FAILURE);
+		File_Log("ERROR : epoll_create1() : %s", strerror(errno));
+		Socket_Close(listener_sock);
+		return 1;
 	}
 
-	// Set listener socket to allow multiple connections	
-	ret = setsockopt(listener_sock, SOL_SOCKET, SO_REUSEADDR, &reuseAddr, sizeof(reuseAddr));
-
-	address.sin_family = AF_INET;
-	address.sin_addr.s_addr = inet_addr(sockInfo.hostIP); 
-	address.sin_port = htons(sockInfo.hostPort);
-
-	ret = bind(listener_sock, (struct sockaddr *)&address, sizeof(address));
-	if ( ret < 0)
-	{
-		File_Log("Bind failed");
-		exit(EXIT_FAILURE);
-	}
-
-	ret = listen(listener_sock, EPOLL_SIZE);
-	if ( ret < 0 )
-	{
-		File_Log("listen() failed");
-		exit(EXIT_FAILURE);
-	}
-
-	File_Log("SOCK ID : %d", listener_sock);
-
-
-	
-	epoll_fd = epoll_create(EPOLL_SIZE);
-	if ( epoll_fd == SOCKET_ERROR)
-	{
-		File_Log("ERROR : EPOLL CREATE");
-		exit(EXIT_FAILURE);
-	}
-
+	memset(&ev, 0, sizeof(ev));
 	ev.events = EPOLLIN;
 	ev.data.fd = listener_sock;
 
-	ret = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, listener_sock, &ev);
-	if ( ret == SOCKET_ERROR )
+	if ( epoll_ctl(epoll_fd, EPOLL_CTL_ADD, listener_sock, &ev) == -1 )
 	{
-		File_Log("ERROR : EPOLL CTL ADD");
-		exit(EXIT_FAILURE);
+		File_Log("ERROR : EPOLL CTL ADD : %s", strerror(errno));
+		goto END;
 	}
 
-		
-
-
-	while(_TRUE)
+	while ( _TRUE )
 	{
-
-		//File_Log("--------------------------- Listening ------------------");
-
 		event_count = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
 		if ( event_count == -1 )
 		{
-			File_Log("ERROR : EPOLL WAIT");
-			exit(EXIT_FAILURE);
+			if ( errno == EINTR )
+				continue;
+
+			File_Log("ERROR : epoll_wait() : %s", strerror(errno));
+			goto END;
 		}
 
-		for ( i =0; i < event_count; i++)
+		for ( i = 0; i < event_count; i++ )
 		{
-			event = events[i].events;
-			peer_sock = events[i].data.fd;
-			getpeername(peer_sock, (struct sockaddr*)&address, (socklen_t *)&addr_len);
-			//printEventEpoll(event);
-
-			if ( peer_sock == listener_sock )
+			if ( events[i].data.fd == listener_sock )
 			{
-			
-				peer_sock = accept(listener_sock, (struct sockaddr *)&address, (socklen_t *)&addr_len);
-				if ( peer_sock < 0)
+				// Accept every queued connection before going back to epoll_wait
+				while ( _TRUE )
 				{
-					File_Log("ERROR : accept()");
-				}
-				else
-				{
-					File_Log("SD %4d => %s:%d => CONNECT", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
-					
-					set_socket_nonblock(peer_sock);
-
-					ev.events  = EPOLLIN | EPOLLET | EPOLLRDHUP | EPOLLHUP ;
-					ev.data.fd = peer_sock;
-	
-					ret = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, peer_sock, &ev);
-					if ( ret == SOCKET_ERROR )
+					peer_sock = accept(listener_sock, NULL, NULL);
+					if ( peer_sock == -1 )
 					{
-						File_Log("ERROR : EPOLL CTL ADD");
+						if ( errno != EAGAIN && errno != EWOULDBLOCK && !accept_error_is_transient() )
+							goto END;
+						break;
 					}
 
+					if ( !set_socket_nonblock(peer_sock) )
+					{
+						Socket_Close(peer_sock);
+						continue;
+					}
+
+					// Edge-triggered: echo_until_eagain must empty the socket on each event.
+					// EPOLLHUP and EPOLLERR are always reported, so they aren't requested here.
+					ev.events = EPOLLIN | EPOLLET;
+					ev.data.fd = peer_sock;
+
+					if ( epoll_ctl(epoll_fd, EPOLL_CTL_ADD, peer_sock, &ev) == -1 )
+					{
+						File_Log("ERROR : EPOLL CTL ADD : %s", strerror(errno));
+						Socket_Close(peer_sock);
+						continue;
+					}
+
+					File_Log("SD %4d => CONNECT", peer_sock);
 				}
-
 			}
-			else if ( (event & EPOLLHUP) || (event & EPOLLRDHUP) || (event & EPOLLERR) )
+			else if ( !echo_until_eagain(events[i].data.fd) )
 			{
-					File_Log("SD %4d => %s:%d => DISCONNECT", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
-					Socket_Close(peer_sock);
-
-			}
-			else if ( event & EPOLLIN )
-			{
-				memset(buffer, 0, sizeof(buffer));
-				ret = Socket_Read(peer_sock, NULL, buffer, sizeof(buffer));
-				File_Log("SD %4d => %s:%d => RCV => %d => %s", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port), ret, buffer);
-				if ( ret > 0 )
-				{
-					ret = Socket_Write(peer_sock, NULL, buffer, strlen((char *)buffer));
-					File_Log("SD %4d => %s:%d => SND => %d => %s", peer_sock, inet_ntoa(address.sin_addr), ntohs(address.sin_port), ret, buffer);
-				}
-
-			}
-			else
-			{
-					File_Log("%s:%d => UNCAPTURED EVENT", inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+				Socket_Close(events[i].data.fd);   // close also removes the fd from the epoll set
 			}
 		}
-
 	}
 
+END:
+	Socket_Close(epoll_fd);
+	Socket_Close(listener_sock);
 
-	return 0;
-
-}	
-
-
-int main()
-{
-	int choice = 0;
-	
-	printf("\n\n\n---------------- Choose the server you want to run -------------------------\n");
-	printf("\n 1. Server");
-	printf("\n 2. Server-Multi-Process");
-	printf("\n 3. Server-Multi-Thread");
-	printf("\n 4. Server-Select");
-	printf("\n 5. Server-Poll");
-	printf("\n 6. Server-Epoll");
-	
-	printf("\n\n Enter your choice : ");
-	scanf("%d", &choice);
-
-	switch(choice)
-	{
-		case 1: server(); break;
-		case 2: server_multiProcess(); break;
-		case 3: server_multiThread(); break;
-		case 4: server_select(); break;
-		case 5: server_poll(); break;
-		case 6: server_epoll(); break;
-		default: printf("\n Sorry !!!! , You have entered in invalid choice\n"); break;
-	}	
-	
-	return 0;
-	
+	return 1;
 }
 
 
+int main(void)
+{
+	int choice = 0;
 
+	signal(SIGPIPE, SIG_IGN);   // A write to a closed client must return an error, not kill the server
+
+	printf("\n\n\n---------------- Choose the server you want to run -------------------------\n");
+	printf("\n 1. Server (one client at a time)");
+	printf("\n 2. Server-Multi-Process");
+	printf("\n 3. Server-Multi-Thread");
+	printf("\n 4. Server-Select");
+	printf("\n 5. Server-Select-With-Client-Array");
+	printf("\n 6. Server-Poll");
+	printf("\n 7. Server-Epoll");
+
+	printf("\n\n Enter your choice : ");
+	if ( scanf("%d", &choice) != 1 )
+		choice = 0;
+
+	switch ( choice )
+	{
+		case 1: return server();
+		case 2: return server_multiProcess();
+		case 3: return server_multiThread();
+		case 4: return server_select();
+		case 5: return server_select_with_client_array();
+		case 6: return server_poll();
+		case 7: return server_epoll();
+		default: printf("\n Sorry !!!! , You have entered an invalid choice\n"); return 1;
+	}
+}
