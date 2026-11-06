@@ -1,28 +1,31 @@
 /******************************* Proxy Design Pattern ***************************************
  *
+ * g++ -std=c++17 proxy.cpp -o proxy
+ *
  * Both the Proxy and the RealSubject implement the Subject interface. This allows any client to treat the Proxy just like the RealSubject.
  *
  * The RealSubject is usually the object that does most of the real work; the Proxy controls access to it.
  *
  * The control may be needed if the Subject is running on a remote machine, if the Subject is expensive to create in some way or if access to the subject needs to be protected in some way.
  *
- * The Proxy often instantiates or handle the creation of the RealSubject.
+ * The Proxy often instantiates or handles the creation of the RealSubject.
  *
  * The Proxy keeps a reference (pointer) to the Subject, so it can forward requests to the Subject when necessary.
  *
  * In some cases, the Proxy may be responsible for creating and destroying the RealSubject. Clients interact with the RealSubject through the Proxy.
  *
+ * Common kinds : Remote proxy, Virtual proxy (lazy creation), Protection proxy (access check). This sample shows the last two.
+ *
+ * Proxy vs Decorator : see decorator.cpp
+ *
  ********************************************************************************************/
 
 #include <iostream>
-#include <string>
 #include <memory>
 
 // Base or Interface class
 class ICar {
 
-protected:
-	int age;
 public:
 	virtual void drive() = 0;
 	virtual ~ICar() { std::cout << __func__ << std::endl; }
@@ -39,9 +42,10 @@ public:
 class ProxyCar : public ICar {
 
 private:
+	int age;
 	std::unique_ptr<ICar> real_car;
 public:
-	ProxyCar(int age = 0) { this->age = age; real_car = nullptr; }
+	explicit ProxyCar(int age) : age(age) { }
 	void drive() override
 	{
 		if ( age < 18 )
@@ -57,7 +61,7 @@ public:
 };
 
 
-int main(int argc, char *argv[], char **env)
+int main()
 {
 	std::unique_ptr<ICar> car = std::make_unique<ProxyCar>(15);
 	car->drive();

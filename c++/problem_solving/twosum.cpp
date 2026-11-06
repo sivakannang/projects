@@ -1,4 +1,6 @@
 /*
+g++ -std=c++17 -O2 -Wall -Wextra twosum.cpp -o twosum
+
 Problem: Two Sum (single pair) and Two Sum (all pairs)
 
 Given an array of integers `a` and a target sum `T` (type long):
@@ -22,8 +24,11 @@ Complexity:
 - two_sum:     O(n) time, O(n) space
 - two_sum_all: O(n + P) time, O(n) space, where P is #pairs in output
 
-NOTE: Using `long` per your request. On LP64 (Linux/macOS 64-bit) `long` is 64-bit.
-On LLP64 (Windows 64-bit) `long` is 32-bit—keep that in mind if sums may overflow.
+`long` is 64-bit on 64-bit linux, so the sum of two ints can't overflow.
+
+If the array is sorted, two pointers need only O(1) space :
+  left = 0, right = n-1. If the sum is too small left++, if it is too big right--.
+Sorting first costs O(n log n), and it loses the original indices, so a hash map is the usual choice when indices are needed.
 */
 
 #include <iostream>
@@ -93,48 +98,27 @@ void print_pairs(const std::vector<std::pair<A,B>>& vp, const char* label = "") 
 	std::cout << "]\n";
 }
 
+// Print both results, and compare them with the expected ones
+void run_example(const char* title, const std::vector<int>& a, long T,
+		const std::vector<int>& want_one, const std::vector<std::pair<int,int>>& want_all) {
+	auto one = two_sum(a, T);
+	auto all = two_sum_all(a, T);
+	std::cout << title << "\n";
+	print_vec(one, "two_sum -> ");
+	print_pairs(all, "two_sum_all -> ");
+	if (one != want_one) print_vec(want_one, "  MISMATCH, expected ");
+	if (all != want_all) print_pairs(want_all, "  MISMATCH, expected ");
+	std::cout << "\n";
+}
+
 // ---- demo ----
 int main() {
-	{
-		std::vector<int> a{2, 7, 11, 15};
-		long T = 9;
-		auto one = two_sum(a, T);
-		auto all = two_sum_all(a, T);
-		std::cout << "Example 1: a={2,7,11,15}, T=9\n";
-		print_vec(one, "two_sum -> ");
-		print_pairs(all, "two_sum_all -> ");
-		std::cout << "\n";
-	}
-	{
-		std::vector<int> a{1, 1, 1};
-		long T = 2;
-		auto one = two_sum(a, T);
-		auto all = two_sum_all(a, T);
-		std::cout << "Example 2: a={1,1,1}, T=2\n";
-		print_vec(one, "two_sum -> ");
-		print_pairs(all, "two_sum_all -> ");
-		std::cout << "\n";
-	}
-	{
-		std::vector<int> a{3, 2, 4};
-		long T = 6;
-		auto one = two_sum(a, T);
-		auto all = two_sum_all(a, T);
-		std::cout << "Example 3: a={3,2,4}, T=6\n";
-		print_vec(one, "two_sum -> ");
-		print_pairs(all, "two_sum_all -> ");
-		std::cout << "\n";
-	}
-	{
-		std::vector<int> a{-2, -1, 3, 5, 6, -4, 9};
-		long T = 4; // e.g., -1 + 5
-		auto one = two_sum(a, T);
-		auto all = two_sum_all(a, T);
-		std::cout << "Example 4: a={-2,-1,3,5,6,-4,9}, T=4\n";
-		print_vec(one, "two_sum -> ");
-		print_pairs(all, "two_sum_all -> ");
-		std::cout << "\n";
-	}
+	run_example("Example 1: a={2,7,11,15}, T=9", {2, 7, 11, 15}, 9, {0, 1}, {{0, 1}});
+	run_example("Example 2: a={1,1,1}, T=2", {1, 1, 1}, 2, {0, 1}, {{0, 1}, {0, 2}, {1, 2}});
+	run_example("Example 3: a={3,2,4}, T=6", {3, 2, 4}, 6, {1, 2}, {{1, 2}});
+	run_example("Example 4: a={-2,-1,3,5,6,-4,9}, T=4", {-2, -1, 3, 5, 6, -4, 9}, 4, {1, 3}, {{1, 3}, {0, 4}});
+	run_example("Example 5: no pair", {1, 2, 3}, 100, {}, {});
+	run_example("Example 6: the sum doesn't fit in int", {2147483647, 2147483647}, 4294967294L, {0, 1}, {{0, 1}});
 	return 0;
 }
 

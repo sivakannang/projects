@@ -1,0 +1,237 @@
+REST and MySQL libraries for C++ : quick notes
+===============================================================================
+Working samples are in this folder : crow_rest_server.cpp, cpprest_server.cpp, cpprest_client.cpp
+
+
+===============================================================================
+CROW  ( web framework, single header crow_all.h )
+===============================================================================
+
+Define an app, and start it
+    crow::SimpleApp app;
+    app.port(8080).multithreaded().run();
+
+Routes
+    CROW_ROUTE(app, "/hello")([] { return "Hello, world!"; });
+
+    <int> is 64-bit, so take std::int64_t. An int parameter truncates, and id 4294967297 becomes id 1.
+    CROW_ROUTE(app, "/user/<int>")([](std::int64_t id) { return "User ID: " + std::to_string(id); });
+
+    Other parameter types : <uint>, <double>, <string>, <path>
+    CROW_ROUTE(app, "/api/<string>/<int>")([](const std::string& name, std::int64_t id) { ... });
+
+Choose the HTTP methods
+    CROW_ROUTE(app, "/api/data").methods(crow::HTTPMethod::GET, crow::HTTPMethod::POST)
+    ([](const crow::request& req) { return crow::response("Handled GET or POST"); });
+
+    CROW_ROUTE(app, "/upload").methods("POST"_method)( ... );
+
+Group routes under a prefix with a Blueprint
+    crow::Blueprint api("api/v1");
+    CROW_BP_ROUTE(api, "/hello")([] { return "Hello from API v1"; });
+    app.register_blueprint(api);
+
+Query parameters
+    get() returns nullptr if the parameter is missing. Assigning that to a std::string is undefined behavior.
+    const char* token = req.url_params.get("token");
+    if (!token) return crow::response(400, "token is required");
+
+    std::stoi throws on bad input. Validate a value from a request, or Crow answers 500.
+
+Headers
+    std::string type = req.get_header_value("Content-Type");    // Empty if it is missing
+    Don't log all the headers, Authorization and Cookie hold secrets.
+
+Responses
+    crow::response res(200, R"({"success": true})");
+    res.set_header("Content-Type", "application/json");
+    return res;
+
+JSON with Crow's own type
+    auto body = crow::json::load(req.body);
+    if (!body) return crow::response(400);
+
+    crow::json::wvalue x;
+    x["status"] = "ok";
+    return x;
+
+JSON with nlohmann
+    return crow::response(200, nlohmann::json(user).dump());
+
+Logging
+    app.loglevel(crow::LogLevel::Debug);
+
+Middleware
+    A struct with a nested 'struct context {}', before_handle and after_handle.
+    Used for authentication, logging. Add it with crow::App<MyMiddleware> app;
+
+Errors
+    An uncaught exception in a handler is logged, and the client gets 500. The server keeps running.
+
+
+===============================================================================
+NLOHMANN JSON
+===============================================================================
+
+Create
+    json j = { {"id", 1}, {"name", "Siva"}, {"email", "siva@example.com"} };
+    json arr = json::array({1, 2, 3});
+
+Parse
+    json j = json::parse(R"({"id":1, "name":"Siva"})");     // Throws json::parse_error on bad input
+
+    json j = json::parse(text, nullptr, false);             // allow_exceptions = false, so it doesn't throw
+    if (j.is_discarded()) { ... }                           // Invalid json
+
+Serialize
+    std::string compact = j.dump();
+    std::string pretty  = j.dump(4);
+
+Read
+    int id = j.at("id");                                    // Throws if the key is missing, or of the wrong type
+    std::string name = j.value("name", "Unknown");          // Default if missing. Throws if it is of the wrong type.
+    if (j.contains("email")) { ... }
+
+    Prefer at() for reading. On a non-const json, j["x"] adds a null when the key is missing.
+
+Change
+    j["age"] = 35;
+    j.erase("email");
+    j.update(json{{"email", "new@example.com"}});           // Adds or overwrites these keys
+
+Loop
+    for (auto& [key, value] : j.items()) std::cout << key << ": " << value << "\n";
+    for (auto& v : arr) std::cout << v << "\n";
+
+Type checks
+    j["id"].is_number();
+    j["tags"].is_array();
+
+Struct to and from json, the short way, see User in crow_rest_server.cpp
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(User, id, name)                  // All keys are required, even for std::optional members
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(User, id, name)     // A missing key keeps the default constructor's value
+
+Struct to and from json, written by hand
+    void to_json(json& j, const User& u) { j = json{{"id", u.id}, {"name", u.name}}; }
+    void from_json(const json& j, User& u) {
+        j.at("id").get_to(u.id);
+        j.at("name").get_to(u.name);
+    }
+
+
+===============================================================================
+MYSQL C API  ( libmysqlclient, see c/pointer_mysql_linkedlist/mysql.cpp )
+===============================================================================
+
+crow_rest_server.cpp uses a different library, MySQL Connector/C++. Its notes are at the top of that file.
+
+    sudo apt install libmysqlclient-dev
+    g++ app.cpp -o app -lmysqlclient
+
+Connect
+    #include <mysql/mysql.h>
+    MYSQL* conn = mysql_init(nullptr);
+    if (!mysql_real_connect(conn, "localhost", user, password, "database", 0, nullptr, 0))
+        fprintf(stderr, "Error: %s\n", mysql_error(conn));
+    ...
+    mysql_close(conn);
+
+Never build SQL by joining a value from outside into the text, as that allows SQL injection.
+    A name such as  x'); DROP TABLE users; --  becomes part of the SQL.
+
+Use a prepared statement for any value
+    MYSQL_STMT* stmt = mysql_stmt_init(conn);
+    const char* sql = "INSERT INTO users (name, email) VALUES (?, ?)";
+    if (mysql_stmt_prepare(stmt, sql, strlen(sql)) != 0)
+        fprintf(stderr, "Error: %s\n", mysql_stmt_error(stmt));
+
+    MYSQL_BIND bind[2];
+    memset(bind, 0, sizeof(bind));
+    unsigned long name_len = strlen(name), email_len = strlen(email);
+    bind[0].buffer_type = MYSQL_TYPE_STRING;
+    bind[0].buffer = (void*)name;
+    bind[0].length = &name_len;
+    bind[1].buffer_type = MYSQL_TYPE_STRING;
+    bind[1].buffer = (void*)email;
+    bind[1].length = &email_len;
+
+    if (mysql_stmt_bind_param(stmt, bind) != 0 || mysql_stmt_execute(stmt) != 0)
+        fprintf(stderr, "Error: %s\n", mysql_stmt_error(stmt));
+
+    my_ulonglong id = mysql_stmt_insert_id(stmt);
+    my_ulonglong affected = mysql_stmt_affected_rows(stmt);
+    mysql_stmt_close(stmt);
+
+If a value must be escaped instead, the output can need up to 2 * length + 1 bytes
+    std::string escaped(2 * input.size() + 1, '\0');
+    unsigned long n = mysql_real_escape_string(conn, escaped.data(), input.c_str(), input.size());
+    escaped.resize(n);
+
+Select, for SQL which has no outside values
+    if (mysql_query(conn, "SELECT id, name FROM users") != 0)
+        fprintf(stderr, "Error: %s\n", mysql_error(conn));
+    MYSQL_RES* res = mysql_store_result(conn);     // nullptr on failure
+    if (res) {
+        MYSQL_ROW row;
+        while ((row = mysql_fetch_row(res))) {
+            int id = atoi(row[0]);
+            std::string name = row[1] ? row[1] : "";   // A NULL column is a null pointer
+        }
+        mysql_free_result(res);
+    }
+
+
+===============================================================================
+CPPRESTSDK  ( Microsoft's repository is archived, prefer another library for new code )
+===============================================================================
+
+    sudo apt install libcpprest-dev
+    g++ -std=c++17 server.cpp -o server -lcpprest -lssl -lcrypto -pthread -lz
+
+    -lboost_system isn't needed, and it doesn't exist in Boost 1.90.
+
+Server
+    #include <cpprest/http_listener.h>
+    #include <cpprest/json.h>
+    using namespace web;
+    using namespace web::http;
+    using namespace web::http::experimental::listener;
+
+    http_listener listener("http://localhost:8080/api");
+    listener.support(methods::GET, handle_get);
+    listener.open().wait();
+    ...
+    listener.close().wait();
+
+    A request outside the listener's path, such as /, gets 404.
+
+Reply
+    void handle_get(http_request request) {
+        json::value response_data;
+        response_data["message"] = json::value::string("Hello from GET");
+        request.reply(status_codes::OK, response_data);
+    }
+
+Read a JSON body
+    extract_json returns null without an error if there is no Content-Type, so check it first.
+    Don't call wait() here, as it blocks a server thread. Use then().
+
+    request.extract_json().then([request](pplx::task<json::value> task) {
+        try {
+            json::value body = task.get();      // Throws on invalid json
+            request.reply(status_codes::OK, body);
+        } catch (const std::exception&) {
+            request.reply(status_codes::BadRequest, "Invalid JSON");
+        }
+    });
+
+Query parameters
+    auto params = uri::split_query(request.request_uri().query());
+    auto it = params.find("param");
+
+JSON
+    json::value obj;
+    obj["id"] = json::value::number(1);
+    obj["name"] = json::value::string("Siva");
+    int id = obj.at("id").as_integer();
+    obj.serialize();        // utility::string_t, which is std::string on linux

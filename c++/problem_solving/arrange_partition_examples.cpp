@@ -1,5 +1,5 @@
 /*
-   arrange_partition_examples.cpp
+   g++ -std=c++17 -O2 -Wall -Wextra arrange_partition_examples.cpp -o arrange
 
    ============================================================
    PROBLEM A: arrange_2 — Group all occurrences of a key to the front
@@ -40,12 +40,16 @@ APPROACH:
 - Then a second partition pass (starting from where we stopped)
 to pull `key2` right after the `key1` block.
 - O(n) time, O(1) space, not stable.
+- The trap: when the pointers meet, that last element is not checked yet.
+If it is `key1` and the second pass starts on it, it gets swapped out of
+the front block. Example: {1,0,0} would become {0,1,0}.
 
 ============================================================
 PROBLEM C: sort012 — Dutch National Flag (only 0,1,2)
 ------------------------------------------------------------
 INPUT:
 - a: vector<int> containing only {0,1,2} (modified in place)
+Any other value is a caller error, the result isn't sorted then.
 
 GOAL:
 Sort the array in non-decreasing order using one pass and O(1) space.
@@ -60,6 +64,7 @@ INVARIANTS (classic DNF):
 - [high+1 .. n-1]  == 2
 */
 
+#include <cassert>
 #include <iostream>
 #include <vector>
 #include <utility>   // std::swap
@@ -73,19 +78,27 @@ void print(const T& t, const std::string& header = "array") {
 	std::cout << '\n';
 }
 
+// ------------ UTIL: print the result, and compare it with the expected one ------------
+void check(const std::vector<int>& got, const std::vector<int>& want, const std::string& header) {
+	print(got, header);
+	if (got != want) print(want, "  MISMATCH, expected");
+}
+
 // ============================================================
-// A) arrange_2: group all elements equal to `key` to the front
+// Move all elements equal to `key` in arr[start .. n-1] to the front of that range.
+// Returns the index just after the key group.
 // ============================================================
-void arrange_2(std::vector<int>& arr, int key) {
+int group_to_front(std::vector<int>& arr, int start, int key) {
 	// Two-pointer approach:
-	// `left` scans from the beginning; `right` scans from the end.
+	// `left` scans from the start; `right` scans from the end.
 	// - If arr[left] == key, it's already in the correct group -> left++
 	// - Else if arr[right] == key, swap arr[left] and arr[right],
 	//   then advance both (we've placed a key at `left`)
 	// - Else (both arr[left] and arr[right] are not key), just move right--
-	// Loop until left crosses right.
-	int left = 0;
-	int right = static_cast<int>(arr.size()) - 1;
+	// Loop until left reaches right.
+	int n = static_cast<int>(arr.size());
+	int left = start;
+	int right = n - 1;
 
 	while (left < right) {
 		if (arr[left] == key) {
@@ -96,40 +109,27 @@ void arrange_2(std::vector<int>& arr, int key) {
 			--right;
 		}
 	}
-	// After loop: all positions [0 .. left-1] are `key`.
-	// The rest are non-key values.
+
+	// The element where the pointers met isn't checked yet
+	if (left < n && arr[left] == key) {
+		++left;
+	}
+	return left;   // [start .. left-1] are `key`, the rest are non-key values
+}
+
+// ============================================================
+// A) arrange_2: group all elements equal to `key` to the front
+// ============================================================
+void arrange_2(std::vector<int>& arr, int key) {
+	group_to_front(arr, 0, key);
 }
 
 // ==================================================================
 // B) arrange_3: group `key1` first, then `key2`, then everything else
 // ==================================================================
 void arrange_3(std::vector<int>& arr, int key1 = 0, int key2 = 1) {
-	// Phase 1: move all key1 to the front (like arrange_2)
-	int left = 0;
-	int right = static_cast<int>(arr.size()) - 1;
-	while (left < right) {
-		if (arr[left] == key1) {
-			++left;
-		} else if (arr[right] == key1) {
-			std::swap(arr[left++], arr[right--]);
-		} else {
-			--right;
-		}
-	}
-	// Now indices [0 .. left-1] are key1.
-
-	// Phase 2: starting at `left`, move all key2 right after the key1 block.
-	// Re-initialize right; keep left as the current start of "non-key1" region.
-	right = static_cast<int>(arr.size()) - 1;
-	while (left < right) {
-		if (arr[left] == key2) {
-			++left;
-		} else if (arr[right] == key2) {
-			std::swap(arr[left++], arr[right--]);
-		} else {
-			--right;
-		}
-	}
+	int next = group_to_front(arr, 0, key1);
+	group_to_front(arr, next, key2);
 	// Result: [ key1... ][ key2... ][ everything else ... ]
 }
 
@@ -157,9 +157,8 @@ void sort012(std::vector<int>& a) {
 				std::swap(a[mid], a[high--]); // do not mid++ here, re-check swapped-in element
 				break;
 			default:
-				// If array is guaranteed to have only {0,1,2}, this should not happen.
-				// If other values can appear, decide how you want to handle them.
-				++mid; // safe fallback: skip
+				assert(false && "sort012 takes only 0, 1 and 2");
+				++mid; // Don't loop forever in a release build. The result isn't sorted.
 		}
 	}
 }
@@ -172,21 +171,28 @@ int main() {
 		std::vector<int> v = {0, 1, 0, 1, 1, 1, 0, 1, 0, 0};
 		print(v, "arrange_2() input");
 		arrange_2(v, 0);
-		print(v, "arrange_2() output"); // expect all 0s first, then 1s
+		check(v, {0, 0, 0, 0, 0, 1, 1, 1, 1, 1}, "arrange_2() output");
 		std::cout << '\n';
 	}
 	{
 		std::vector<int> v = {1, 1, 0, 2, 2, 1, 0, 1, 2, 0};
 		print(v, "arrange_3() input");
 		arrange_3(v, 0, 1);
-		print(v, "arrange_3() output"); // expect 0s, then 1s, then the rest (2s here)
+		check(v, {0, 0, 0, 1, 1, 1, 1, 2, 2, 2}, "arrange_3() output");
+		std::cout << '\n';
+	}
+	{
+		std::vector<int> v = {1, 0, 0};    // The pointers meet on a key1
+		print(v, "arrange_3() input");
+		arrange_3(v, 0, 1);
+		check(v, {0, 0, 1}, "arrange_3() output");
 		std::cout << '\n';
 	}
 	{
 		std::vector<int> v = {1, 1, 0, 2, 2, 1, 0, 1, 2, 0};
 		print(v, "sort012() input");
 		sort012(v);
-		print(v, "sort012() output"); // expect sorted [0...1...2...]
+		check(v, {0, 0, 0, 1, 1, 1, 1, 2, 2, 2}, "sort012() output");
 		std::cout << '\n';
 	}
 	return 0;

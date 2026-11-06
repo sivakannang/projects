@@ -1,3 +1,5 @@
+// g++ -std=c++17 iterators.cpp -o iterators
+
 /****************************** Iterators *************************************
 * 
 * - Iterators are pointer-like objects to traverse containers.
@@ -28,7 +30,8 @@
 *    - const_iterator does not allow modification of the elements it points to, while iterator does.
 *
 * 3. How does a reverse_iterator work internally?
-*    - It wraps a regular iterator and iterates backwards using `--base()` on increment and `++base()` on decrement.
+*    - It wraps a regular iterator and iterates backwards: ++ moves the wrapped iterator back, and -- moves it forward.
+*    - Dereferencing reads the element just before the wrapped iterator, so rbegin() wraps end() and reads the last element.
 *
 * 4. Which containers provide random access iterators?
 *    - vector, array, deque.

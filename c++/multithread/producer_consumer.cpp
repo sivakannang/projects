@@ -1,18 +1,28 @@
 /*
+   g++ -std=c++20 -O2 -Wall -Wextra -pthread producer_consumer.cpp -o producer_consumer
+
    ================================================================================
-PROBLEM: Bounded Producer–Consumer with C++20 Semaphores
+PROBLEM: Bounded Producer–Consumer
 
 Statement:
-Implement a bounded queue with one producer and one consumer (easy to extend to many) using C++20 semaphores.
+Implement a bounded queue with producers and consumers.
 The producer must block when the buffer is full; the consumer must block when the buffer is empty.
 Cleanly signal completion when the producer finishes.
 
-Key Ideas:
+This file solves it in three ways, plus a semaphore handoff between two threads :
+- cv_spsc   : one condition variable and a done flag
+- sem_spsc  : two semaphores and a sentinel
+- sem_mpmc  : same, with many producers and consumers
+
+Key Ideas with semaphores:
 - Two counting semaphores:
 slots : counts FREE slots in the buffer (initial = capacity)
 items : counts FILLED slots in the buffer (initial = 0)
 - A mutex protects the queue itself during push/pop.
-- Use a sentinel value to tell the consumer to stop (no condition_variable / no "done" flag gymnastics).
+- Use a sentinel value to tell the consumer to stop. The sentinel must be a value which real data can never have.
+
+With a single condition variable, producers and consumers wait on the same cv, so with many of them notify_one can wake the
+wrong kind, and everyone sleeps. Use two condition variables (not_full, not_empty), or notify_all.
 
 Complexity:
 - Each push/pop is O(1).
@@ -37,20 +47,18 @@ Complexity:
 - If it’s waiting on a complex state condition → use a condition variable.
 */
 
-// producer_consumer_sem.cpp
-// g++ -std=c++20 -O2 -Wall -Wextra -pthread producer_consumer_sem.cpp -o app
 #include <iostream>
 #include <thread>
 #include <queue>
 #include <mutex>
 #include <semaphore>    // C++20
 #include <syncstream>
-#include <climits>
 #include <chrono>
 #include <condition_variable>
 using namespace std::chrono_literals;
 
-namespace spsc {
+// ------------------ Single Producer, Single Consumer, condition variable ------------------
+namespace cv_spsc {
 
 	std::queue<int> buffer;
 	constexpr std::size_t MAX_BUFFER_SIZE = 5;
@@ -96,15 +104,15 @@ namespace spsc {
 }
 
 
-// ------------------ Single Producer, Single Consumer ------------------
-namespace SPSC {
+// ------------------ Single Producer, Single Consumer, semaphores ------------------
+namespace sem_spsc {
 	static constexpr int CAPACITY = 5;     // bounded buffer
 	static constexpr int SENTINEL = -1;    // poison pill
 
 	std::queue<int> q;
 	std::mutex q_mtx;
-	std::counting_semaphore<INT_MAX> slots(CAPACITY); // free slots
-	std::counting_semaphore<INT_MAX> items(0);        // filled items
+	std::counting_semaphore<CAPACITY> slots(CAPACITY); // free slots
+	std::counting_semaphore<CAPACITY> items(0);        // filled items
 
 	void producer(int count) {
 		for (int i = 1; i <= count; ++i) {
@@ -139,15 +147,15 @@ namespace SPSC {
 	}
 }
 
-// ------------------ Multi-Producer, Multi-Consumer ------------------
-namespace MPMC {
+// ------------------ Multi-Producer, Multi-Consumer, semaphores ------------------
+namespace sem_mpmc {
 	static constexpr int CAPACITY = 8;
 	static constexpr int SENTINEL = -1;
 
 	std::queue<int> q;
 	std::mutex q_mtx;
-	std::counting_semaphore<INT_MAX> slots(CAPACITY);
-	std::counting_semaphore<INT_MAX> items(0);
+	std::counting_semaphore<CAPACITY> slots(CAPACITY);
+	std::counting_semaphore<CAPACITY> items(0);
 
 	void producer(int id, int start, int n) {
 		for (int i = 0; i < n; ++i) {
@@ -157,7 +165,6 @@ namespace MPMC {
 				q.push(start + i);
 			}
 			items.release();
-			//std::cout << "[P" << id << "] " << start+i << '\n';
 			{ std::osyncstream(std::cout) << "[P" << id << "] " << start + i << '\n'; }
 			std::this_thread::sleep_for(30ms);
 		}
@@ -173,7 +180,6 @@ namespace MPMC {
 			}
 			slots.release();
 			if (v == SENTINEL) break;                 // each consumer exits on its own sentinel
-								  //std::cout << "[C" << id << "] " << v << '\n';
 			{ std::osyncstream(std::cout) << "[C" << id << "] " << v << '\n'; }
 			std::this_thread::sleep_for(60ms);
 		}
@@ -249,7 +255,8 @@ namespace console_sharing {
 int main() {
 
 	{
-		using namespace spsc;
+		using namespace cv_spsc;
+		std::cout << "=== SPSC, condition variable ===\n";
 		std::thread prod(producer, 10);
 		std::thread cons(consumer);
 		prod.join();
@@ -259,16 +266,16 @@ int main() {
 	}
 
 	{
-		using namespace SPSC;
-		std::cout << "=== SPSC (1 producer, 1 consumer) ===\n";
+		using namespace sem_spsc;
+		std::cout << "\n=== SPSC, semaphores (1 producer, 1 consumer) ===\n";
 		std::thread p(producer, 10);
 		std::thread c(consumer);
 		p.join(); c.join();
 	}
 
 	{
-		using namespace MPMC;
-		std::cout << "\n=== MPMC (2 producers, 3 consumers) ===\n";
+		using namespace sem_mpmc;
+		std::cout << "\n=== MPMC, semaphores (2 producers, 3 consumers) ===\n";
 		std::thread p1(producer, 1, 100, 10);
 		std::thread p2(producer, 2, 200, 10);
 

@@ -1,3 +1,67 @@
+GCC COMMAND CHEAT SHEET
+===============================================================================
+
+gcc arguments:
+
+	-E                    : stop after preprocessing, output goes to stdout unless -o is given
+	-S                    : stop after compiling to assembly (.s), do not assemble
+	-c                    : stop after assembling to an object file (.o), do not link
+	-save-temps           : keep all intermediate files ( .c/.cpp -> .i/.ii -> .s -> .o -> executable )
+	-o [filename]         : generate output file with the given name ( ex : gcc main.c -o main )
+	-Wall                 : enable the common warnings, not all of them despite the name
+	-Wextra               : enable more warnings on top of -Wall
+	-Werror               : treat all the warnings as errors
+	-v                    : print (on standard error output) the commands executed to run the stages of compilation
+	-g                    : generate debug information to be used by GDB debugger
+	-ansi                 : same as -std=c90 for C, -std=c++98 for C++
+	-std=[]               : language standard ( ex : -std=c99, -std=c11, -std=c++17, -std=c++20 )
+	-D[macro]             : define a macro ( ex : gcc -DDEBUG main.c , gcc -DSIZE=10 main.c )
+	-U[macro]             : cancel any previous definition of name, either built in or provided with a -D option
+	@[filename]           : read command-line options from file ( gcc main.c @opt_file , opt_file content is '-Wall -o main' )
+	-O[0|1|2|3|g|s|fast]  : optimization level. -O0 is the default, -Og keeps debugging usable, -Os optimizes for size
+	-funsigned-char       : treat plain char as unsigned
+	-fsigned-char         : treat plain char as signed
+	-fPIC                 : produce position independent code for shared libraries, so they can load at any address
+	-fPIE, -pie           : compile, then link, a position independent executable, which ASLR can load at any address
+	-shared               : create a shared library ( ex : g++ -fPIC -shared lib.cpp -o libfoo.so )
+	-I[path]              : add a directory to search for header files
+	-L[path]              : add a directory to search for libraries at link time
+	-l[libname]           : link with libname.so or libname.a ( ex : -lm ). Put it after the files which use it.
+	-pthread              : compile and link with thread support, prefer it over -lpthread
+	-fsanitize=[]         : add runtime checks ( ex : -fsanitize=address,undefined or -fsanitize=thread )
+	-Wl,[options]         : pass options to the linker with comma separated values
+				(ex: -Wl,-rpath,/home/siva/lib -> store a path in the executable, where the loader looks for libraries at run time)
+
+
+GNU toolchain:
+
+	- gcc                 : GNU C compiler
+	- g++                 : GNU C++ compiler
+	- cpp                 : C Preprocessor
+	- as                  : GNU Assembler
+	- ld                  : GNU Linker
+	- ldd                 : List shared library dependencies
+	- ldconfig            : configure dynamic linker run time bindings (update cache /etc/ld.so.cache)
+	- ar                  : GNU Archive - use for static library management ( build, list, ...)
+	- nm                  : List object file symbols
+	- objcopy             : copy and translate object files
+	- objdump             : display object file information ( objdump -d for disassembly )
+	- size                : List text, data, bss segment size
+	- strings             : Display printable characters from a file
+	- strip               : Discard symbols from object file
+	- c++filt             : Demangle command
+	- addr2line           : Convert address into filename and line number
+	- readelf             : Display ELF object file info
+
+
+Compilation stages, one at a time:
+
+	$ cpp main.c -o main.i
+	$ gcc -S main.i -o main.s
+	$ as main.s -o main.o
+	$ gcc main.o -o main          // Runs ld, and adds the C runtime startup files and libc
+
+
 
 ╔═════════════════════════════════════════════════════════════════════════════╗
 ║                    GDB COMMAND CHEAT SHEET (ENHANCED FINAL)               ║
@@ -7,7 +71,8 @@
 ───────────────────────────────────────────────────────────────────────────────
     gcc -g program.c -o program
     g++ -g program.cpp -o program
-    # Optional: -O0 disables optimizations
+    # Optional: -O0 disables optimizations, or -Og, for accurate stepping
+    # gcc flags are at the top of this file. c++/gdb/gdb_practice.cpp is a program to practise these commands on.
 
 
 🚀 START GDB
@@ -19,34 +84,54 @@
     gdb ./program                   ← host server   ( launch gdb with binary on host )
     (gdb) target remote <IP>:1234   ← host server   ( Connect to the target stub )
 
+    help (h)                        List the command classes
+    help <class>                    Detail about a class ( ex : h breakpoints )
+
 
 🔁 EXECUTION CONTROL
 ───────────────────────────────────────────────────────────────────────────────
-    run (r)                         Start the program
+    run (r) [args]                  Start the program, or restart it if it is running
     start                           Run to main()
-    continue (c)                    Resume execution
-    step (s)                        Step into function
-    next (n)                        Step over function
-    finish                          Run until function returns
-    until                           Run until specific line
+    continue (c)                    Resume execution, to the next breakpoint or end
+    step (s) [N]                    Next source line, go into a function. N = do this N times
+    next (n)                        Next source line, run a whole function and stop after it
+    stepi (si), nexti (ni)          Same as step and next, for one machine instruction
+    finish (fin)                    Run until function returns, print the return value
+    until (u)                       Like next, but at the end of a loop continue until the loop exits
+    until (u) <line>                Run until the line, or until the current function returns
+    kill                            Kill the program being debugged
     quit (q)                        Exit GDB
+    <Enter>                         Repeat the last command
 
 
 🎯 BREAKPOINTS & WATCHPOINTS
 ───────────────────────────────────────────────────────────────────────────────
+    break (b)                       Set breakpoint at the current line
     break <line/function>           Set breakpoint
+    break +N                        Set breakpoint N lines down from the current line
     break <file>:<line>             File and line specific breakpoint
-    delete [N]                      Delete breakpoints
+    break <file>:<function>         File and function specific breakpoint
+    break <function> if n==2        Stop only when the condition is true
+    tbreak (tb) <line/function>     Same as break, but deleted after the first stop
+    catch throw                     Stop when a C++ exception is thrown
+    clear <file:line/function>      Clear a breakpoint by location
+    delete (d) [N]                  Delete breakpoint N, or all breakpoints
     disable/enable <N>              Temporarily toggle breakpoint
     watch <expr>                    Watch for write access
+    watch <expr> if i == 5          Conditional watchpoint
     rwatch <expr>                   Watch for read access
     awatch <expr>                   Watch for read/write access
-    info breakpoints                List breakpoints
+    info breakpoints (i b)          List breakpoints
+    info watch                      List watchpoints
 
 
 🔍 VARIABLE & MEMORY INSPECTION
 ───────────────────────────────────────────────────────────────────────────────
-    print <var>                     Show variable value
+    print (p) <var>                 Show variable value
+    p *<var>                        Show what the pointer points to
+    p/x <var>                       Show value in hex
+    p <var><tab>                    List all variables starting with <var>
+    p $rax                          Show a register, $rax on x86-64
     display <var>                   Auto-print on step
     set var <x>=val                 Modify variable
     x/<fmt> <addr>                  Inspect memory
@@ -60,22 +145,29 @@
 
 🧠 STACK AND BACKTRACE
 ───────────────────────────────────────────────────────────────────────────────
-    backtrace (bt)                 Show call stack
-    frame N                        Switch to stack frame
+    backtrace (bt), where          Show call stack
+    bt N / bt -N                   Show the innermost N / outermost N frames
+    frame (f) N                    Switch to stack frame
+    up [N] / down [N]              Move N frames up / down the stack
+    up-silently, down-silently [N] Same, without displaying the new frame
     info frame                     Show frame details
     info registers                 Show CPU registers
 
 
 📚 SOURCE NAVIGATION
 ───────────────────────────────────────────────────────────────────────────────
-    list (l)                       Show source
+    list (l)                       Show source, 10 lines
+    list 20                        List around line 20
+    list 20,50                     List line 20 to 50
     list <function>                List around function
-    list <file>:<line>             List from file:line
-    edit                           Open in editor
+    list <file>:<function>         List around function in the file
+    list <file>:<line>             List around file:line
+    edit                          Open in editor
 
 
 🧵 MULTITHREADING DEBUGGING
 ───────────────────────────────────────────────────────────────────────────────
+    help thread                    Detail about the thread commands
     info threads                   List threads
     thread <N>                     Switch to thread N
     thread apply all bt           Backtrace all threads
@@ -160,7 +252,6 @@
     • Use display to auto-show variable values
     • Create ~/.gdbinit with aliases and settings
     • Use directory <path> to map missing sources
-    • Disable ASLR for reproducibility:
-        echo 0 | sudo tee /proc/sys/kernel/randomize_va_space
+    • gdb turns off ASLR for programs it starts ( show disable-randomization ), so addresses repeat between runs
 
 ===============================================================================

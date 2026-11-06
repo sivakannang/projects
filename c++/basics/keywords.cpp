@@ -1,3 +1,5 @@
+// g++ -std=c++17 keywords.cpp -o keywords
+
 /* ---------------------------------------------------------
 // C++ Keywords (Grouped)
 // ---------------------------------------------------------
@@ -9,14 +11,15 @@ if, else, switch, case, default, break, continue, goto, return
 for, while, do
 
 // Data Types & Modifiers
-int, char, float, double, void, bool, wchar_t
+int, char, float, double, void, bool, wchar_t, char8_t, char16_t, char32_t
 short, long, signed, unsigned, auto, decltype
 
 // Storage Class Specifiers
-static, extern, mutable, register, thread_local
+static, extern, mutable, thread_local
+register is still reserved, but has no meaning since C++17
 
 // Constants & Qualifiers
-const, volatile, constexpr
+const, volatile, constexpr, consteval, constinit
 
 // Type Casts
 static_cast, dynamic_cast, reinterpret_cast, const_cast
@@ -37,10 +40,12 @@ public, private, protected, virtual
 try, catch, throw
 
 // Namespace & Scope
-namespace, using, ::, typedef
+namespace, using, typedef
+:: is an operator, not a keyword
 
 // Logic & Comparison
-true, false, nullptr, and, or, not, bitand, bitor, xor
+true, false, nullptr
+Alternative spellings of operators: and, or, not, bitand, bitor, xor
 
 // Other Special Keywords
 typeid, static_assert, asm, export, concept, requires, co_await, co_return, co_yield
@@ -56,7 +61,7 @@ new, delete, operator
 auto:
 - Compiler deduces type from initializer.
 - Requires initialization.
-- Drops const and reference by default.
+- Drops references and top-level const by default.
 
 decltype:
 - Deduces exact type of an expression without evaluating it.
@@ -70,10 +75,12 @@ decltype(auto):
 → Type inference: lets the compiler deduce the variable type from the initializer.
 
 2. Can auto deduce reference or const?
-→ No. auto drops reference and const unless explicitly specified.
+→ Not by itself: auto drops references and top-level const, unless written as auto& or const auto.
+   Low-level const stays: if p is a const int*, then auto q = p is also a const int*.
 
 3. What happens when using brace initialization with auto?
-→ It creates std::initializer_list<T> if types match, or causes a compile error.
+→ auto a{1};       // int, since C++17. auto a{1, 2} is an error.
+   auto b = {1, 2}; // std::initializer_list<int>. The types must match, or it is an error.
 
 4. How does auto differ from decltype?
 → auto evaluates the expression and may drop qualifiers; decltype deduces exact type without evaluation.
@@ -177,14 +184,14 @@ Allows values/functions to be evaluated at compile time.
 
 extern       → Variable/function defined elsewhere.
 volatile     → Prevents optimization; value may change outside program.
-register     → Hints storage in CPU register (deprecated).
+register     → Removed in C++17. It was a hint to keep a variable in a CPU register.
 thread_local → Each thread gets its own copy.  ( thread_local int id = 0 )
 
 1. extern vs static linkage? → extern = global, static = file-local.
 2. volatile in loops? → Prevents optimization; reloads every time.
 3. Is volatile thread-safe? → No.
-4. Why can't you take &register? → May not exist in memory.
-5. Why deprecated? → Compilers optimize better.
+4. Can you take &x of a register variable? → Not in C. C++ allowed it, while register existed.
+5. Why removed? → Compilers choose registers better than programmers do.
 6. Use of thread_local? → Per-thread storage.
 7. Can thread_local be global? → Yes.
 8. thread_local vs static? → static is shared, thread_local is per-thread.
@@ -254,7 +261,7 @@ private    → Members accessible only within the class.
 protected  → Members accessible in class and derived classes.
 virtual    → Enables runtime polymorphism and dynamic dispatch.
 
- public vs private vs protected? → Controls access level to members.
+1. public vs private vs protected? → Controls access level to members.
 2. When is a virtual function needed? → For dynamic (runtime) dispatch.
 3. Why should a base class destructor be virtual? → To ensure correct destruction via base pointer.
 4. Can constructors be virtual? → No, constructors can't be virtual.
@@ -327,7 +334,7 @@ alignas   → Specifies required alignment.
 
 
 1. malloc/free vs new/delete? → new/delete run constructors/destructors.
-2. sizeof on heap object? → Gives pointer size.
+2. sizeof on heap object? → sizeof(p) gives the pointer's size; sizeof(*p) gives the object's. For new[], the array's size can't be found this way.
 3. alignof? → Alignment in bytes.
 4. alignas? → Set specific alignment.
 5. delete invalid pointer? → Undefined behavior.
@@ -360,6 +367,8 @@ template<typename T>
 }
 */
 
+// decltype(auto) keeps exactly what id() returns: a copy for Msg1, and a reference for Msg2.
+// That reference points into t, so it dangles if t is a temporary that has gone.
 template<typename T>
 decltype(auto) getId(const T& t)
 {
@@ -387,7 +396,7 @@ int main()
 	static_assert(std::is_same< decltype(getId(m2)), const std::string&> {}, "");
 
 	// SECTION 2: Type-based assertions using std::declval (Robust C++11/14 Style)
-	// Works even if Msg1 or Msg2 have NO default constructor or are not in scope.
+	// Works even if Msg1 or Msg2 have NO default constructor. The types must still be visible here.
 	// std::declval<T>() tells the compiler: "Pretend I have an object of type T."
 	static_assert(std::is_same<decltype(getId(std::declval<Msg1>())), std::uint64_t>{}, "");
     	static_assert(std::is_same<decltype(getId(std::declval<Msg2>())), const std::string&>{}, "");

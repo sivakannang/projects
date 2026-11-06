@@ -1,11 +1,14 @@
 /***********************************************
  *
- *  valgrind --tool=memcheck --leak-check=yes ./a.out
+ *  g++ -std=c++17 ds_lib.cpp -o ds_lib
  *
+ *  Check for memory errors with either of these:
+ *    g++ -std=c++17 -g -fsanitize=address,undefined ds_lib.cpp -o ds_lib && ./ds_lib
+ *    valgrind --tool=memcheck --leak-check=yes ./ds_lib
  *
  * ******************************************/
 
-#include <ds_lib.h>
+#include "ds_lib.h"
 
 void array_test()
 {
@@ -41,7 +44,15 @@ void vector_test()
 	v.push_back("four");
 	v.push_back("five");
 	v.pop_back();
-	
+
+	// Strings too long for the small string optimization, as those own heap memory, and show up memory bugs
+	v.push_back("a string long enough to be stored on the heap");
+	v.push_back(v[0]);       // An element of the vector itself, while it may be growing
+
+	dsa::Vector<std::string> copy = v;
+	copy.pop_back();
+	std::cout << "v.size() = " << v.size() << ", copy.size() = " << copy.size() << std::endl;
+
 	for ( auto a : v )
 		std::cout << a << std::endl;
 	std::for_each(v.begin(), v.end(), [](std::string& i) { std::cout << i << std::endl; });
@@ -101,6 +112,8 @@ void list_test()
 
 	list.pop_back();
 	list.pop_front();
+
+	std::cout << list.front() << " ... " << list.back() << " , size " << list.size() << std::endl;
 }
 
 void hash_table_test()
@@ -151,8 +164,8 @@ void string_test()
 	dsa::String s3("kannan");           // argument constructor
 	dsa::String s4(s2);                 // copy constructor
 	dsa::String s5 = s3;                // copy constructor
-	dsa::String s6 = s2 + s3;           // operator + and copy constructor
-	
+	dsa::String s6 = s2 + s3;           // operator +, with the result built directly in s6 (copy elision)
+
 
 	std::cout << "s1 : " << s1 << std::endl;
 	std::cout << "s2 : " << s2 << std::endl;
@@ -161,7 +174,7 @@ void string_test()
 	std::cout << "s5 : " << s5 << std::endl;
 	std::cout << "s6 : " << s6 << std::endl;
 	
-	s6 = s2 + s3 + s6;                  // operator + and copy assignment
+	s6 = s2 + s3 + s6;                  // operator + and move assignment, as the result is a temporary
 	std::cout << "s6 : " << s6 << std::endl;
 	s3 = s2 + s3 + s2 + s3;
 	std::cout << "s3 : " << s3 << std::endl;
@@ -185,11 +198,58 @@ void string_test()
 	s3[0] = 'I';                      //       char& operator[] (size_t idx)
 	std::cout << s3 << std::endl;
 
-	dsa::String s7 = std::move(dsa::String("test"));  // std::move will create rvalue reference, move construtor will invoke
+	dsa::String temp("test");
+	dsa::String s7 = std::move(temp);                  // Move constructor. temp is a named variable, so it needs std::move.
 	std::cout << "s7 " << s7 << std::endl;
-	s7 = std::move(dsa::String("done with the test"));              // std::move will create rvalue reference, move assginment will invoke
+	s7 = dsa::String("done with the test");            // A temporary is already an rvalue, so move assignment runs without std::move
 	std::cout << "s7 " << s7 << std::endl;
-	
+}
+
+void mystring_test()
+{
+	std::cout << "<<---------- " << __func__ << "---------->>" << std::endl;
+
+	dsa::MyString s1("siva");
+	dsa::MyString s2(s1);                 // copy constructor
+	dsa::MyString s3(std::move(s1));      // move constructor
+	std::cout << "s1 size after move : " << s1.size() << std::endl;
+	s1 = s2 + s3;                         // operator + and move assignment
+	std::cout << s1 << " " << s2 << " " << s3 << std::endl;
+}
+
+void trie_test()
+{
+	std::cout << "<<---------- " << __func__ << "---------->>" << std::endl;
+
+	dsa::Trie trie;
+	for ( const char* word : { "car", "card", "care", "dog" } )
+		trie.insert(word);
+
+	std::cout << std::boolalpha << trie.search("car") << " " << trie.search("ca") << " " << trie.startsWith("ca") << std::endl;
+
+	for ( const auto& word : trie.autoSuggest("car", 2) )
+		std::cout << word << " ";
+	std::cout << std::endl;
+}
+
+void priority_queue_test()
+{
+	std::cout << "<<---------- " << __func__ << "---------->>" << std::endl;
+
+	dsa::PriorityQueue<int> max_heap;
+	dsa::PriorityQueue<int, std::greater<int>> min_heap;
+
+	for ( int x : { 5, 1, 9, 3, 7 } ) {
+		max_heap.push(x);
+		min_heap.push(x);
+	}
+
+	while ( !max_heap.empty() ) {
+		std::cout << max_heap.top() << "/" << min_heap.top() << " ";
+		max_heap.pop();
+		min_heap.pop();
+	}
+	std::cout << std::endl;
 }
 
 void graph_test() {
@@ -207,7 +267,7 @@ void graph_test() {
 		using namespace dsa::directed_graph_weight;
 
 		std::vector<Edge> edges = {
-			 // `(x, y, w)` —> edge from `x` to `y` having weight `w`
+			 // `(x, y, w)` -> edge from `x` to `y` having weight `w`
 			 { 0, 1, 6 }, { 1, 2, 7 }, { 2, 0, 5 }, { 2, 1, 4 },
 			 { 3, 2, 10 }, { 5, 4, 1 }, { 4, 5, 3 }
 		};
@@ -227,7 +287,9 @@ int main()
 	hash_table_test();
 	map_test();
 	string_test();
+	mystring_test();
+	trie_test();
+	priority_queue_test();
 	graph_test();
 	return 0;
-
 }

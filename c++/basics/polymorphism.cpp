@@ -1,4 +1,6 @@
-/***************************************  Polymorphism   ******************************************************* 
+// g++ -std=c++17 polymorphism.cpp -o polymorphism
+
+/***************************************  Polymorphism   *******************************************************
  *  One interface, many types. Two forms:
  *
  *  - static bind/Compile-time polymorphism → binding happens at compile time, based on the static type. ( ex : function overloading, operator overloading )
@@ -17,7 +19,7 @@
  *  Base* b = &d;   // b has static type Base*, dynamic type points to Derived
  *  b->show();      // non-virtual → Base::show() chosen at compile time (static type = Base*)
  *                  // If show() was virtual, the call would dispatch to Derived::show() using dynamic type
- *  Base *p     = &d;                           // downcast always safe 
+ *  Base *p     = &d;                           // upcast, always safe
  *  Derived *d1 = static_cast<Derived *>(b);    // safe here (object is truly Derived) 
  *  Derived *d1 = dynamic_cast<Derived *>(b);   // also safe, and checked
  *
@@ -31,7 +33,8 @@
  *   | `dynamic_cast` | **Yes**                 | `nullptr`     | `std::bad_cast` | ✅          | RTTI check   |
  *
  *  - Use `virtual` in the base to enable dynamic dispatch. Prefer `override` in the derived.
- *    Must match signature (+ cv/ref/noexcept); return type can be covariant.
+ *    Must match signature (+ cv/ref); return type can be covariant.
+ *    An override may be stricter on noexcept than the base, but not looser.
  *
  *  - Calls through base pointers/references pick derived overrides at run time (dynamic binding).
  *    Without `virtual`, similarly named functions in the derived hide base versions (static binding).
@@ -74,6 +77,7 @@
  * Ans : 10
  * 	As it having virtual function, compiler will insert a vptr as a hidden/first member. As it is 64 machine , pointer size will be 8 bytes.
  * 	So class size will be 16 bytes, so integer arr[2]  will point base address + 8 , which is data[0] , which is 10
+*	This is typical behavior only. The vptr's position isn't in the standard, and reading the object this way is undefined behavior.
 *
 * 
 ***************************************** Interview Questions and Answers *******************************************
@@ -109,7 +113,7 @@ struct NseFeed : MarketData {
 	void nseSpecific()    { std::cout << "nseSpecific()" << std::endl; } 
 };
 struct BseFeed : MarketData { 
-	void parse() override { std::cout << "NseFeed::parse()" << std::endl; } 
+	void parse() override { std::cout << "BseFeed::parse()" << std::endl; }
 	void bseSpecific()  { std::cout << "bseSpecific()" << std::endl; } 
 };
 
@@ -129,6 +133,10 @@ void process(MarketData& md) {
 int main() {
 	auto md = std::make_unique<NseFeed>();
 	process(*md);
+
+	auto bse = std::make_unique<BseFeed>();
+	process(*bse);
+
 	return 0;
 }
 

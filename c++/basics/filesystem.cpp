@@ -1,3 +1,4 @@
+// g++ -std=c++17 filesystem.cpp -o filesystem
 
 /************************************** Filesystem **********************************
 *
@@ -12,7 +13,7 @@
 *   * remove_all(p): Recursively deletes all files and directories under path `p`.
 *   * rename(from, to): Renames or moves a file or directory.
 *   * copy_file(from, to, options): Copies a file from one path to another with options.
-*   * copy(from, to): Copies a file or directory (recursive for directories).
+*   * copy(from, to): Copies a file or directory. Pass copy_options::recursive to include subdirectories.
 *   * is_regular_file(p): Returns true if path `p` refers to a regular file.
 *   * is_directory(p): Returns true if path `p` is a directory.
 *   * is_symlink(p): Returns true if path `p` is a symbolic link.
@@ -21,7 +22,7 @@
 *   * recursive_directory_iterator(p): Recursively iterates over directory entries.
 *   * current_path(): Returns or sets the current working directory.
 *   * absolute(p): Converts path `p` to an absolute path.
-*   * canonical(p): Returns the absolute path after resolving symlinks.
+*   * canonical(p): Returns the absolute path after resolving symlinks. The path must exist.
 *   * relative(p, base): Computes relative path from base to `p`.
 *   * temp_directory_path(): Returns the system temporary directory path.
 *   * equivalent(p1, p2): Checks if two paths refer to the same file.
@@ -30,8 +31,8 @@
 *   * symlink_status(p): Like status(), but does not follow symlinks.
 *   * last_write_time(p): Gets or sets the last modification time.
 *   * resize_file(p, size): Changes file size to specified number of bytes.
-*   * create_symlink(from, to): Creates a symbolic link.
-*   * create_hard_link(from, to): Creates a hard link.
+*   * create_symlink(target, link): Creates a symbolic link named link, pointing to target.
+*   * create_hard_link(target, link): Creates a hard link named link, to target.
 *   * file_time_type, file_type, perms: Enum types for timestamps, types, and permission flags.
 *
 *
@@ -44,7 +45,7 @@
 *    - Use `std::filesystem::exists(path)`.
 *
 * 3. What is the difference between absolute() and canonical() paths?
-*    - `absolute()` resolves to full path; `canonical()` also resolves symlinks.
+*    - `absolute()` makes a full path, even if it doesn't exist; `canonical()` also resolves symlinks, and the path must exist.
 *
 * 4. How can you iterate over all files in a directory recursively?
 *    - Use `std::filesystem::recursive_directory_iterator(path)`.
@@ -87,12 +88,15 @@
 
 
 
-#include <iostream>
 #include <filesystem>
+#include <fstream>
+#include <iostream>
 
 
 void filesystemDemo() {
-	std::filesystem::path filePath = "example.txt";
+	// Create its own file, so the demo doesn't depend on what is already in the folder
+	std::filesystem::path filePath = "fs_demo.txt";
+	std::ofstream(filePath) << "filesystem demo\n";
 
 	if (std::filesystem::exists(filePath)) {
 		std::cout << "File exists: " << filePath << "\n";
@@ -102,15 +106,15 @@ void filesystemDemo() {
 	}
 
 	std::cout << "Current Path: " << std::filesystem::current_path() << "\n";
-	std::filesystem::create_directory("example_dir");
-	std::filesystem::create_directories("example_dir/nested/structure");
-	std::cout << "Created directories: example_dir/nested/structure\n";
+	std::filesystem::create_directory("fs_demo_dir");
+	std::filesystem::create_directories("fs_demo_dir/nested/structure");
+	std::cout << "Created directories: fs_demo_dir/nested/structure\n";
 
-	std::filesystem::copy_file(filePath, "example_dir/copied.txt", std::filesystem::copy_options::overwrite_existing);
-	std::cout << "File copied to example_dir/copied.txt\n";
+	std::filesystem::copy_file(filePath, "fs_demo_dir/copied.txt", std::filesystem::copy_options::overwrite_existing);
+	std::cout << "File copied to fs_demo_dir/copied.txt\n";
 
-	if (std::filesystem::is_directory("example_dir")) {
-		std::cout << "example_dir is a directory\n";
+	if (std::filesystem::is_directory("fs_demo_dir")) {
+		std::cout << "fs_demo_dir is a directory\n";
 	}
 
 	std::cout << "Contents of current directory:\n";
@@ -118,13 +122,21 @@ void filesystemDemo() {
 		std::cout << " - " << entry.path() << "\n";
 	}
 
-	std::filesystem::remove("example_dir/copied.txt");
-	std::filesystem::remove_all("example_dir");
+	std::filesystem::remove("fs_demo_dir/copied.txt");
+	std::filesystem::remove_all("fs_demo_dir");
+	std::filesystem::remove(filePath);
 	std::cout << "Cleaned up created files and directories\n";
 }
 
 int main() {
-	filesystemDemo();
+	// These functions throw filesystem_error on failure, unless given a std::error_code argument
+	try {
+		filesystemDemo();
+	} catch (const std::filesystem::filesystem_error& ex) {
+		std::cerr << ex.what() << "\n";
+		return 1;
+	}
+
 	return 0;
 }
 

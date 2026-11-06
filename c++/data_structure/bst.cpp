@@ -1,3 +1,8 @@
+// g++ -std=c++17 bst.cpp -o bst
+//
+// A template BST: operations are O(h), where h is log(n) on average but n for sorted input.
+// The recursive functions use h stack frames, so a very deep tree could overflow the stack.
+
 #include <iostream>
 #include <queue>
 #include <stack>
@@ -127,6 +132,8 @@ class Bst {
 		int height(Node* n) const {
 			return n ? 1 + std::max(height(n->left), height(n->right)) : 0;
 		}
+		// O(n log n) on a balanced tree, as it recalculates height at each node.
+		// Returning height and balance together from one recursion would make it O(n).
 		bool is_balanced(Node* n) const {
 			if (!n) return true;
 			int hl = height(n->left), hr = height(n->right);
@@ -162,6 +169,7 @@ class Bst {
 			}
 			return ans;
 		}
+		// Assumes both a and b are in the tree. If not, this still returns the node where they would split.
 		Node* lca(Node* n, const T& a, const T& b) const {
 			const T& lo = a > b ? b : a;
 			const T& hi = a > b ? a : b;
@@ -180,7 +188,8 @@ class Bst {
 			return kth_smallest(n->right, k);
 		}
 
-		static const Node* kth_smallest(const Node* n, std::size_t k) {
+		// The same result as kth_smallest, using an explicit stack instead of recursion
+		static const Node* kth_smallest_iterative(const Node* n, std::size_t k) {
 			if (!n || k == 0) return nullptr;
 
 			std::stack<const Node*> st;
@@ -190,14 +199,14 @@ class Bst {
 				// go all the way left
 				while (cur) {
 					st.push(cur);
-					cur = cur->left_;
+					cur = cur->left;
 				}
 				// visit node
 				cur = st.top(); st.pop();
 				if (--k == 0) return cur;   // k-th smallest
 
 				// then go right
-				cur = cur->right_;
+				cur = cur->right;
 			}
 			return nullptr; // k > number of nodes
 		}
@@ -241,7 +250,8 @@ class Bst {
 		Node* successor(const T& x)     const { return successor(root, x); }
 		Node* predecessor(const T& x)   const { return predecessor(root, x); }
 		Node* lca(const T& a, const T& b) const { return lca(root, a, b); }
-		Node* kth_smallest(std::size_t k) const { return kth_smallest(root, k); }
+		Node* kth_smallest(std::size_t k) const { return k ? kth_smallest(root, k) : nullptr; }
+		const Node* kth_smallest_iterative(std::size_t k) const { return kth_smallest_iterative(root, k); }
 		void  print_range(const T& L, const T& R) const { print_range(root, L, R); std::cout << '\n'; }
 		Node* get() const { return root; }
 };
@@ -272,6 +282,18 @@ int main()
 		std::cout << "bst.find(2) = " << *node << std::endl;
 
 	std::cout << "is_bst " << bst.is_bst() << std::endl;
+
+	bst.print_leaves();
+	bst.print_boundary();
+	bst.print_range(4, 8);
+	std::cout << "height " << bst.height() << ", balanced " << bst.is_balanced() << std::endl;
+
+	if ( auto n = bst.lower_bound(6) )   std::cout << "lower_bound(6) = " << *n << std::endl;
+	if ( auto n = bst.upper_bound(7) )   std::cout << "upper_bound(7) = " << *n << std::endl;
+	if ( auto n = bst.predecessor(5) )   std::cout << "predecessor(5) = " << *n << std::endl;
+	if ( auto n = bst.lca(2, 9) )        std::cout << "lca(2, 9) = " << *n << std::endl;
+	if ( auto n = bst.kth_smallest(2) )  std::cout << "kth_smallest(2) = " << *n << std::endl;
+	if ( auto n = bst.kth_smallest_iterative(2) ) std::cout << "kth_smallest_iterative(2) = " << *n << std::endl;
 
 	return 0;
 }

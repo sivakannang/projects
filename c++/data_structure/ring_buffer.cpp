@@ -1,13 +1,23 @@
+// g++ -std=c++20 -pthread ring_buffer.cpp -o ring_buffer      (C++20: uses semaphores and jthread)
+//
+//              Threads                  Waiting         Use it when
+// RingBuffer   1                        Never blocks    Single-threaded
+// TSRingBuffer Many producers/consumers Blocks          General purpose
+// LFRingBuffer 1 producer, 1 consumer   Never blocks    Low latency: no locks or system calls
+// SpscRing     1 producer, 1 consumer   Blocks          SPSC, where waiting should sleep rather than spin
+
+#include <algorithm>
 #include <array>
-#include <cstddef>
-#include <mutex>
-#include <condition_variable>
 #include <atomic>
-#include <iostream>
-#include <thread>
-#include <vector>
 #include <chrono>
+#include <condition_variable>
+#include <cstddef>
+#include <iostream>
+#include <mutex>
 #include <semaphore>
+#include <thread>
+#include <utility>
+#include <vector>
 
 // ========================= 1) Simple (single-threaded) =========================
 template<typename T, std::size_t N>
@@ -114,6 +124,8 @@ template<typename T, std::size_t N>
 class LFRingBuffer {
     static_assert(N > 0, "N must be > 0");
     std::array<T, N> buf_{};
+    // These two share a cache line, so each thread's write slows the other (false sharing).
+    // For real low-latency use, put each on its own line with alignas(64).
     std::atomic<std::size_t> head_{0}; // producer: next write (unbounded)
     std::atomic<std::size_t> tail_{0}; // consumer: next read  (unbounded)
 public:
@@ -136,35 +148,36 @@ public:
         return true;
     }
 
-    bool empty() const {
+    bool empty() const { return size() == 0; }
+    bool full()  const { return size() == N; }
+
+    // Only a snapshot while other threads are running.
+    // Read tail first: if head were read first, tail could then pass that old head, and the
+    // unsigned subtraction would wrap to a huge number. The other way round, head can advance
+    // after tail is read, so the result can briefly exceed N, which min corrects.
+    std::size_t size() const {
         std::size_t t = tail_.load(std::memory_order_acquire);
         std::size_t h = head_.load(std::memory_order_acquire);
-        return h == t;
-    }
-    bool full() const {
-        std::size_t h = head_.load(std::memory_order_acquire);
-        std::size_t t = tail_.load(std::memory_order_acquire);
-        return h - t == N;
-    }
-    std::size_t size() const {                // approximate under concurrency (SPSC-safe)
-        std::size_t h = head_.load(std::memory_order_acquire);
-        std::size_t t = tail_.load(std::memory_order_acquire);
-        return h - t;
+        return std::min(h - t, N);
     }
 
     static constexpr std::size_t capacity() { return N; }
 };
 
 
+// ==================== 4) SPSC with semaphores (blocking) ======================
+
+// The semaphores do the synchronizing. head_ is only used by the producer, and tail_ by the
+// consumer, so they don't need to be atomic.
 template<class T, std::size_t N>
 class SpscRing {
     static_assert(N > 0, "Capacity N must be > 0");
 
     std::array<T, N> buf_{};
-    std::size_t head_ = 0;                 // next pop index
-    std::size_t tail_ = 0;                 // next push index
+    std::size_t head_ = 0;                 // next push index
+    std::size_t tail_ = 0;                 // next pop index
 
-    std::counting_semaphore<N> slots_{N};   // free slots
+    std::counting_semaphore<N> slots_{N};  // free slots
     std::counting_semaphore<N> items_{0};  // ready items
 
 public:
@@ -215,13 +228,10 @@ void demo_semaphore () {
     });
     std::jthread cons([&]{
         for (int i = 1; i <= 10; ++i) std::cout << q.pop() << ' ';
+        std::cout << "\n\n";
     });
 }
 
-
-
-
-using namespace std::chrono_literals;
 
 // -------------------- Simple (single-thread) demo --------------------
 void demo_RingBuffer() {
@@ -256,7 +266,7 @@ void demo_TSRingBuffer() {
     for (int p = 0; p < producers; ++p) {
         P.emplace_back([&, p] {
             for (int i = 1; i <= items_per_producer; ++i) {
-                rb.push(p * 100 + i); // identifiable payloads: 101..110, 201..210
+                rb.push((p + 1) * 100 + i); // identifiable payloads: 101..110, 201..210
             }
         });
     }
@@ -290,7 +300,9 @@ void demo_TSRingBuffer() {
 
 // -------------------- Lock-free SPSC demo --------------------
 void demo_LFRingBuffer() {
-    LFRingBuffer<int, 8> rb;   // Use power-of-two capacity to be compatible with either variant
+    // A power of two lets h % N become the faster h & (N - 1), and keeps the index
+    // correct if the counters ever wrap, which at size_t's 64 bits won't happen in practice
+    LFRingBuffer<int, 8> rb;
     constexpr int total = 20;
 
     std::thread producer([&] {
@@ -333,6 +345,9 @@ int main() {
 
     std::cout << "--- LFRingBuffer (SPSC, lock-free) ---\n";
     demo_LFRingBuffer();
+
+    std::cout << "--- SpscRing (SPSC, semaphores) ---\n";
+    demo_semaphore();
 
     return 0;
 }

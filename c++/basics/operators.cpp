@@ -1,3 +1,5 @@
+// g++ -std=c++17 operators.cpp -o operators
+
 /************************ Operators **********************************
 * 
 * - Arithmetic: +, -, *, /, %
@@ -21,7 +23,7 @@
 *    - Prefix (++i) increments first, then returns; postfix (i++) returns first, then increments.
 *
 * 2. What is the difference between logical AND (&&) and bitwise AND (&)?
-*    - Logical AND returns boolean; bitwise AND operates on bits.
+*    - Logical AND returns boolean, and skips the right side if the left is false; bitwise AND operates on bits, and always evaluates both sides.
 *
 * 3. How do operator precedence and associativity affect expressions?
 *    - They determine the order in which operators are evaluated.
@@ -44,17 +46,6 @@
 *---------------------------------------------------------------------------------*/    
 
 #include <iostream>
-#include <typeinfo>
-
-class Base {
-	public:
-		virtual void show() { std::cout << "Base\n"; }
-};
-
-class Derived : public Base {
-	public:
-		void show() override { std::cout << "Derived\n"; }
-};
 
 class Int {
 	int val;

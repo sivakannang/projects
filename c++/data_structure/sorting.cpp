@@ -1,7 +1,17 @@
+// g++ -std=c++17 sorting.cpp -o sorting
+//
+//              Best        Average     Worst       Extra space   Stable
+// selection    O(n^2)      O(n^2)      O(n^2)      O(1)          No
+// bubble       O(n)        O(n^2)      O(n^2)      O(1)          Yes
+// merge        O(n log n)  O(n log n)  O(n log n)  O(n)          Yes
+//
+// Stable means equal elements keep their original order.
 
-#include <iostream>
 #include <cstdlib>
 #include <ctime>
+#include <iostream>
+#include <utility>
+#include <vector>
 
 template<typename T>
 class Sort {
@@ -27,42 +37,36 @@ public:
 				       is_swapped = true;
 				}
 			}
-			if ( is_swapped == false ) break;
+			if ( is_swapped == false ) break;   // No swaps means it is already sorted
 		}
 	}
 
-	// merge two sub arrays of arr[], first sub array is arr[l..m], second sub array is arr[m+1..r] 
+	// merge two sub arrays of arr[], first sub array is arr[l..m], second sub array is arr[m+1..r]
 	static void merge_sub(T arr[], int l, int m, int r) {
-		
-		int n1 = m - l + 1;
-		int n2 = r -m;
 
-		int L[n1], R[n2];
+		// Temp arrays of T. Arrays sized at runtime, like int L[n1], aren't standard C++.
+		std::vector<T> L(arr + l, arr + m + 1);
+		std::vector<T> R(arr + m + 1, arr + r + 1);
 
-		// copy data's to temp arrays L[], R[]
-		for ( int i = 0; i < n1; ++i )
-			L[i] = arr[l+i];
-		for ( int j = 0; j < n2; ++j )
-			R[j] = arr[m+1+j];
+		std::size_t i = 0;  // initial index of first sub array
+		std::size_t j = 0;  // initial index of second sub array
+		int k = l;          // initial index of merged sub array
 
-		int i = 0;  // initial index of first sub array
-		int j = 0;  // initial index of second sub array
-		int k = l;  // initial index of merged sub array
-	        
-		while ( i < n1 && j < n2 )
-			arr[k++] = ( L[i] < R[j] ) ? L[i++] : R[j++];
+		// On a tie take from L, which keeps equal elements in order and makes the sort stable
+		while ( i < L.size() && j < R.size() )
+			arr[k++] = ( R[j] < L[i] ) ? R[j++] : L[i++];
 
-		while ( i < n1 )  // copy remaining elements of L[], if there are any
+		while ( i < L.size() )  // copy remaining elements of L[], if there are any
 			arr[k++] = L[i++];
 
-		while ( j < n2 )  // copy remaining elements of R[], if there are any
-			arr[k++] = R[j++]; 
+		while ( j < R.size() )  // copy remaining elements of R[], if there are any
+			arr[k++] = R[j++];
 	}
 
 	static void merge(T arr[], int l, int r) {
-		
+
 		if ( l >= r ) return;
-		
+
 		int m = l + ( r - l ) / 2;
 
 		merge(arr, l, m);
@@ -76,13 +80,12 @@ public:
 			std::cout << t[i] << " " ;
 		std::cout << std::endl;
 	}
-
-	static void generate(int arr[], int size, int mod) {
-		for ( int i = 0; i < size; ++i )
-			arr[i] = std::rand() % mod;
-
-	}
 };
+
+static void generate(int arr[], int size, int mod) {
+	for ( int i = 0; i < size; ++i )
+		arr[i] = std::rand() % mod;
+}
 
 int main() {
 
@@ -90,20 +93,24 @@ int main() {
 	int size = sizeof(arr) / sizeof(int);
 	int mod = 100;
 
-	std::srand((unsigned) time(NULL));
+	std::srand((unsigned) std::time(nullptr));
 
-	Sort<int>::generate(arr, size, mod);
+	generate(arr, size, mod);
 	Sort<int>::print(arr, size);
 	Sort<int>::selection(arr, size);
 	Sort<int>::print(arr, size);
 
-	Sort<int>::generate(arr, size, mod);
+	generate(arr, size, mod);
 	Sort<int>::print(arr, size);
 	Sort<int>::bubble(arr, size);
 	Sort<int>::print(arr, size);
 
-	Sort<int>::generate(arr, size, mod);
+	generate(arr, size, mod);
 	Sort<int>::print(arr, size);
 	Sort<int>::merge(arr, 0, size-1);
 	Sort<int>::print(arr, size);
+
+	double prices[] = {2.5, 1.5, 1.25, 3.75};
+	Sort<double>::merge(prices, 0, 3);
+	Sort<double>::print(prices, 4);
 }

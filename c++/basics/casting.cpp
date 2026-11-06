@@ -1,15 +1,17 @@
+// g++ -std=c++17 casting.cpp -o casting
+
 /****----------------------------- Casting ---------------------------------
- * 
+ *
  *    upcast    -> derived to base
  *    downcast  -> base to derived
- * 
+ *
  *  - Casting is the process of converting one data type to another.
- *  - C++ offers four main types of casts:
+ *  - C++ offers four cast operators:
  *    1. static_cast<>()
  *    2. dynamic_cast<>()
  *    3. const_cast<>()
  *    4. reinterpret_cast<>()
- *    5. any_cast<>()
+ *  - std::any_cast<>() is not one of these. It is a library function that extracts the value from a std::any.
 
  *  1. static_cast<>()
  *     - Performs compile-time type conversions between compatible types
@@ -39,23 +41,23 @@
  *     - Low-level cast that converts between unrelated types.
  *     - Dangerous: bypasses type safety and used for system-level operations.
  *
- *  5. any_cast<>()
+ *  std::any and std::any_cast<>()
  *     - A type-erased holder for a single value of any copy-constructible type. It is both copyable and moveable.
  *     - References aren’t stored, use std::reference_wrapper<T> if you must keep a reference
  *     - Header: <any>. Core ops: has_value(), reset(), emplace<T>(...), type(), std::any_cast<T>().
  *     - Performance: May heap-allocate; indirection + RTTI lookups
  *     - When not to use: If the set of types is known → prefer std::variant. If only “maybe present” → std::optional<T>. If you need polymorphic dispatch → virtuals/concepts
- *     - Decayed type: a = "hi"; stores const char[3], not std::string, keep that in mind when casting.
+ *     - Decayed type: a = "hi"; stores const char*, not std::string, keep that in mind when casting.
  *	Extract without throwing: if (auto p = std::any_cast<T>(&a)) { ... } → nullptr on mismatch.
  *
  *	std::any a ;                                  // empty
  *	a = 42;                                       // holds int (decayed)
  *	std::cout << std::any_cast<int>(a)            //
- *	a = <std::string>("siva");                    // holds string
+ *	a = std::string("siva");                      // holds string
  *	std::cout << std::any_cast<std::string>(a)    //
  *	bool ok = a.has_value();                      // true
  *	const std::type_info& ti = a.type();          // typeid(std::string)
- *	std::cout << a.type.name() << std::endl;
+ *	std::cout << a.type().name() << std::endl;
  *	a.reset();                                    // empty again
  *
  *
@@ -77,12 +79,12 @@
 *
 ****************************************************************************************/
 
+#include <cstdint>
+#include <exception>
 #include <iostream>
-#include <typeinfo>
-
-#include <iostream>
-#include <string>
 #include <memory>
+#include <string>
+#include <typeinfo>
 
 class MarketData {
 	public:
@@ -139,7 +141,7 @@ void demo_dynamic_casting() {
 
 	// If you need derived-only APIs, use a safe downcast check with dynamic_cast.
 	if (market == Market::NSE) {
-		if (auto* f = dynamic_cast<NseFeed*>(marketData)) { f->nseSpecific(); } // NSE-only method }
+		if (auto* f = dynamic_cast<NseFeed*>(marketData)) { f->nseSpecific(); } // NSE-only method
 	} else if (market == Market::BSE) {
 		if (auto* f = dynamic_cast<BseFeed*>(marketData)) { f->bseSpecific(); }
 	}
@@ -177,14 +179,17 @@ int main() {
 	double d = static_cast<double>(i);
 	std::cout << "static_cast: " << d << "\n";
 
-	//const_cast example
-	const int x = 10;
-	int& y = const_cast<int&>(x);
+	// const_cast example: safe, because the object itself isn't const, only the reference to it.
+	// If x were declared const int, writing through y would be undefined behavior.
+	int x = 10;
+	const int& ref = x;
+	int& y = const_cast<int&>(ref);
 	y = 20;
-	std::cout << "const_cast: " << x << " (Warning: Undefined behavior)\n";
+	std::cout << "const_cast: " << x << "\n";
 
-	//reinterpret_cast example
-	long p = reinterpret_cast<long>(&i);
+	// reinterpret_cast example: uintptr_t is the integer type that can hold a pointer.
+	// long can't on every system: it is 32 bits on 64-bit Windows, and this wouldn't compile there.
+	std::uintptr_t p = reinterpret_cast<std::uintptr_t>(&i);
 	std::cout << "reinterpret_cast: " << p << "\n";
 
 	return 0;

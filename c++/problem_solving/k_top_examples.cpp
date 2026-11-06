@@ -4,13 +4,20 @@
   ============================================================
   OVERVIEW
   ------------------------------------------------------------
-  A collection of "k-th" style utilities for arrays and BSTs:
+  A collection of "top k" style utilities for arrays and BSTs:
     1) k smallest / k largest (with duplicates)
     2) k smallest / k largest DISTINCT values
     3) k most frequent values (deterministic tie-break)
     4) k-th smallest / largest in a BST
 
   Each function includes notes on approach, complexity, and edge cases.
+
+  Other ways to get the top k, worth mentioning in an interview:
+    - std::partial_sort : O(n log k), sorts the k smallest in place at the front
+    - std::nth_element  : O(n) average, the k smallest are at the front, not sorted
+    - A heap of size k uses O(k) space, so it also works on a stream, where the
+      whole input isn't available. The two above need all the data in memory.
+    - k most frequent with bucket sort : O(n), bucket[f] holds the values seen f times
 
   Build:
     g++ -std=c++17 -O2 -Wall -Wextra -pedantic k_top_examples.cpp -o ktop
@@ -20,6 +27,7 @@
 */
 
 #include <algorithm>
+#include <functional>
 #include <iostream>
 #include <iterator>
 #include <optional>
@@ -41,11 +49,18 @@ void print(const std::vector<T>& v, const std::string& header = "output") {
     std::cout << '\n';
 }
 
+// Print the result, and compare it with the expected one
+template <typename T>
+void check(const std::vector<T>& got, const std::vector<T>& want, const std::string& header) {
+    print(got, header);
+    if (got != want) print(want, "  MISMATCH, expected");
+}
+
 // ============================================================
 // 1) k SMALLEST (with duplicates)  — Max-heap of size k
 // ------------------------------------------------------------
 // Problem:
-//   Return the k smallest elements from v (k may be <= v.size()).
+//   Return the k smallest elements from v.
 //   Duplicates are allowed and preserved. Result is returned in
 //   ascending order.
 //
@@ -61,10 +76,9 @@ void print(const std::vector<T>& v, const std::string& header = "output") {
 //   - If k > v.size() → effectively returns all elements, sorted.
 //
 template <typename T>
-std::vector<T> kth_smallest(const std::vector<T>& v, std::size_t k) {
+std::vector<T> k_smallest(const std::vector<T>& v, std::size_t k) {
     if (k == 0 || v.empty()) return {};
     std::priority_queue<T> pq; // max-heap
-    pq = std::priority_queue<T>(); // ensure empty
 
     for (const T& x : v) {
         if (pq.size() < k) pq.push(x);
@@ -79,12 +93,12 @@ std::vector<T> kth_smallest(const std::vector<T>& v, std::size_t k) {
 // ============================================================
 // 2) k LARGEST (with duplicates)   — Min-heap of size k
 // ------------------------------------------------------------
-// Same reasoning as above, but mirrored.
+// Same reasoning as above, but mirrored. Result is in descending order.
 //
 // Complexity: O(n log k) time, O(k) space.
 //
 template <typename T>
-std::vector<T> kth_largest(const std::vector<T>& v, std::size_t k) {
+std::vector<T> k_largest(const std::vector<T>& v, std::size_t k) {
     if (k == 0 || v.empty()) return {};
     std::priority_queue<T, std::vector<T>, std::greater<T>> pq; // min-heap
 
@@ -94,7 +108,7 @@ std::vector<T> kth_largest(const std::vector<T>& v, std::size_t k) {
     }
     std::vector<T> out(pq.size());
     std::size_t i = out.size();
-    while (i--) { out[i] = pq.top(); pq.pop(); } // ascending of top-k largest
+    while (i--) { out[i] = pq.top(); pq.pop(); } // smallest of them goes last, so descending
     return out;
 }
 
@@ -112,7 +126,7 @@ std::vector<T> kth_largest(const std::vector<T>& v, std::size_t k) {
 // Note: Requires T to be LessComparable (has operator<).
 //
 template <typename T>
-std::vector<T> kth_smallest_distinct(const std::vector<T>& v, std::size_t k) {
+std::vector<T> k_smallest_distinct(const std::vector<T>& v, std::size_t k) {
     if (k == 0 || v.empty()) return {};
     std::set<T> s; // unique + sorted
     for (const T& x : v) {
@@ -130,7 +144,7 @@ std::vector<T> kth_smallest_distinct(const std::vector<T>& v, std::size_t k) {
 // Complexity: O(n log k) time, O(k) space.
 //
 template <typename T>
-std::vector<T> kth_largest_distinct(const std::vector<T>& v, std::size_t k) {
+std::vector<T> k_largest_distinct(const std::vector<T>& v, std::size_t k) {
     if (k == 0 || v.empty()) return {};
     std::set<T> s;
     for (const T& x : v) {
@@ -161,7 +175,7 @@ std::vector<T> kth_largest_distinct(const std::vector<T>& v, std::size_t k) {
 //   (We implement Approach A for clarity & fully deterministic behavior.)
 //
 template <typename T>
-std::vector<T> kth_most_frequent(const std::vector<T>& v, std::size_t k) {
+std::vector<T> k_most_frequent(const std::vector<T>& v, std::size_t k) {
     if (k == 0 || v.empty()) return {};
     std::unordered_map<T, std::size_t> freq;
     freq.reserve(v.size());
@@ -246,33 +260,35 @@ int main() {
     {
         std::vector<int> v = {4, 5, 6, 1, 2, 2, 2};
         print(v, "array input");
-        print(kth_smallest(v, 3),      "k_smallest_3");     // 3 smallest
-        print(kth_largest(v, 3),       "k_largest_3");      // 3 largest
+        check(k_smallest(v, 3), {1, 2, 2}, "k_smallest_3");
+        check(k_largest(v, 3),  {6, 5, 4}, "k_largest_3");
     }
     std::cout << '\n';
 
     {
         std::vector<int> v = {4, 1, -1, 2, -1, 2, 3};
         print(v, "array input");
-        print(kth_smallest_distinct(v, 2), "k_smallest_distinct_2"); // {-1,1} or {-1,2} depending on data
-        print(kth_largest_distinct(v, 2),  "k_largest_distinct_2");  // {4,3}
+        check(k_smallest_distinct(v, 2), {-1, 1}, "k_smallest_distinct_2");
+        check(k_largest_distinct(v, 2),  {4, 3},  "k_largest_distinct_2");
     }
     std::cout << '\n';
 
     {
         std::vector<int> v = {1,1,1,2,3,4,5,5,5,5};
         print(v, "array input");
-        print(kth_most_frequent(v, 2), "k_most_frequent_2"); // {5,1} (freq: 4 and 3), tie-break by value
+        check(k_most_frequent(v, 2), {5, 1}, "k_most_frequent_2"); // freq: 4 and 3
     }
     std::cout << '\n';
 
     // Optional: small BST example for kth-smallest/largest
     {
-        //       5
-        //     /   \
-        //    3     8
-        //   / \   / \
-        //  2  4  7   9
+        /*
+                 5
+               /   \
+              3     8
+             / \   / \
+            2  4  7   9
+        */
         Node<int> n2{2}, n4{4}, n7{7}, n9{9};
         Node<int> n3{3, &n2, &n4};
         Node<int> n8{8, &n7, &n9};

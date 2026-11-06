@@ -1,3 +1,4 @@
+// g++ -std=c++20 template.cpp -o template      (C++20: uses concepts and a templated lambda)
 
 /*
 ==========================
@@ -9,16 +10,16 @@ C++ Templates — Notes
 - Concepts (C++20) > SFINAE for readability/diagnostics; use requires/constraints to control overload sets.
 - Variadic templates + fold expressions (C++17) remove recursion boilerplate; use (expr op ...) forms.
 - CTAD (C++17) deduces class template args from constructor; add deduction guides when needed.
-- Partial specialization: only for class/alias/variable templates; functions use overloading/constraints instead.
+- Partial specialization: only for class and variable templates; functions use overloading/constraints instead. Alias templates can't be specialized at all.
 - Template template parameters let you pass containers/policies (e.g., std::vector) as parameters.
 - Dependent names: prefix with 'typename' when referring to a type; use 'template' keyword for dependent template calls.
-- Performance: prefer exact types & inlining; watch ODR bloat from many instantiations; explicitly instantiate where helpful.
+- Performance: prefer exact types & inlining; watch code bloat from many instantiations; explicitly instantiate where helpful.
 
 ==========================
 Interview Questions (with crisp answers)
 ==========================
 1) SFINAE—what/why? → Substitution Failure Is Not An Error; removes invalid template candidates during substitution to enable conditional overloads.
-2) Forwarding ref vs rvalue ref? → T&& with deduced T is a forwarding ref; T&& with non-deduced T (e.g., function param of concrete type) is an rvalue ref.
+2) Forwarding ref vs rvalue ref? → T&& with deduced T is a forwarding ref; anything else, such as std::string&& or a class template's T&&, is an rvalue ref.
 3) Perfect forwarding recipe? → template <class T> f(T&& x){ g(std::forward<T>(x)); }.
 4) When prefer concepts over SFINAE? → Whenever on C++20+; clearer constraints, better errors, simpler code.
 5) NTTPs—what can they be? → Integrals, enums, pointers/refs with linkage, certain literal/structural types (C++20 expands this).
@@ -28,7 +29,7 @@ Interview Questions (with crisp answers)
 9) Partial vs full specialization? → Full matches exact arguments; partial matches a pattern (e.g., T*). Functions don’t allow partial spec—use overloads.
 10) Fold expressions—why useful? → Simpler, safer expansions over parameter packs vs recursive templates.
 11) Greedy variadic ctor problem? → It can steal overloads; constrain with concepts/SFINAE or use tag types.
-12) Templates & unused branches? → Ill-formed code in non-instantiated branches is OK; only instantiated paths are checked (plus immediate context rules).
+12) Templates & unused code? → Code that depends on T is only fully checked when instantiated. Syntax and names that don't depend on T are checked anyway. In a template, if constexpr discards the branch not taken, so that branch isn't instantiated.
 
 */
 
@@ -86,7 +87,9 @@ struct Named {
 // 4) Variadic templates + fold expressions
 // ------------------------------------------------------------
 template <class... Ts>
-auto sum(Ts... xs) { return (xs + ...); } // ((x1 + x2) + ...)
+auto sum(Ts... xs) { return (xs + ...); } // Right fold: x1 + (x2 + (x3 + x4))
+                                          // Left fold, (... + xs): ((x1 + x2) + x3) + x4
+                                          // It matters for operators like -: 10,3,2 gives 9 right, 5 left
 
 // Ordered printing with left-to-right side effects
 template <class... Ts>
@@ -104,13 +107,18 @@ struct Uses {
 };
 
 // ------------------------------------------------------------
-// 6) Partial specialization (traits-style)
+// 6) Full and partial specialization (traits-style)
 // ------------------------------------------------------------
 template <class T>
 struct Traits { static constexpr bool fast = false; };
 
+// Full specialization: matches exactly one type
 template <>
 struct Traits<int> { static constexpr bool fast = true; };
+
+// Partial specialization: matches a pattern, here every pointer type
+template <class T>
+struct Traits<T*> { static constexpr bool fast = true; };
 
 // ------------------------------------------------------------
 // 7) Templated lambda (C++20)
@@ -145,7 +153,7 @@ int main() {
     call_forward(take_l, t);            // L
 
     std::cout << "call_forward(take_r, Tracer{}) -> ";
-    call_forward(take_r, Tracer{});     // [move] R
+    call_forward(take_r, Tracer{});     // R, with no [move]: only references are passed along
 
     // 3) CTAD with class template
     PRINT("CTAD (Class Template Argument Deduction)");
@@ -166,9 +174,10 @@ int main() {
     u.c.push_back(20);
     std::cout << "Uses<int, vector>.size = " << u.c.size() << '\n';
 
-    // 6) Partial specialization check
-    PRINT("Partial specialization (Traits)");
+    // 6) Specialization check
+    PRINT("Full and partial specialization (Traits)");
     static_assert(Traits<int>::fast, "int should be fast");
+    static_assert(Traits<std::string*>::fast, "any pointer should be fast");
     static_assert(!Traits<std::string>::fast, "string should not be fast");
     std::cout << "Traits<int>::fast = " << Traits<int>::fast
               << ", Traits<std::string>::fast = " << Traits<std::string>::fast << '\n';

@@ -98,3 +98,46 @@ Latency	P99 (Tail Latency), Wall-clock vs. CPU time
 
 
 
+
+
+How do you actually profile / benchmark ? (tools & commands)
+-------------------------------------------------------------
+Build for profiling : -O2 -g -fno-omit-frame-pointer   (optimised code + symbols + usable call stacks)
+
+Linux
+	perf stat -e cycles,instructions,cache-misses,branch-misses,context-switches,page-faults ./app
+		-> IPC (instructions/cycles), miss rates, ctx switches: the first 10 seconds of any investigation
+	perf record -g ./app  ;  perf report          -> hot functions with call graph
+	perf record -g ./app  ;  perf script | stackcollapse-perf.pl | flamegraph.pl > out.svg   (flame graph)
+	perf c2c record ./app ; perf c2c report       -> finds FALSE SHARING (contended cache lines)
+	perf trace -s ./app   /  strace -c ./app      -> syscall counts & time
+	valgrind --tool=cachegrind ./app              -> simulated cache misses per line (slow, but deterministic)
+	valgrind --tool=callgrind ./app ; kcachegrind -> instruction-level call cost
+	valgrind --tool=massif ./app                  -> heap usage over time
+	heaptrack ./app                               -> allocation hot spots (who calls malloc most)
+	ltrace -c ./app                               -> library call counts (malloc, memcpy ...)
+
+macOS
+	xcrun xctrace record --template 'Time Profiler' --launch -- ./app     (or Instruments.app GUI)
+	sample <pid> 5                                -> quick stack sampling of a running process
+	leaks --atExit -- ./app                       -> memory leaks
+
+Latency specific
+	Measure every event, keep a histogram (HdrHistogram), report p50 / p99 / p99.9 / max - never just the average.
+	Timer: std::chrono::steady_clock (portable), rdtsc / rdtscp (x86, cycles, ~20 cycles cost).
+	Isolate the box: isolcpus / nohz_full / taskset -c 3 ./app, disable turbo & frequency scaling,
+	pin threads (pthread_setaffinity_np), pre-fault memory (mlockall, touch pages at startup).
+
+Micro-benchmark libraries
+	Google Benchmark (benchmark::DoNotOptimize, ClobberMemory, state.range) ; nanobench ; Catch2 BENCHMARK
+	Online: quick-bench.com (Google Benchmark in browser), godbolt.org (check the generated asm)
+
+Benchmark pitfalls
+	1. Dead code elimination  - result unused -> compiler deletes the loop (use DoNotOptimize)
+	2. Constant folding       - loop over i computes a closed form (feed data from memory)
+	3. No warm-up             - cold caches, page faults, CPU still ramping frequency
+	4. Single run             - noise; repeat and take min/median
+	5. Debug build            - -O0 numbers mean nothing
+	6. Measuring the timer    - clock call costs 20-40 ns; time a batch when the op is smaller
+
+Runnable demos of all of the above: benchmark.cpp in this folder.

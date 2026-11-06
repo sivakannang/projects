@@ -1,10 +1,12 @@
 #pragma once
+#include <algorithm>
 #include <condition_variable>
 #include <cstddef>
 #include <functional>
 #include <mutex>
 #include <queue>
 #include <thread>
+#include <utility>
 #include <vector>
 
 class ThreadPool {
@@ -14,17 +16,16 @@ class ThreadPool {
 		std::mutex mtx_;
 		std::condition_variable cv_;
 		std::queue<std::function<void()>> q_;
-		std::vector<std::jthread> workers_;
 		bool stopping_{false};
+		std::vector<std::jthread> workers_;   // Last member, so the other members are ready when a thread starts
 
 
-		void worker_loop(std::stop_token st) {
+		void worker_loop() {
 			std::unique_lock<std::mutex> lk(mtx_);
 			for (;;) {
-				if (q_.empty()) {
-					cv_.wait(lk, [&]{ return st.stop_requested() || stopping_ || !q_.empty(); });
-					if ((st.stop_requested() || stopping_) && q_.empty()) break;
-				}
+				cv_.wait(lk, [&]{ return stopping_ || !q_.empty(); });
+				if (q_.empty()) break;       // stopping, and all the queued jobs are done
+
 				auto job = std::move(q_.front());
 				q_.pop();
 				lk.unlock();
@@ -38,35 +39,32 @@ class ThreadPool {
 		{
 			workers_.reserve(workers);
 			for (std::size_t i = 0; i < workers; ++i) {
-				workers_.emplace_back([this](std::stop_token st){ worker_loop(st); });
+				workers_.emplace_back([this]{ worker_loop(); });
 			}
 		}
 
 		~ThreadPool() { shutdown(); }
 
-		// Enqueue a job for execution.
-		void enqueue(std::function<void()> job) {
+		// Returns false if the pool has stopped, then the job won't run
+		bool enqueue(std::function<void()> job) {
 			{
 				std::lock_guard<std::mutex> lk(mtx_);
-				if (stopping_) return;               // drop silently after shutdown() requested
+				if (stopping_) return false;
 				q_.push(std::move(job));
 			}
 			cv_.notify_one();
+			return true;
 		}
 
+		// Runs all the queued jobs, and then stops. Can be called again, but only from one thread at a time,
+		// and not from inside a job, as a thread can't join itself.
 		void shutdown() {
-			// idempotent
-			for (auto& w : workers_) if (w.joinable()) w.request_stop();
 			{
 				std::lock_guard<std::mutex> lk(mtx_);
 				stopping_ = true;
 			}
 			cv_.notify_all();
-			for (auto& w : workers_) if (w.joinable()) w.join();
-			workers_.clear();
-			// drain any leftover jobs
-			std::queue<std::function<void()>> empty; std::swap(q_, empty);
+			workers_.clear();                    // jthread joins in its destructor
 		}
 
 };
-

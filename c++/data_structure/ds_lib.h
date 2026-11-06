@@ -1,17 +1,25 @@
 #pragma once
 
-#include <iostream>
-#include <string>
-#include <vector>
-#include <exception>
-#include <array>
-#include <list>
+// Teaching versions of standard containers (C++17). Not for production use:
+//   - Map is an unbalanced BST, so sorted input makes it a slow linked list
+//   - HashTable has a fixed bucket count, and never rehashes
+
 #include <algorithm>
-#include <utility>
+#include <cstddef>
 #include <cstring>
+#include <functional>
+#include <iostream>
+#include <iterator>
+#include <list>
 #include <memory>
+#include <new>
 #include <optional>
+#include <stdexcept>
+#include <string>
+#include <type_traits>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 
 namespace dsa
@@ -52,18 +60,73 @@ namespace dsa
 		};
 
 
+	// Separates memory from objects, as std::vector does. Only the first size_ slots hold live objects.
+	// new T[n] can't do this: it would construct all n, and need T to have a default constructor,
+	// and delete[] would then destroy all n, including objects already destroyed by pop_back.
 	template<typename T>
 		class Vector {
 			private:
-				std::size_t size_{0};
-				std::size_t capacity_{0};
-				T*          data_{nullptr};
+				std::size_t      size_{0};
+				std::size_t      capacity_{0};
+				T*               data_{nullptr};
+				std::allocator<T> alloc_;
+
+				void destroy_all() noexcept {
+					std::destroy_n(data_, size_);
+					if (data_) alloc_.deallocate(data_, capacity_);
+				}
+
+				void grow() {
+					std::size_t new_cap = capacity_ ? capacity_ * 2 : 1;
+					T* tmp = alloc_.allocate(new_cap);
+
+					try {
+						// Moves only if that can't throw. Otherwise it copies, so a failure leaves this vector unchanged.
+						if constexpr (std::is_nothrow_move_constructible_v<T> || !std::is_copy_constructible_v<T>)
+							std::uninitialized_move_n(data_, size_, tmp);
+						else
+							std::uninitialized_copy_n(data_, size_, tmp);
+					} catch (...) {
+						alloc_.deallocate(tmp, new_cap);
+						throw;
+					}
+
+					destroy_all();
+					data_ = tmp;
+					capacity_ = new_cap;
+				}
 
 			public:
 				Vector() = default;
-				~Vector() { 
-					for ( int i = 0; i < size_; i++ )	data_[i].~T();
-					delete[] data_; data_ = nullptr;
+				~Vector() { destroy_all(); }
+
+				Vector(const Vector& other) : capacity_(other.size_) {
+					if (capacity_ == 0) return;
+
+					data_ = alloc_.allocate(capacity_);
+
+					try {
+						std::uninitialized_copy_n(other.data_, other.size_, data_);
+					} catch (...) {
+						alloc_.deallocate(data_, capacity_);
+						throw;
+					}
+
+					size_ = other.size_;
+				}
+
+				Vector(Vector&& other) noexcept { swap(other); }
+
+				// Taking the argument by value handles both copy and move assignment
+				Vector& operator=(Vector other) noexcept {
+					swap(other);
+					return *this;
+				}
+
+				void swap(Vector& other) noexcept {
+					std::swap(size_, other.size_);
+					std::swap(capacity_, other.capacity_);
+					std::swap(data_, other.data_);
 				}
 
 				// capacity/size
@@ -71,9 +134,14 @@ namespace dsa
 				std::size_t capacity() const { return capacity_; }
 				bool        empty()    const { return size_ == 0; }
 
-				// element access (single non-const versions, with inline checks)
-				T& operator[](std::size_t idx) { return data_[idx]; }
+				// element access
+				T&       operator[](std::size_t idx)       { return data_[idx]; }
+				const T& operator[](std::size_t idx) const { return data_[idx]; }
 				T& at(std::size_t idx) {
+					if (idx >= size_) throw std::out_of_range("Vector::at out_of_range");
+					return data_[idx];
+				}
+				const T& at(std::size_t idx) const {
 					if (idx >= size_) throw std::out_of_range("Vector::at out_of_range");
 					return data_[idx];
 				}
@@ -81,25 +149,37 @@ namespace dsa
 				// modifiers
 				void push_back(const T& t) {
 					if (size_ == capacity_) {
-						std::size_t new_cap = capacity_ ? capacity_ * 2 : 1;
-						T* tmp = new T[new_cap];                 // requires T default-constructible & assignable
-						for (std::size_t i = 0; i < size_; ++i)
-							tmp[i] = std::move(data_[i]);
-						delete[] data_;
-						data_ = tmp;
-						capacity_ = new_cap;
+						// t may be inside this vector, as in v.push_back(v[0]), and grow() would destroy it
+						T copy(t);
+						grow();
+						::new (static_cast<void*>(data_ + size_)) T(std::move(copy));   // Placement new: construct in memory we already own
+					} else {
+						::new (static_cast<void*>(data_ + size_)) T(t);
 					}
-					data_[size_++] = t;
+					++size_;
+				}
+
+				void push_back(T&& t) {
+					if (size_ == capacity_) {
+						T moved(std::move(t));
+						grow();
+						::new (static_cast<void*>(data_ + size_)) T(std::move(moved));
+					} else {
+						::new (static_cast<void*>(data_ + size_)) T(std::move(t));
+					}
+					++size_;
 				}
 
 				void pop_back() {
 					if (size_ == 0) throw std::underflow_error("Vector::pop_back underflow");
-					data_[--size_].~T();
+					std::destroy_at(data_ + --size_);
 				}
 
-				// iterators (non-const only)
-				T* begin() { return data_; }
-				T* end()   { return data_ + size_; }
+				// iterators
+				T*       begin()       { return data_; }
+				T*       end()         { return data_ + size_; }
+				const T* begin() const { return data_; }
+				const T* end()   const { return data_ + size_; }
 		};
 
 
@@ -428,21 +508,15 @@ namespace dsa
 
 				template<class KK, class VV>
 					bool insert(KK&& key, VV&& value) {
-						if (!root_) {
-							root_ = new Node(std::forward<KK>(key), std::forward<VV>(value));
-							++m_size_;
-							return true;
-						}
-						Node* cur = root_;
-						Node* parent = nullptr;
-						while (cur) {
-							parent = cur;
-							if (key < cur->key)               cur = cur->left;
-							else if (cur->key < key)          cur = cur->right;
+						// link is the pointer that will hold the new node. This handles an empty tree
+						// too, and means key isn't needed after std::forward may have moved from it.
+						Node** link = &root_;
+						while (Node* cur = *link) {
+							if (key < cur->key)               link = &cur->left;
+							else if (cur->key < key)          link = &cur->right;
 							else { cur->value = std::forward<VV>(value); return false; }
 						}
-						Node* n = new Node(std::forward<KK>(key), std::forward<VV>(value));
-						if (key < parent->key) parent->left = n; else parent->right = n;
+						*link = new Node(std::forward<KK>(key), std::forward<VV>(value));
 						++m_size_;
 						return true;
 					}
@@ -577,11 +651,19 @@ namespace dsa
 			MyString() = default;
 			~MyString() = default; // unique_ptr cleans up
 
-			// As unique_ptr is moveable default version suits well
-			// std::move is just a cast to rvalue (T&&). It doesn’t move anything by itself.
-			// so remember std::move = copy for built in types like int, so it won't reset other.size_ to 0.
-			MyString(MyString&&) noexcept = default;
-			MyString& operator=(MyString&&) noexcept = default;
+			// = default isn't enough here. It would move data_, which empties it, but moving a
+			// size_t only copies it. other would then claim a size with no data behind it,
+			// so reset other.size_ by hand.
+			MyString(MyString&& other) noexcept
+				: size_(std::exchange(other.size_, 0)), data_(std::move(other.data_)) {}
+
+			MyString& operator=(MyString&& other) noexcept {
+				if (this != &other) {
+					size_ = std::exchange(other.size_, 0);
+					data_ = std::move(other.data_);
+				}
+				return *this;
+			}
 
 			MyString(const char* str) : size_(0), data_(nullptr) {
 				if (str) {
@@ -677,33 +759,23 @@ namespace dsa
 		void insert(const std::string& word) {
 			Node* cur = root.get();
 			for (char c : word) {
-				if (!cur->next[c])                                   // if key not exists, may default-insert nullptr
-					cur->next[c] = std::make_unique<Node>();
-				cur = cur->next[c].get();
+				auto& child = cur->next[c];                          // inserts nullptr if the key doesn't exist
+				if (!child)
+					child = std::make_unique<Node>();
+				cur = child.get();
 			}
 			cur->isEnd = true;
 		}
 
 		// Search exact word
 		bool search(const std::string& word) const {
-			const Node* cur = root.get();
-			for (char c : word) {
-				auto it = cur->next.find(c);
-				if (it == cur->next.end()) return false;
-				cur = it->second.get();
-			}
-			return cur->isEnd;
+			const Node* node = prefixNode(word);
+			return node && node->isEnd;
 		}
 
 		// Check prefix
 		bool startsWith(const std::string& prefix) const {
-			const Node* cur = root.get();
-			for (char c : prefix) {
-				auto it = cur->next.find(c);
-				if (it == cur->next.end()) return false;
-				cur = it->second.get();
-			}
-			return true;
+			return prefixNode(prefix) != nullptr;
 		}
 
 		// Return up to `k` suggestions for the given prefix.
@@ -718,10 +790,10 @@ namespace dsa
 			return out;
 		}
 
-		// ---- helpers ----
+		private:
 
 		// Walk down the trie by 'prefix'; return the node reached (or nullptr if missing).
-		const Trie::Node* prefixNode(const std::string& prefix) const {
+		const Node* prefixNode(const std::string& prefix) const {
 			const Node* cur = root.get();
 			for (char c : prefix) {
 				auto it = cur->next.find(c);
@@ -837,16 +909,18 @@ namespace dsa
 					std::vector<std::vector<T>> vec;
 					int node_count;
 				public:
-					Graph(std::vector<Edge<T>> edges, int N ) : node_count(N) {
+					// T must be an integer type, because src is used as an index.
+					// at() throws if an edge names a node outside 0 to N-1.
+					Graph(const std::vector<Edge<T>>& edges, int N ) : node_count(N) {
 						vec.resize(node_count);
 						for ( auto& edge : edges ) {
-							vec[edge.src].push_back(edge.dst);
+							vec.at(edge.src).push_back(edge.dst);
 							// Uncomment the following code for undirected graph
-							//vec[edge.dst].push_back(edge.src);
+							//vec.at(edge.dst).push_back(edge.src);
 						}
 					}
 
-					void print() {
+					void print() const {
 						for ( int i = 0; i < node_count; ++i ) {
 							std::cout << i << " --> ";
 							for ( auto& t : vec[i] )
@@ -874,13 +948,13 @@ namespace dsa
 				Graph(const std::vector<Edge>& edges, int N) : node_count(N) {
 					vec.resize(node_count);
 					for ( auto& edge : edges ) {
-						vec[edge.src].push_back({edge.dst, edge.weight});
+						vec.at(edge.src).push_back({edge.dst, edge.weight});
 						// uncomment the following line for undirected graph
-						// vec[edge.dst].push_back( {edge.src, edge.weight} );
+						// vec.at(edge.dst).push_back( {edge.src, edge.weight} );
 					}
 				}
 
-				void print() {
+				void print() const {
 					for ( int i = 0; i < node_count; ++i ) {
 						for ( auto& pair : vec[i] )
 							std::cout << "( " << i << " " << pair.first << " " << pair.second << " ) ";
